@@ -1,0 +1,17 @@
+version: "1"
+defaults: { model: balanced, temperature: 0.2, max_tokens: 4096, timeout: 120 }
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+  ollama: { base_url: http://localhost:11434 }
+models:
+  fast:     { provider: openai, model: gpt-4o-mini }
+  balanced: { provider: openai, model: gpt-4o }
+  local:    { provider: ollama, model: llama3.1 }
+agents:
+  planner:
+    model: balanced
+    role: "Decompose the task and coordinate."
+    system_prompt_file: ./prompts/planner.md
+  writer:
+    model: balanced
+    role: "Produce the final answer."

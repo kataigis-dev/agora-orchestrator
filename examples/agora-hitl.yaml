@@ -1,0 +1,24 @@
+version: "1"
+
+# Resilience: every model call retries up to 3x with exponential backoff (0.5s base) and a 30s timeout.
+defaults: { model: balanced, timeout: 30, retries: 3, retry_base_delay: 0.5 }
+
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+
+models:
+  balanced: { provider: openai, model: gpt-4o }
+
+mcp:
+  servers:
+    filesystem:
+      command: npx
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+
+agents:
+  # read_file runs freely; write_file pauses for human approval before each call.
+  editor:
+    model: balanced
+    role: "Read files to answer questions, and edit files only with explicit approval."
+    tools: [read_file, write_file]
+    approvals: [write_file]

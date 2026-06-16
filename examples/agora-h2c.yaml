@@ -1,0 +1,34 @@
+version: "1"
+
+# H2C is the default; shown explicitly here. Agents communicate in compressed H2C blocks.
+communication: h2c
+
+defaults: { model: balanced, timeout: 120 }
+
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+
+models:
+  fast:     { provider: openai, model: gpt-4o-mini }
+  balanced: { provider: openai, model: gpt-4o }
+
+agents:
+  planner:
+    model: balanced
+    role: "Decompose the task. Emit an [ARCH:PLAN] block."
+  writer:
+    model: balanced
+    role: "Implement the plan and any [STATE:FIX] feedback. Emit a [BUILD:DONE] block."
+  critic:
+    model: fast
+    role: >
+      Review the writer's build. If good, emit [STATE:DONE]. Otherwise emit [STATE:FIX]
+      with a reason field.
+
+graph:
+  entry: planner
+  edges:
+    - { from: planner, to: writer, type: handoff }
+    - { from: writer,  to: critic, type: sequential }
+    - { from: critic,  to: writer, type: conditional, when: fix, max_loops: 2 }
+    - { from: critic,  to: END,    type: conditional, when: done }

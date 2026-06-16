@@ -1,0 +1,33 @@
+@base = http://localhost:5000
+
+### Health
+GET {{base}}/health
+
+### List agents
+GET {{base}}/agents
+
+### Start an agent run (async; returns a runId)
+POST {{base}}/runs
+Content-Type: application/json
+
+{ "mode": "agent", "agent": "editor", "input": "Summarize the README and propose an edit" }
+
+### Start a graph run
+POST {{base}}/runs
+Content-Type: application/json
+
+{ "mode": "graph", "input": "Plan and write a short note" }
+
+### Poll run status (replace {id}) — Status is Running | AwaitingApproval | Completed | Failed
+GET {{base}}/runs/{id}
+
+### Approve a pending tool call (replace {id} and {approvalId} from the run's pendingApprovals)
+POST {{base}}/runs/{id}/approvals
+Content-Type: application/json
+
+{ "approvals": [ { "id": "{approvalId}", "approved": true } ] }
+
+### Ingest RAG sources declared in the loaded config
+POST {{base}}/ingest
+
+# Run the server with:  AGORA_CONFIG=examples/agora-hitl.yaml dotnet run --project src/Agora.Api

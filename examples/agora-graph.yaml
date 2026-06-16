@@ -1,0 +1,35 @@
+version: "1"
+
+# This example uses the legacy natural-language signalling (<<signal ...>>).
+communication: natural
+
+defaults: { model: balanced, timeout: 120 }
+
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+
+models:
+  fast:     { provider: openai, model: gpt-4o-mini }
+  balanced: { provider: openai, model: gpt-4o }
+
+agents:
+  planner:
+    model: balanced
+    role: "Decompose the task into ordered sub-tasks."
+  writer:
+    model: balanced
+    role: "Write the answer using the plan and any review feedback."
+  critic:
+    model: fast
+    role: >
+      Review the writer's answer. If it is good, end your reply with
+      <<signal approved>>. Otherwise explain what to fix and end with
+      <<signal needs_revision>>.
+
+graph:
+  entry: planner
+  edges:
+    - { from: planner, to: writer, type: handoff }
+    - { from: writer,  to: critic, type: sequential }
+    - { from: critic,  to: writer, type: conditional, when: needs_revision, max_loops: 2 }
+    - { from: critic,  to: END,    type: conditional, when: approved }

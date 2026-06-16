@@ -1,0 +1,38 @@
+using Agora.Observability;
+using Xunit;
+
+namespace Agora.Tests.Observability;
+
+public class TracingTests
+{
+    [Fact]
+    public void Span_RecordsNameAttributesAndDuration_WhenRecording()
+    {
+        var recorder = Tracing.EnableRecording();
+        try
+        {
+            using (var span = Tracing.BeginSpan("agent.run", new() { ["agent"] = "writer" }))
+            {
+                span.Attributes["tokens"] = 5;
+            }
+            Assert.Single(recorder);
+            Assert.Equal("agent.run", recorder[0].Name);
+            Assert.Equal("writer", recorder[0].Attributes["agent"]);
+            Assert.Equal(5, recorder[0].Attributes["tokens"]);
+            Assert.True(recorder[0].DurationMs >= 0.0);
+        }
+        finally
+        {
+            Tracing.DisableRecording();
+        }
+    }
+
+    [Fact]
+    public void Span_IsNoOp_WhenRecordingDisabled()
+    {
+        Tracing.DisableRecording();
+        using var span = Tracing.BeginSpan("noop");
+        span.Attributes["x"] = 1;
+        // no exception, nothing recorded
+    }
+}

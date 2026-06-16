@@ -1,0 +1,41 @@
+version: "1"
+
+defaults: { model: balanced, timeout: 120 }
+
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+
+models:
+  fast:     { provider: openai, model: gpt-4o-mini }
+  balanced: { provider: openai, model: gpt-4o }
+
+# Cartelle in cui cercare le skill (file SKILL.md, ricerca ricorsiva).
+skills:
+  directories: [./skills]
+
+# Server MCP disponibili. I tool vengono esposti agli agent che li elencano in `tools`.
+# Avvio via stdio (un processo figlio) o via HTTP (campo `url`).
+mcp:
+  servers:
+    filesystem:
+      command: npx
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+
+agents:
+  # Agente tool-capable: usa la skill `summarize` (progressive disclosure via load_skill)
+  # e il tool MCP `read_file` esposto dal server filesystem.
+  researcher:
+    model: balanced
+    role: "Rispondi alle domande dell'utente. Riassumi i testi lunghi e leggi i file quando serve."
+    skills: [summarize]
+    tools: [read_file]
+  # Agente senza tool: resta sul core framework-free.
+  editor:
+    model: fast
+    role: "Rifinisci la risposta del researcher: chiarezza, tono, grammatica."
+
+graph:
+  entry: researcher
+  edges:
+    - { from: researcher, to: editor, type: handoff }
+    - { from: editor,     to: END,    type: sequential }

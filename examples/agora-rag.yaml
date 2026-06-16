@@ -1,0 +1,32 @@
+version: "1"
+
+defaults: { model: balanced }
+
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+
+models:
+  balanced: { provider: openai, model: gpt-4o }
+
+rag:
+  enabled: true
+  refine: { strategy: none }
+  retrieval:
+    embedder: { type: fake }
+    vector_store: { type: memory }
+    top_k: 2
+    score_threshold: 0.0
+  ingest:
+    sources: [ ./examples/knowledge ]
+    chunk_size: 200
+    chunk_overlap: 40
+
+agents:
+  answerer:
+    model: balanced
+    role: "Answer the user's question using the provided context."
+
+graph:
+  entry: answerer
+  edges:
+    - { from: answerer, to: END, type: sequential }
