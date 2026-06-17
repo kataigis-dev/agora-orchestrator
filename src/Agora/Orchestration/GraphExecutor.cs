@@ -3,7 +3,6 @@ using Agora.Observability;
 
 namespace Agora.Orchestration;
 
-/// <summary>Walks a Graph, running one agent per node and routing along edges.</summary>
 public sealed class GraphExecutor
 {
     private readonly Graph _graph;
@@ -22,6 +21,23 @@ public sealed class GraphExecutor
         var state = new State(userInput);
         if (!string.IsNullOrEmpty(seedContext))
             state.Messages.Add(new Message("rag", _graph.Entry, seedContext));
+
+        var original = Console.ForegroundColor;
+
+        void Render(string msg) { Console.Out.WriteLine(msg); Console.Out.Flush(); }
+
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Render("━━━ Agent Graph Execution ━━━");
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.Out.Write("  Graph: "); Console.Out.Flush();
+        Console.ForegroundColor = ConsoleColor.White;
+        var lines = new List<string>();
+        foreach (var edge in _graph.Edges)
+            lines.Add($"{edge.Source} ──{edge.Type}→ {edge.Target}");
+        Render(string.Join("\n" + new string(' ', 9), lines));
+        Render("");
+        Console.ForegroundColor = original;
+
         var current = _graph.Entry;
         var steps = 0;
         while (current != Graph.End)
@@ -31,6 +47,16 @@ public sealed class GraphExecutor
                 throw new ExecutionError($"exceeded max_steps={_maxSteps}");
 
             var node = _graph.Nodes[current];
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.Out.Write($"  ▶ [{steps}] Agent: "); Console.Out.Flush();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.Out.WriteLine(node.Id); Console.Out.Flush();
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Render($"  └─ input: {Truncate(userInput, 50)}");
+            Render("");
+            Console.ForegroundColor = original;
+
             using (Tracing.BeginSpan("node.run", new() { ["node"] = node.Id }))
             {
                 var agent = _agentFactory(node.Id);
@@ -42,11 +68,65 @@ public sealed class GraphExecutor
             }
 
             var next = NextNode(current, state);
+
+            var signals = state.Signals.Count > 0
+                ? string.Join(", ", state.Signals.Keys) : "none";
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Render($"  └─ signals: {signals}");
+            Console.ForegroundColor = original;
+
+            var edgeLabel = EdgeLabel(current, next, state);
+            if (next != Graph.End)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Out.Write($"  ──▶ {edgeLabel} → "); Console.Out.Flush();
+                Console.ForegroundColor = ConsoleColor.White;
+                Render(next);
+                Render("");
+                Console.ForegroundColor = original;
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Out.Write($"  ──▶ {edgeLabel} → "); Console.Out.Flush();
+                Console.ForegroundColor = ConsoleColor.Magenta;
+                Render("END");
+                Render("");
+                Console.ForegroundColor = original;
+            }
+
             if (next != Graph.End)
                 state.Messages.Add(new Message(current, next, state.Outputs[current]));
             current = next;
         }
+
+        Console.ForegroundColor = ConsoleColor.Green;
+        Render("━━━ Execution Complete ━━━");
+        Render("");
+        Console.ForegroundColor = original;
+
         return state;
+    }
+
+    private string EdgeLabel(string source, string target, State state)
+    {
+        foreach (var edge in _graph.Edges)
+        {
+            if (edge.Source != source || edge.Target != target) continue;
+            if (edge.Type == "conditional")
+            {
+                var loop = "";
+                if (edge.MaxLoops is int max)
+                {
+                    var key = $"{edge.Source}->{edge.Target}";
+                    var count = state.LoopCounters.GetValueOrDefault(key, 0);
+                    loop = $" ({count}/{max})";
+                }
+                return $"condition:{edge.When}{loop}";
+            }
+            return edge.Type;
+        }
+        return "?";
     }
 
     private string NextNode(string source, State state)
@@ -66,7 +146,7 @@ public sealed class GraphExecutor
                 }
                 return edge.Target;
             }
-            return edge.Target; // sequential/handoff: default, always matches
+            return edge.Target;
         }
         return Graph.End;
     }
@@ -82,4 +162,7 @@ public sealed class GraphExecutor
             _ => true,
         };
     }
+
+    private static string Truncate(string s, int max) =>
+        s.Length <= max ? s : s[..max] + "...";
 }

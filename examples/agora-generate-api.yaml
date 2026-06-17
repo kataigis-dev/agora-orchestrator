@@ -1,0 +1,78 @@
+version: "1"
+communication: natural
+defaults: { model: local, temperature: 0.3, max_tokens: 16384, timeout: 300 }
+providers:
+  llamastudio:
+    base_url: http://127.0.0.1:1234/v1
+    api_key_env: ~
+models:
+  local: { provider: llamastudio, model: google/gemma-4-e4b }
+mcp:
+  servers:
+    filesystem:
+      command: npx
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "examples/generated-api"]
+agents:
+  generator:
+    model: local
+    tools: [write_file]
+    role: You are a .NET Web API code generator.
+    system_prompt: >
+      CRITICAL C# RULES (these are strict compilation requirements):
+      - Top-level statements (var builder, app.Map*, app.Run) MUST come FIRST in the file.
+      - All type declarations (record, class, struct) MUST come AFTER app.Run().
+      - NEVER use 'namespace' in a file with top-level statements.
+      - NEVER use 'using' statements in a file with top-level statements (implicit usings are enabled).
+      - Every endpoint lambda must return a proper IResult (Results.Ok, Results.NotFound, Results.NoContent, Results.Created).
+      - Use static data store (static List<T> inside a static class) defined AFTER app.Run().
+      - ASP.NET Core minimal API: use WebApplication.CreateBuilder, not Startup.
+      - Target net10.0.
+      - Records use primary constructor syntax: public record Foo(int Id, string Name).
+
+      TASK: Generate a complete ASP.NET Core Web API in examples/generated-api/ using write_file.
+      Create:
+      1. Api.csproj (Microsoft.NET.Sdk.Web, net10.0, nullable enable, implicit usings enable)
+      2. Program.cs with:
+         - GET /health returns "OK"
+         - GET /api/products — list all products
+         - GET /api/products/{id} — get by id (return Results.NotFound if missing)
+         - POST /api/products — create (accept JSON body)
+         - PUT /api/products/{id} — update (accept JSON body)
+         - DELETE /api/products/{id} — delete (return Results.NoContent)
+         - GET /api/weather — return 5-day forecast
+         - In-memory static ProductStore class with List<Product>
+         - Product record: Id, Name, Price, Category
+         - WeatherForecast record: Date, TemperatureC, Summary
+         - ALL types AFTER app.Run()
+
+      After writing all files, signal completion with: <<signal done>>
+  reviewer:
+    model: local
+    tools: [read_file, write_file]
+    role: You are a C# code reviewer.
+    system_prompt: >
+      Read the generated files in examples/generated-api/ using read_file.
+      Check for these C# compilation errors:
+
+      1. CS8803: Top-level statements must precede type declarations.
+         -> FIX: Move all record/class definitions AFTER app.Run().
+      2. CS8956: File-scoped namespace must precede all other members.
+         -> FIX: Remove any 'namespace X;' line entirely (implicit usings are enabled).
+      3. CS0103: The name 'xxx' does not exist.
+         -> FIX: Check for missing methods, misspelled types, or wrong parameter types.
+      4. Check that endpoint lambdas return IResult (Results.Ok/NotFound/NoContent/Created).
+      5. Check that all records have the correct property types.
+
+      If you find ANY issue:
+      - Use write_file to fix the file with correct C# code.
+      - Then signal: <<signal fix>>
+
+      If the code compiles correctly (no issues found):
+      - Signal: <<signal done>>
+
+graph:
+  entry: generator
+  edges:
+    - { from: generator, to: reviewer, type: handoff }
+    - { from: reviewer, to: generator, type: conditional, when: fix, max_loops: 5 }
+    - { from: reviewer, to: END,    type: conditional, when: done }

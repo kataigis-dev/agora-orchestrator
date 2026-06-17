@@ -1,0 +1,141 @@
+# Agora Orchestrator
+
+A reusable, framework-free multi-agent orchestration framework for .NET 10.
+
+Define a graph of AI agents, each backed by a configurable language model (OpenAI, Ollama, or any OpenAI-compatible endpoint), and orchestrate them over a directed graph with sequential, handoff, and conditional edges.
+
+## Quick start
+
+```bash
+# Build
+dotnet build
+
+# Run a single agent
+dotnet run --project src/Agora.Cli -- run --config examples/agora.yaml --agent planner --input "Write a note"
+
+# Run a graph
+dotnet run --project src/Agora.Cli -- run --config examples/agora-h2c.yaml --input "Build a todo app" --graph
+
+# Validate a config
+dotnet run --project src/Agora.Cli -- validate --config examples/agora.yaml
+
+# Ingest RAG knowledge
+dotnet run --project src/Agora.Cli -- ingest --config examples/agora-rag.yaml
+```
+
+## CLI usage
+
+```
+agora <run|validate|ingest> [options]
+```
+
+| Command | Description |
+|---------|-------------|
+| `run` | Run a single agent or a graph |
+| `validate` | Validate a config file |
+| `ingest` | Ingest RAG knowledge sources |
+
+### `run` options
+
+| Option | Description |
+|--------|-------------|
+| `--config <file>` | Path to the YAML config file |
+| `--input <text>` | User input / task description |
+| `--agent <id>` | Agent to run (required for single-agent mode) |
+| `--graph` | Run in graph mode (uses the graph defined in config) |
+
+## Configuration
+
+A single YAML file defines providers, models, agents, and optionally a graph.
+
+```yaml
+version: "1"
+communication: natural                       # "h2c" (default) or "natural"
+defaults: { model: fast, temperature: 0.2 }
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+  ollama: { base_url: http://localhost:11434 }
+models:
+  fast:     { provider: openai, model: gpt-4o-mini }
+  local:    { provider: ollama, model: llama3.1 }
+agents:
+  assistant:
+    model: fast
+    role: "You are a helpful assistant."
+```
+
+### Local models (llama studio / LM Studio)
+
+```yaml
+providers:
+  llamastudio:
+    base_url: http://127.0.0.1:1234/v1
+    api_key_env: ~
+models:
+  local: { provider: llamastudio, model: google/gemma-4-e4b }
+```
+
+The `/v1` suffix is required — the OpenAI SDK constructs paths relative to the base URL.
+
+### Graph with conditional loops
+
+```yaml
+graph:
+  entry: generator
+  edges:
+    - { from: generator, to: reviewer, type: handoff }
+    - { from: reviewer, to: generator, type: conditional, when: fix, max_loops: 5 }
+    - { from: reviewer, to: END,    type: conditional, when: done }
+```
+
+Agents signal routing with `<<signal done>>` (natural mode) or `[STATE:DONE]` (H2C mode).
+
+### Tools via MCP
+
+```yaml
+mcp:
+  servers:
+    filesystem:
+      command: npx
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+agents:
+  builder:
+    tools: [write_file, read_file]
+```
+
+## Examples
+
+| File | Features |
+|------|----------|
+| `examples/agora.yaml` | Minimal: 2 agents, no graph |
+| `examples/agora-tools.yaml` | Skills + MCP tools |
+| `examples/agora-rag.yaml` | RAG pipeline |
+| `examples/agora-hitl.yaml` | Human-in-the-loop approvals |
+| `examples/agora-h2c.yaml` | H2C protocol with conditional graph |
+| `examples/agora-llama.yaml` | Local model via llama studio |
+| `examples/agora-generate-api.yaml` | Code generation with MCP + review loop |
+
+## Project structure
+
+```
+src/
+├── Agora/                    # Core library (no external deps)
+├── Agora.AgentFramework/     # OpenAI, Ollama, MCP integration
+├── Agora.Api/                # REST API server
+└── Agora.Cli/                # CLI executable
+tests/
+├── Agora.Tests/              # Core library tests
+└── Agora.Api.Tests/          # API integration tests
+```
+
+## Build & test
+
+```bash
+dotnet build
+dotnet test tests/Agora.Tests
+dotnet test tests/Agora.Api.Tests
+```
+
+## License
+
+Apache 2.0

@@ -20,7 +20,8 @@ public static class CliRunner
         var stderr = error ?? Console.Error;
         if (args.Length == 0)
         {
-            stderr.WriteLine("usage: agora <run|run-graph|ingest|validate> [options]");
+            stderr.WriteLine("usage: agora <run|ingest|validate> [options]");
+            stderr.WriteLine("  run      --config <file> --input <text> [--agent <id>] [--graph]");
             return 1;
         }
 
@@ -39,30 +40,21 @@ public static class CliRunner
         {
             try
             {
+                var isGraph = options.ContainsKey("graph");
                 var runtime = Runtime.FromConfig(Require(options, "config"),
                     provider ?? throw new InvalidOperationException("no chat provider supplied"),
                     toolAgentFactory: toolAgentFactory, approvalHandler: approvalHandler);
-                var result = runtime.RunAgentAsync(Require(options, "agent"), Require(options, "input"))
-                    .GetAwaiter().GetResult();
-                stdout.WriteLine(result.Output);
-                return 0;
-            }
-            catch (Exception e) when (e is ConfigException or KeyNotFoundException or FileNotFoundException)
-            {
-                stderr.WriteLine($"ERROR: {e.Message}");
-                return 1;
-            }
-        }
-
-        if (command == "run-graph")
-        {
-            try
-            {
-                var runtime = Runtime.FromConfig(Require(options, "config"),
-                    provider ?? throw new InvalidOperationException("no chat provider supplied"),
-                    toolAgentFactory: toolAgentFactory, approvalHandler: approvalHandler);
-                var result = runtime.RunAsync(Require(options, "input")).GetAwaiter().GetResult();
-                stdout.WriteLine(result.Output);
+                if (isGraph)
+                {
+                    var result = runtime.RunAsync(Require(options, "input")).GetAwaiter().GetResult();
+                    stdout.WriteLine(result.Output);
+                }
+                else
+                {
+                    var result = runtime.RunAgentAsync(Require(options, "agent"), Require(options, "input"))
+                        .GetAwaiter().GetResult();
+                    stdout.WriteLine(result.Output);
+                }
                 return 0;
             }
             catch (Exception e) when (e is ConfigException or GraphError or KeyNotFoundException or FileNotFoundException)
@@ -106,10 +98,15 @@ public static class CliRunner
     {
         var list = args.ToList();
         var options = new Dictionary<string, string>();
-        for (var i = 0; i + 1 < list.Count; i += 2)
+        for (var i = 0; i < list.Count; i++)
         {
-            if (list[i].StartsWith("--", StringComparison.Ordinal))
-                options[list[i][2..]] = list[i + 1];
+            if (!list[i].StartsWith("--", StringComparison.Ordinal))
+                continue;
+            var key = list[i][2..];
+            if (i + 1 < list.Count && !list[i + 1].StartsWith("--", StringComparison.Ordinal))
+                options[key] = list[++i];
+            else
+                options[key] = "true";
         }
         return options;
     }
