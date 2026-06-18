@@ -28,13 +28,14 @@ public sealed class Agent : IAgent
         messages.Add(new ChatMessage("user", userContent));
 
         var result = await _provider.CompleteAsync(messages, _spec);
-        var (output, signals) = _interpreter.Interpret(result.Text);
+        var (output, signals, artifacts) = _interpreter.Interpret(result.Text);
         return new AgentResult
         {
             Output = output,
             InputTokens = result.InputTokens,
             OutputTokens = result.OutputTokens,
             Signals = signals,
+            Artifacts = artifacts,
         };
     }
 

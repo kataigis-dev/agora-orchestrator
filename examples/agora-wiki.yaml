@@ -1,0 +1,24 @@
+version: "1"
+communication: natural
+defaults: { model: local, temperature: 0.3, max_tokens: 8192, timeout: 300 }
+providers:
+  llamastudio:
+    base_url: http://127.0.0.1:1234/v1
+    api_key_env: ~
+models:
+  local: { provider: llamastudio, model: google/gemma-4-12b-qat }
+mcp:
+  servers:
+    filesystem:
+      command: npx
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "src/Agora", "src/Agora.AgentFramework", "src/Agora.Api", "src/Agora.Cli", "docs"]
+agents:
+  wikigen:
+    model: local
+    tools: [read_file, write_file, search_files]
+    role: Technical Writer
+    system_prompt: >
+      Sei un technical writer. Scrivi documentazione in italiano.
+      Leggi i file sorgente e scrivi il file docs/index.md con una panoramica del progetto Agora Orchestrator.
+      Copri: scopo, struttura directory, componenti principali, come iniziare.
+      Usa markdown con intestazioni e blocchi di codice.

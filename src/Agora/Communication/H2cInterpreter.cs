@@ -10,7 +10,7 @@ public sealed class H2cInterpreter : IOutputInterpreter
 {
     private readonly H2cParser _parser = new();
 
-    public (string Output, Dictionary<string, object> Signals) Interpret(string text)
+    public (string Output, Dictionary<string, object> Signals, Dictionary<string, string> Artifacts) Interpret(string text)
     {
         var signals = new Dictionary<string, object>();
         foreach (var block in _parser.Parse(text))
@@ -19,6 +19,6 @@ public sealed class H2cInterpreter : IOutputInterpreter
             foreach (var (key, value) in block.Fields)
                 signals[key] = value;
         }
-        return (text, signals);
+        return (text, signals, new Dictionary<string, string>());
     }
 }

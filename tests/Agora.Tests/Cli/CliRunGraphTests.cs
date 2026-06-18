@@ -26,7 +26,7 @@ public class CliRunGraphTests
         var outw = new StringWriter();
         var provider = new FakeChatProvider(new[] { "PLAN", "DONE" });
         var code = CliRunner.Run(
-            new[] { "run-graph", "--config", path, "--input", "hello" }, provider, outw, new StringWriter());
+            new[] { "run", "--graph", "--config", path, "--input", "hello" }, provider, outw, new StringWriter());
 
         Assert.Equal(0, code);
         Assert.Contains("DONE", outw.ToString());

@@ -57,13 +57,20 @@ public sealed class GraphExecutor
             Render("");
             Console.ForegroundColor = original;
 
+            AgentResult result;
             using (Tracing.BeginSpan("node.run", new() { ["node"] = node.Id }))
             {
                 var agent = _agentFactory(node.Id);
-                var context = state.Inbox(node.Id);
-                var result = await agent.RunAsync(state.UserInput, context);
+                var artifactsSummary = state.ArtifactSummary();
+                var inbox = state.Inbox(node.Id);
+                var context = string.IsNullOrEmpty(artifactsSummary) ? inbox
+                    : string.IsNullOrEmpty(inbox) ? artifactsSummary
+                    : $"{artifactsSummary}\n\n{inbox}";
+                result = await agent.RunAsync(state.UserInput, context);
                 state.Outputs[node.Id] = result.Output;
                 state.Signals = new Dictionary<string, object>(result.Signals);
+                foreach (var (key, value) in result.Artifacts)
+                    state.Artifacts[key] = value;
                 state.LastAgent = node.Id;
             }
 
@@ -74,6 +81,14 @@ public sealed class GraphExecutor
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Render($"  └─ signals: {signals}");
             Console.ForegroundColor = original;
+
+            if (result.Artifacts.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                foreach (var (key, value) in result.Artifacts)
+                    Render($"  └─ artifact {key}: {Truncate(value, 60)}");
+                Console.ForegroundColor = original;
+            }
 
             var edgeLabel = EdgeLabel(current, next, state);
             if (next != Graph.End)

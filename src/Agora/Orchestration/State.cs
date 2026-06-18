@@ -16,4 +16,12 @@ public sealed class State
     /// <summary>All message contents addressed to agentId, joined by blank lines.</summary>
     public string Inbox(string agentId) =>
         string.Join("\n\n", Messages.Where(m => m.Recipient == agentId).Select(m => m.Content));
+
+    /// <summary>A formatted summary of shared artifacts, or empty if none exist.</summary>
+    public string ArtifactSummary()
+    {
+        if (Artifacts.Count == 0) return "";
+        var lines = Artifacts.Select(kv => $"  {kv.Key}: {kv.Value}");
+        return $"━━━ Shared Artifacts ━━━\n{string.Join("\n", lines)}";
+    }
 }

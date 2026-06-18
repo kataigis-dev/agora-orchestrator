@@ -6,9 +6,14 @@ providers:
     base_url: http://127.0.0.1:1234/v1
     api_key_env: ~
 models:
-  local: { provider: llamastudio, model: google/gemma-4-e4b }
+  local: { provider: llamastudio, model: google/gemma-4-12b-qat}
 agents:
   assistant:
     model: local
     role: "You are a helpful AI assistant."
     system_prompt: "You are a helpful AI assistant. Answer concisely and accurately."
+graph:
+  entry: assistant
+  edges:
+    - { from: assistant, to: END, type: sequential }
+

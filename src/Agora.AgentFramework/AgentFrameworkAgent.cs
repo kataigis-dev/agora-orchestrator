@@ -92,8 +92,8 @@ public sealed class AgentFrameworkAgent : IAgent
             response = await _retry.ExecuteAsync(ct => agent.RunAsync(messages, cancellationToken: ct), spec);
         }
 
-        var (output, signals) = _ctx.Interpreter.Interpret(response.Text ?? string.Empty);
-        return new AgentResult { Output = output, Signals = signals };
+        var (output, signals, artifacts) = _ctx.Interpreter.Interpret(response.Text ?? string.Empty);
+        return new AgentResult { Output = output, Signals = signals, Artifacts = artifacts };
     }
 
     private async Task<bool> ApprovalFor(ToolApprovalRequestContent request)

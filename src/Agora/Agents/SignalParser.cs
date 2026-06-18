@@ -3,16 +3,23 @@ using System.Text.RegularExpressions;
 namespace Agora.Agents;
 
 /// <summary>
-/// Extracts &lt;&lt;signal name&gt;&gt; / &lt;&lt;signal name=value&gt;&gt; control tokens from agent
-/// output (bare token -> true, token with value -> the value string) and returns the cleaned,
-/// stripped text alongside the signals. Shared by the core Agent and MAF-backed tool agents.
+/// Extracts &lt;&lt;signal name&gt;&gt; / &lt;&lt;signal name=value&gt;&gt; control tokens and
+/// &lt;&lt;artifact key=value&gt;&gt; data tokens from agent output. Both are stripped from the
+/// returned text. Shared by the core Agent and MAF-backed tool agents.
 /// </summary>
 public static class SignalParser
 {
     private static readonly Regex SignalRegex =
         new(@"<<signal\s+([a-zA-Z_]\w*)(?:=([^>]*))?>>", RegexOptions.Compiled);
 
-    public static (string Output, Dictionary<string, object> Signals) Extract(string text)
+    private static readonly Regex ArtifactRegex =
+        new(@"<<artifact\s+([a-zA-Z_]\w*)=([^>]+)>>", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Extracts signals, artifacts, and cleaned text from raw agent output.
+    /// Signals with no value default to <c>true</c>. Artifacts always require a value.
+    /// </summary>
+    public static (string Output, Dictionary<string, object> Signals, Dictionary<string, string> Artifacts) Extract(string text)
     {
         var signals = new Dictionary<string, object>();
         foreach (Match match in SignalRegex.Matches(text))
@@ -20,7 +27,13 @@ public static class SignalParser
             var name = match.Groups[1].Value;
             signals[name] = match.Groups[2].Success ? match.Groups[2].Value.Trim() : (object)true;
         }
-        var cleaned = SignalRegex.Replace(text, "").Trim();
-        return (cleaned, signals);
+
+        var artifacts = new Dictionary<string, string>();
+        foreach (Match match in ArtifactRegex.Matches(text))
+            artifacts[match.Groups[1].Value] = match.Groups[2].Value.Trim();
+
+        var cleaned = SignalRegex.Replace(text, "");
+        cleaned = ArtifactRegex.Replace(cleaned, "").Trim();
+        return (cleaned, signals, artifacts);
     }
 }

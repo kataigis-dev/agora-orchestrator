@@ -128,6 +128,25 @@ tests/
 └── Agora.Api.Tests/          # API integration tests
 ```
 
+## Wiki
+
+Documentazione completa in [`docs/`](docs/index.md):
+
+| Documento | Contenuto |
+|---|---|
+| [docs/index.md](docs/index.md) | Panoramica, struttura directory, avvio rapido |
+| [docs/architecture.md](docs/architecture.md) | Architettura, GraphExecutor, ciclo di vita agente |
+| [docs/configuration.md](docs/configuration.md) | Riferimento completo configurazione YAML |
+| [docs/agents.md](docs/agents.md) | Agenti, tools MCP, skills, approvazione umana |
+| [docs/graph.md](docs/graph.md) | Grafo: nodi, edges, segnali, loop, visualizzazione |
+| [docs/cli.md](docs/cli.md) | CLI: comandi run/validate/ingest, opzioni, exit code |
+| [docs/api.md](docs/api.md) | REST API: endpoint, cicli di vita, health check |
+| [docs/providers.md](docs/providers.md) | Provider chat: OpenAI, Ollama, custom, resilience |
+| [docs/mcp.md](docs/mcp.md) | MCP: server stdio/HTTP, tools discovery, approval gates |
+| [docs/rag.md](docs/rag.md) | RAG: pipeline ingest, chunking, embeddings, vector store |
+| [docs/h2c.md](docs/h2c.md) | H2C protocol: blocchi, tipi, interpreter |
+| [examples/README.md](examples/README.md) | Descrizione di ogni esempio con comandi |
+
 ## Build & test
 
 ```bash
