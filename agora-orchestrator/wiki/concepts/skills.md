@@ -31,7 +31,7 @@ Il `SKILL.md` contiene le istruzioni per la skill (prompt, formato atteso, ecc.)
 
 ```yaml
 skills:
-  directory: examples/skills
+  directories: [examples/skills]
 
 agents:
   writer:

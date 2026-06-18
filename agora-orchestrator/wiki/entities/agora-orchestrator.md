@@ -37,9 +37,10 @@ Nessuna — solo .NET BCL.
 
 ## Dipendenze esterne (Agora.AgentFramework)
 
-- `Microsoft.Extensions.AI` / OpenAI SDK
-- `ModelContextProtocol` (MCP client)
-- `Microsoft.SemanticKernel.Agents` (opzionale, per AgentFramework)
+- `Microsoft.Extensions.AI.OpenAI`
+- `Microsoft.Agents.AI` + `Microsoft.Agents.AI.OpenAI`
+- `ModelContextProtocol.Core` (MCP client)
+- `OllamaSharp`
 
 ## Versioning
 

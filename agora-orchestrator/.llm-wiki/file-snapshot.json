@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": 1781724451918,
+  "updatedAt": 1781812602986,
   "files": {
     "purpose.md": {
       "hash": "9134da4e208cd2cf9165e14f448ad14b",
@@ -13,19 +13,19 @@
       "mtimeMs": 1781724056133
     },
     "wiki/concepts/agent-graph.md": {
-      "hash": "d1fed8be15e92d1ab6de392727c21f00",
-      "size": 1855,
-      "mtimeMs": 1781724329820
+      "hash": "894af2b5a33a771f91c7dc1aa3ff243d",
+      "size": 2204,
+      "mtimeMs": 1781812576471
     },
     "wiki/concepts/communication-modes.md": {
-      "hash": "969e81662940ab6182cd116ab8222677",
-      "size": 1569,
-      "mtimeMs": 1781724371131
+      "hash": "7fb9d393a8e6421284fab09ac8e2824c",
+      "size": 1646,
+      "mtimeMs": 1781812582694
     },
     "wiki/concepts/edge-types.md": {
-      "hash": "03184d31226c642179cdd7c32b55c8a7",
-      "size": 1718,
-      "mtimeMs": 1781724340646
+      "hash": "8353a20739d1a35024b503cce7299911",
+      "size": 1832,
+      "mtimeMs": 1781812594685
     },
     "wiki/concepts/h2c-protocol.md": {
       "hash": "77fc3d6a23031cf962aed363fd4d3e3c",
@@ -33,29 +33,29 @@
       "mtimeMs": 1781724350551
     },
     "wiki/concepts/human-in-the-loop.md": {
-      "hash": "de281bd999943b7ec1e44683a50f559d",
-      "size": 1746,
-      "mtimeMs": 1781724423105
+      "hash": "ee3fd8a32c6fe522d5bda1d6f990f7ea",
+      "size": 2205,
+      "mtimeMs": 1781812589801
     },
     "wiki/concepts/mcp-tools.md": {
-      "hash": "c3c5a9791e660a65b86041c541d8550d",
-      "size": 1892,
-      "mtimeMs": 1781724410882
+      "hash": "5f037758d677649f566a37d54eea8ca4",
+      "size": 2760,
+      "mtimeMs": 1781812579775
     },
     "wiki/concepts/rag-pipeline.md": {
-      "hash": "8381cb44140a45abdfea6c1ef08d9024",
-      "size": 1999,
-      "mtimeMs": 1781724385332
+      "hash": "ca1953b3eaea62842d38a0b8aee6ab7c",
+      "size": 2375,
+      "mtimeMs": 1781812591860
     },
     "wiki/concepts/signal.md": {
-      "hash": "5663a61c22b486127e89a1be17a07cda",
-      "size": 1482,
-      "mtimeMs": 1781724360753
+      "hash": "2c33b95b14d79619be56dc22a433117c",
+      "size": 1994,
+      "mtimeMs": 1781812573708
     },
     "wiki/concepts/skills.md": {
-      "hash": "42acb975a2cb52ccf6248d74ff057182",
-      "size": 1725,
-      "mtimeMs": 1781724397549
+      "hash": "dba760d9f39e5480c1f8c27d9ae97878",
+      "size": 1729,
+      "mtimeMs": 1781812592769
     },
     "wiki/entities/agora-agent-framework.md": {
       "hash": "58204c5f98b2846502fb0fe441ad2475",
@@ -73,9 +73,9 @@
       "mtimeMs": 1781724292152
     },
     "wiki/entities/agora-orchestrator.md": {
-      "hash": "1e92f2d93ce470f4e6e8257e4b161240",
-      "size": 1652,
-      "mtimeMs": 1781724283321
+      "hash": "baf6ac69132b38314c299a931d475388",
+      "size": 1655,
+      "mtimeMs": 1781812584591
     },
     "wiki/index.md": {
       "hash": "107a9ad6aabd47a54e3e1f14974d7e6f",
@@ -83,14 +83,14 @@
       "mtimeMs": 1781724439556
     },
     "wiki/log.md": {
-      "hash": "dccfbef5da7842f2228b0ed094b2e06d",
-      "size": 440,
-      "mtimeMs": 1781724451185
+      "hash": "fd63471f88f91900ad7a1016e0998e79",
+      "size": 1453,
+      "mtimeMs": 1781812602246
     },
     "wiki/overview.md": {
-      "hash": "08a93fccf3eab60ae01333f9d682356b",
-      "size": 2539,
-      "mtimeMs": 1781724267100
+      "hash": "482436c49fc8b784e86a6b3167f2acfd",
+      "size": 2544,
+      "mtimeMs": 1781812583367
     }
   }
 }

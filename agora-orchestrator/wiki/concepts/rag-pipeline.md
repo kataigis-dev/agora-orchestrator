@@ -35,13 +35,27 @@ Execution: EnrichedInput iniettato come seed context nel grafo
 
 ```yaml
 rag:
-  sources:
-    - path: knowledge/agora.md
-      type: markdown
-  chunk_size: 500
-  chunk_overlap: 50
-  top_k: 5
-  refine: true
+  enabled: true
+  refine:
+    strategy: none        # "none" | "llm"
+    model: ""             # modello per il refine LLM
+  retrieval:
+    embedder:
+      type: ""            # "azure" | "ollama"
+      provider: ""
+      model: ""
+    vector_store:
+      type: memory        # "memory" | "file"
+      path: ""
+      collection: ""
+    top_k: 6
+    score_threshold: 0.0
+  ingest:
+    sources:
+      - path: knowledge/agora.md
+      - path: docs/
+    chunk_size: 800
+    chunk_overlap: 120
 ```
 
 ## Integrazione con il grafo

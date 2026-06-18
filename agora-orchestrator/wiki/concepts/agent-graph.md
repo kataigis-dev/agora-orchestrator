@@ -42,7 +42,11 @@ public sealed class Graph
 - `Outputs` — dizionario `agentId → output` accumulato
 - `Signals` — segnali emessi dall'ultimo agente
 - `Messages` — lista di messaggi (inclusi seed RAG)
+- `Artifacts` — artifact condivisi accumulati (`<<artifact key=value>>`)
+- `LoopCounters` — contatori `source→target` per `max_loops` sugli edge `conditional`
 - `LastAgent` — ultimo agente eseguito
+- `Inbox(agentId)` — restituisce tutti i messaggi indirizzati all'agente specificato
+- `ArtifactSummary()` — restituisce una stringa formattata con tutti gli artifact correnti
 
 ## Configurazione YAML
 

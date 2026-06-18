@@ -28,6 +28,10 @@ public sealed class AgentFrameworkAgent : IAgent
         if (_ctx.Skills.Count > 0)
             tools.Add(SkillTools.LoadSkill(_ctx.Skills));
 
+        // Built-in filesystem tools (no MCP server needed)
+        tools.AddRange(BuiltInFileTools.Create(_ctx.Card.Tools));
+
+        // MCP tools
         await using var mcp = await McpToolSession.ConnectAsync(_ctx.Mcp, _ctx.Card.Tools, CancellationToken.None);
         foreach (var tool in mcp.Tools)
         {

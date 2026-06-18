@@ -13,22 +13,33 @@ Meccanismo di routing condizionale in modalità **natural**. L'agente include to
 
 ## Sintassi
 
+### Segnali
+
 ```
 <<signal nome>>
 <<signal nome=valore>>
+```
+
+### Artifacts
+
+```
+<<artifact chiave=valore>>
 ```
 
 Esempi:
 ```
 Ho completato la revisione. <<signal done>>
 Trovati 3 errori da correggere. <<signal fix=3>>
+Generato il sommario: <<artifact summary=Il documento descrive...>>
 ```
 
 ## Comportamento
 
-- Il testo del segnale viene **rimosso** dall'output visibile (`SignalParser.Extract`)
-- Il segnale viene registrato in `State.Signals` come `{ "done": true }` o `{ "fix": "3" }`
+- I segnali e artifact vengono **rimossi** dall'output visibile (`SignalParser.Extract`)
+- I segnali vengono registrati in `State.Signals` come `{ "done": true }` o `{ "fix": "3" }`
+- Gli artifact vengono registrati in `State.Artifacts` come `{ "summary": "Il documento descrive..." }`
 - `GraphExecutor` usa `State.Signals` per risolvere gli edge `conditional`
+- `State.ArtifactSummary()` serializza gli artifact correnti nel contesto di ogni agente successivo
 
 ## Implementazione
 
@@ -37,7 +48,10 @@ Trovati 3 errori da correggere. <<signal fix=3>>
 private static readonly Regex SignalRegex =
     new(@"<<signal\s+([a-zA-Z_]\w*)(?:=([^>]*))?>>", RegexOptions.Compiled);
 
-public static (string Output, Dictionary<string, object> Signals) Extract(string text)
+private static readonly Regex ArtifactRegex =
+    new(@"<<artifact\s+([a-zA-Z_]\w*)=([^>]*)>>", RegexOptions.Compiled);
+
+public static (string Output, Dictionary<string, object> Signals, Dictionary<string, string> Artifacts) Extract(string text)
 ```
 
 ## Equivalente H2C

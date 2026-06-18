@@ -4,7 +4,20 @@
 
 MCP (Model Context Protocol) è un protocollo che permette agli agenti AI di interagire con strumenti e risorse esterne in modo standardizzato.
 
-## Architettura
+## Built-in filesystem tools
+
+Agora include **tools filesystem built-in** che non richiedono un server MCP. Gli agenti con tools `read_file`, `write_file`, `search_files`, `list_directory` abilitati li usano automaticamente tramite `System.IO`.
+
+```yaml
+agents:
+  builder:
+    tools: [read_file, write_file, search_files, list_directory]
+    # Nessun server MCP necessario!
+```
+
+I built-in tools hanno la stessa interfaccia dei corrispondenti tool MCP, quindi puoi passare da MCP a built-in senza cambiare configurazione agente — basta rimuovere il server MCP.
+
+## Architettura (con MCP esterno)
 
 ```
 Agente AI  ──►  MCP Client  ──►  MCP Server (stdio/HTTP)

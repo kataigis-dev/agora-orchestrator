@@ -22,7 +22,7 @@ Agora.Cli / Agora.Api
        │                      │
    Agent (IAgent) ◄───── AgentConfig (YAML)
        │
-   IProvider (OpenAI / Ollama / compatibile)
+    IChatProvider (OpenAI / Ollama / compatibile)
        │
  [Skills] [RAG] [MCP Tools] [HITL]
 ```

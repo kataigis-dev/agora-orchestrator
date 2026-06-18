@@ -17,17 +17,27 @@ Definito in `src/Agora/Agents/Agent.cs`. Agente base con:
 
 Definito in `src/Agora.AgentFramework/AgentFrameworkAgent.cs`. Estende Agent con:
 - Integrazione `Microsoft.Extensions.AI.IChatClient` per chiamate ai modelli
-- Gestione tool calls (MCP)
+- Gestione tool calls (built-in filesystem + MCP)
 - Supporto `StreamingChatClient` per risposte in streaming
 - Memorizzazione cronologia conversazione
 
 ## Tools
 
-Gli agenti possono usare strumenti esterni tramite MCP (Model Context Protocol).
+Gli agenti possono usare strumenti built-in (filesystem) o esterni tramite MCP (Model Context Protocol).
 
-### Abilitazione strumenti
+### Built-in filesystem tools
 
-Nel config YAML:
+I tool `read_file`, `write_file`, `search_files`, `list_directory` sono implementati nativamente via `System.IO` e non richiedono server MCP:
+
+```yaml
+agents:
+  builder:
+    tools: [read_file, write_file, search_files, list_directory]
+```
+
+### MCP tools
+
+Per tool non filesystem (GitHub, Brave Search, puppeteer, server custom), serve un server MCP:
 
 ```yaml
 mcp:
@@ -40,9 +50,9 @@ agents:
     tools: [write_file, read_file, search_files]
 ```
 
-L'agente può usare solo i tools elencati in `tools:`, anche se il server MCP ne espone di più.
+Entrambi i tipi di tool si abilitano con la stessa lista `tools:` nell'agente. I built-in vengono caricati prima degli MCP.
 
-### Discovery automatico
+### Discovery automatico (MCP)
 
 All'avvio, il sistema:
 1. Avvia i server MCP configurati

@@ -19,15 +19,22 @@ agents:
     approvals: [deploy_to_production, delete_database]
 ```
 
-L'elenco `approvals` definisce le azioni che richiedono approvazione esplicita prima di essere eseguite.
+L'elenco `approvals` definisce i nomi di tool (function-calling) che richiedono approvazione umana esplicita prima di essere eseguiti.
 
 ## Interfaccia
 
 ```csharp
 // Agora/HumanInTheLoop/IApprovalHandler.cs
+public sealed record ApprovalRequest
+{
+    public required string AgentId { get; init; }
+    public required string FunctionName { get; init; }
+    public string Arguments { get; init; } = "";
+}
+
 public interface IApprovalHandler
 {
-    Task<bool> RequestApprovalAsync(string action, string context);
+    Task<bool> RequestAsync(ApprovalRequest request, CancellationToken cancellationToken = default);
 }
 ```
 
@@ -35,15 +42,16 @@ public interface IApprovalHandler
 
 | Classe | Contesto | Comportamento |
 |--------|----------|---------------|
-| `ConsoleApprovalHandler` | CLI | Stampa l'azione e attende `y/n` da tastiera |
+| `ConsoleApprovalHandler` | CLI | Stampa la richiesta e attende `y/n` da tastiera |
 | `FakeApprovalHandler` | Test | Approva o rifiuta automaticamente (configurabile) |
+| `PendingApprovalHandler` | API | Accumula richieste in attesa di risposta tramite `ApprovalGate` |
 
 ## Flusso
 
-1. L'agente sta per eseguire un'azione in `approvals`
-2. `IApprovalHandler.RequestApprovalAsync(action, context)` viene invocato
-3. Se l'handler restituisce `true` → l'azione viene eseguita
-4. Se restituisce `false` → l'azione viene saltata / l'esecuzione si ferma
+1. L'agente (tramite `IToolAgentFactory`) sta per eseguire un tool
+2. Se il tool name è nella lista `approvals` dell'agente, viene chiamato `IApprovalHandler.RequestAsync(ApprovalRequest)`
+3. Se l'handler restituisce `true` → il tool viene eseguito
+4. Se restituisce `false` → il tool non viene eseguito (nessuna eccezione, la chiamata viene saltata)
 
 ## Test
 

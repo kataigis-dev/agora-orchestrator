@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Agora\Agora.csproj" />
+    <ProjectReference Include="..\..\src\Agora.AgentFramework\Agora.AgentFramework.csproj" />
   </ItemGroup>
 
 </Project>

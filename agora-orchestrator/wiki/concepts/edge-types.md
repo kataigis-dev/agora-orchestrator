@@ -55,5 +55,5 @@ public sealed record Edge(
 
 `GraphExecutor.NextNode` scorre gli edge dal nodo corrente:
 1. Se l'edge è `sequential` o `handoff` → target selezionato
-2. Se l'edge è `conditional` → target selezionato solo se il segnale `when` è presente in `State.Signals`
-3. Se nessun edge condizionale corrisponde → errore di routing
+2. Se l'edge è `conditional` → target selezionato solo se il segnale `when` è presente in `State.Signals` e `max_loops` (se presente) non è stato raggiunto
+3. Se nessun edge condizionale corrisponde → si passa al primo edge non-condizionale dallo stesso nodo, o `END` se non esiste

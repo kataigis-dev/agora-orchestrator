@@ -28,7 +28,8 @@ communication: natural
 | Robustezza | Alta (modelli meno capaci) | Media (richiede che il modello rispetti la sintassi) |
 | Leggibilità output | Tecnica | Naturale |
 | System prompt injection | `H2cPreamble` iniettato automaticamente | Istruzioni signal nel role |
-| Parsing | `H2cParser` + `H2cInterpreter` | `SignalParser` |
+| Parsing | `H2cParser` + `H2cInterpreter` | `SignalParser` (signal + artifact) |
+| Artifact condivisi | — | `<<artifact key=value>>` |
 
 ## Quando usare `h2c`
 
