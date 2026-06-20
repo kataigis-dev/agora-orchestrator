@@ -2,9 +2,9 @@
 type: entity
 title: Agora CLI
 tags: [cli, tool, dotnet]
-related: [agora-orchestrator, agora-api]
+related: [agora-orchestrator, agora-api, guided-config]
 created: 2026-06-17
-updated: 2026-06-17
+updated: 2026-06-19
 ---
 
 # Agora CLI
@@ -15,9 +15,16 @@ Eseguibile CLI (`Agora.Cli`) che espone i comandi principali del framework.
 
 | Comando | Descrizione |
 |---------|-------------|
+| `init` | Costruisce una config YAML in modo guidato — vedi [[guided-config]] |
 | `run` | Esegue un singolo agente o un grafo |
 | `validate` | Valida un file di configurazione YAML |
 | `ingest` | Indicizza sorgenti per RAG |
+
+## Opzioni di `init`
+
+| Opzione | Descrizione |
+|---------|-------------|
+| `--output <file>` | Path di destinazione proposto (default `./agora.yaml`) |
 
 ## Opzioni di `run`
 
@@ -31,6 +38,9 @@ Eseguibile CLI (`Agora.Cli`) che espone i comandi principali del framework.
 ## Esempi di utilizzo
 
 ```bash
+# Configurazione guidata (genera ./agora.yaml)
+dotnet run --project src/Agora.Cli -- init
+
 # Singolo agente
 dotnet run --project src/Agora.Cli -- run --config examples/agora.yaml --agent planner --input "Scrivi una nota"
 

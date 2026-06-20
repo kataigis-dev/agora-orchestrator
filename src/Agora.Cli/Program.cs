@@ -5,4 +5,6 @@ return CliRunner.Run(
     args,
     new AgentFrameworkChatProvider(),
     toolAgentFactory: new AgentFrameworkToolAgentFactory(),
-    approvalHandler: new ConsoleApprovalHandler());
+    approvalHandler: new ConsoleApprovalHandler(),
+    conflictResolver: new ConsoleConflictResolver(),
+    storeResolver: AgentFrameworkVectorStores.TryCreate);

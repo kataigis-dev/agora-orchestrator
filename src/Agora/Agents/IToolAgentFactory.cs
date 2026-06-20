@@ -1,6 +1,7 @@
 using Agora.Configuration;
 using Agora.HumanInTheLoop;
 using Agora.Providers;
+using Agora.Rag;
 using Agora.Skills;
 
 namespace Agora.Agents;
@@ -15,6 +16,16 @@ public sealed record AgentBuildContext
     public IApprovalHandler? ApprovalHandler { get; init; }
     public IOutputInterpreter Interpreter { get; init; } = new SignalInterpreter();
     public McpConfig? Mcp { get; init; }
+
+    /// <summary>Shared knowledge base read access for the <c>rag_search</c> tool.</summary>
+    public RagPipeline? Rag { get; init; }
+
+    /// <summary>Shared knowledge base write access for the <c>rag_write</c> tool.</summary>
+    public KnowledgeBase? KnowledgeBase { get; init; }
+
+    /// <summary>Callback for the <c>ask_agent</c> tool: <c>(targetAgentId, question) =&gt; answer</c>.
+    /// Null in answer-mode sub-calls so an interrogated agent cannot ask back (no recursion).</summary>
+    public Func<string, string, Task<string>>? AskAgent { get; init; }
 }
 
 /// <summary>

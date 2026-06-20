@@ -2,9 +2,9 @@
 type: concept
 title: Human-in-the-Loop (HITL)
 tags: [hitl, approval, human, safety]
-related: [agora-orchestrator, agora-cli, agora-api]
+related: [agora-orchestrator, agora-cli, agora-api, shared-knowledge-base]
 created: 2026-06-17
-updated: 2026-06-17
+updated: 2026-06-19
 ---
 
 # Human-in-the-Loop (HITL)
@@ -56,6 +56,13 @@ public interface IApprovalHandler
 ## Test
 
 `tests/Agora.Api.Tests/ApprovalFlowTests.cs` — test di integrazione del flusso HITL via API.
+
+## Risoluzione conflitti (secondo canale HITL)
+
+Oltre all'approvazione sì/no dei tool, esiste un canale HITL dedicato ai conflitti
+della knowledge base scrivibile: `IConflictResolver` con esiti a tre vie
+(`KeepExisting` / `KeepNew` / `Merge`). Si attiva quando un agente non riesce a
+risolvere da solo un conflitto in scrittura sul RAG. Vedi [[shared-knowledge-base]].
 
 ## Note di sicurezza
 

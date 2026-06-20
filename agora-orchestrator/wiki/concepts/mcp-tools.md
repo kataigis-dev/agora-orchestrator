@@ -2,9 +2,9 @@
 type: concept
 title: MCP Tools
 tags: [mcp, tools, model-context-protocol, external]
-related: [agora-agent-framework, skills, agora-orchestrator]
+related: [agora-agent-framework, skills, agora-orchestrator, shared-knowledge-base]
 created: 2026-06-17
-updated: 2026-06-17
+updated: 2026-06-19
 ---
 
 # MCP Tools (Model Context Protocol)
@@ -68,6 +68,17 @@ Agora include quattro tool filesystem **built-in** (nessun server MCP esterno ne
 | `list_directory` | Elenca il contenuto di una directory (`Directory.EnumerateFileSystemEntries`) |
 
 Vengono caricati nel `AgentFrameworkAgent` prima dei tool MCP. Usano gli stessi nomi dei tool MCP equivalenti per compatibilità drop-in.
+
+## Built-in Knowledge Base & Collaboration Tools
+
+Altri tool built-in (stesso meccanismo di allow-list) per la knowledge base condivisa e
+la collaborazione tra agenti — vedi [[shared-knowledge-base]]:
+
+| Tool | Descrizione |
+|------|-------------|
+| `rag_search` | Cerca contesto nella KB condivisa (`RagTools`) |
+| `rag_write` | Scrive una voce nella KB con conflict-check (`RagTools`) |
+| `ask_agent` | Interpella un altro agente e ne ottiene la risposta (`AskAgentTool`) |
 
 Configurazione YAML:
 ```yaml

@@ -40,4 +40,23 @@ public class RagFactoryTests
         Assert.IsType<FakeEmbedder>(pipeline!.Embedder);
         Assert.IsType<InMemoryVectorStore>(pipeline.Store);
     }
+
+    private static RagConfig RagWithStore(string type) => new()
+    {
+        Enabled = true,
+        Retrieval = new RetrievalConfig { VectorStore = new VectorStoreConfig { Type = type } },
+    };
+
+    [Fact]
+    public void Factory_UnknownStoreType_UsesResolver()
+    {
+        var resolved = new InMemoryVectorStore();
+        var pipeline = RagFactory.Build(Config(RagWithStore("qdrant")),
+            storeResolver: spec => spec?.Type == "qdrant" ? resolved : null);
+        Assert.Same(resolved, pipeline!.Store);
+    }
+
+    [Fact]
+    public void Factory_UnknownStoreType_NoResolver_Throws()
+        => Assert.Throws<NotSupportedException>(() => RagFactory.Build(Config(RagWithStore("qdrant"))));
 }

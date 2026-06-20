@@ -47,4 +47,20 @@ public class RuntimeRagTests
         Assert.NotNull(result.Enriched);
         Assert.NotEmpty(result.Enriched!.Retrieved);
     }
+
+    [Fact]
+    public async Task KnowledgeBase_SharesStore_WithRagPipeline()
+    {
+        var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".yaml");
+        File.WriteAllText(path, Config);
+        var rag = await PipelineWithChunk("seed entry", "kb.md");
+        var rt = Runtime.FromConfig(path, new FakeChatProvider(new[] { "ANSWER" }), rag);
+
+        Assert.NotNull(rt.KnowledgeBase);
+        await rt.KnowledgeBase!.WriteAsync("Agora supports MCP tools", "agent:x");
+
+        // The write lands in the same store the read pipeline queries.
+        var enriched = await rt.Rag!.RunAsync("MCP");
+        Assert.Contains(enriched.Retrieved, c => c.Text.Contains("MCP"));
+    }
 }

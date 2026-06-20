@@ -12,6 +12,7 @@ public sealed class VectorStoreConfig
     public string Type { get; set; } = "memory";
     public string? Path { get; set; }
     public string? Collection { get; set; }
+    public string? Url { get; set; }
 }
 
 public sealed class RetrievalConfig

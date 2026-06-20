@@ -18,9 +18,13 @@ public sealed class Runtime
     private readonly string? _configDir;
     private readonly IToolAgentFactory? _toolAgentFactory;
     private readonly IApprovalHandler? _approvalHandler;
+    private readonly IConflictResolver? _conflictResolver;
+    private readonly Func<Configuration.VectorStoreConfig?, IVectorStore?>? _storeResolver;
     private readonly SkillRegistry _skillRegistry;
     private readonly IOutputInterpreter _interpreter;
     private readonly bool _h2c;
+    private readonly bool _handoff;
+    private readonly ContextMemory? _memory;
 
     public Runtime(
         AgoraConfig config,
@@ -28,7 +32,9 @@ public sealed class Runtime
         string? configDir = null,
         RagPipeline? rag = null,
         IToolAgentFactory? toolAgentFactory = null,
-        IApprovalHandler? approvalHandler = null)
+        IApprovalHandler? approvalHandler = null,
+        IConflictResolver? conflictResolver = null,
+        Func<Configuration.VectorStoreConfig?, IVectorStore?>? storeResolver = null)
     {
         _config = config;
         _provider = provider is ResilientChatProvider ? provider : new ResilientChatProvider(provider);
@@ -36,22 +42,33 @@ public sealed class Runtime
         _configDir = configDir;
         _toolAgentFactory = toolAgentFactory;
         _approvalHandler = approvalHandler;
+        _conflictResolver = conflictResolver;
+        _storeResolver = storeResolver;
         _skillRegistry = SkillLoader.Load(config.Skills?.Directories ?? new List<string>());
         _h2c = string.Equals(config.Communication, "h2c", StringComparison.OrdinalIgnoreCase);
+        _handoff = config.Handoff == true;
         _interpreter = _h2c ? new H2cInterpreter() : new SignalInterpreter();
         Rag = rag ?? BuildRag();
+        KnowledgeBase = BuildKnowledgeBase();
+        _memory = BuildMemory();
     }
 
     public AgoraConfig Config => _config;
     public RagPipeline? Rag { get; }
 
+    /// <summary>Write path into the shared knowledge base (same store as <see cref="Rag"/>), or null when RAG is off.</summary>
+    public KnowledgeBase? KnowledgeBase { get; }
+
     public static Runtime FromConfig(
         string path, IChatProvider provider, RagPipeline? rag = null,
-        IToolAgentFactory? toolAgentFactory = null, IApprovalHandler? approvalHandler = null)
+        IToolAgentFactory? toolAgentFactory = null, IApprovalHandler? approvalHandler = null,
+        IConflictResolver? conflictResolver = null,
+        Func<Configuration.VectorStoreConfig?, IVectorStore?>? storeResolver = null)
     {
         var full = Path.GetFullPath(path);
         return new Runtime(
-            ConfigLoader.Load(full), provider, Path.GetDirectoryName(full), rag, toolAgentFactory, approvalHandler);
+            ConfigLoader.Load(full), provider, Path.GetDirectoryName(full), rag, toolAgentFactory,
+            approvalHandler, conflictResolver, storeResolver);
     }
 
     private RagPipeline? BuildRag()
@@ -61,7 +78,29 @@ public sealed class Runtime
             return null;
         var refineModel = rag.Refine?.Model;
         ModelSpec? refineSpec = refineModel is not null && _specs.TryGetValue(refineModel, out var spec) ? spec : null;
-        return RagFactory.Build(_config, _provider, refineSpec);
+        return RagFactory.Build(_config, _provider, refineSpec, _storeResolver);
+    }
+
+    private KnowledgeBase? BuildKnowledgeBase()
+    {
+        if (Rag is null)
+            return null;
+        // Reuse the read pipeline's embedder + store so reads and writes share one knowledge base.
+        IConflictJudge judge = _config.Defaults.Model is string alias && _specs.TryGetValue(alias, out var spec)
+            ? new LlmConflictJudge(_provider, spec)
+            : new NoOpConflictJudge();
+        return new KnowledgeBase(Rag.Embedder, Rag.Store, judge, _conflictResolver);
+    }
+
+    private ContextMemory? BuildMemory()
+    {
+        if (_config.Memory?.Enabled != true)
+            return null;
+        // Reuse the RAG embedder/store when available (entries are source-tagged to stay
+        // distinct from KB facts); otherwise fall back to an offline in-memory store.
+        var embedder = Rag?.Embedder ?? new FakeEmbedder();
+        var store = Rag?.Store ?? new InMemoryVectorStore();
+        return new ContextMemory(embedder, store);
     }
 
     public async Task<AgentResult> RunAgentAsync(string agentId, string userInput)
@@ -74,7 +113,8 @@ public sealed class Runtime
     {
         var graph = GraphBuilder.Build(_config);
         GraphBuilder.Validate(graph, _config.Agents.Keys.ToHashSet());
-        var executor = new GraphExecutor(graph, BuildAgent);
+        var executor = new GraphExecutor(graph, BuildAgent, handoff: _handoff,
+            memory: _memory, memoryTopK: _config.Memory?.TopK ?? 5);
 
         EnrichedInput? enriched = null;
         var seedContext = "";
@@ -90,7 +130,19 @@ public sealed class Runtime
         return new RunResult { Output = output, State = state, Enriched = enriched };
     }
 
-    public IAgent BuildAgent(string agentId)
+    public IAgent BuildAgent(string agentId) => BuildAgent(agentId, answerMode: false);
+
+    /// <summary>Re-runs a target agent to answer another agent's <c>ask_agent</c> tool call.
+    /// The target is built in answer-mode so it cannot ask back (prevents A↔B recursion).</summary>
+    private async Task<string> AskAgentAsync(string target, string question)
+    {
+        if (!_config.Agents.ContainsKey(target))
+            return $"error: unknown agent '{target}'";
+        var result = await BuildAgent(target, answerMode: true).RunAsync(question);
+        return result.Output;
+    }
+
+    private IAgent BuildAgent(string agentId, bool answerMode)
     {
         if (!_config.Agents.TryGetValue(agentId, out var agentConfig))
             throw new KeyNotFoundException($"unknown agent '{agentId}'");
@@ -100,6 +152,10 @@ public sealed class Runtime
         if (agentConfig.Timeout is double timeout)
             spec = spec with { Timeout = timeout };
         var systemPrompt = ResolvePrompt(agentConfig);
+        // The handoff preamble is about producing a handoff; it is noise when an agent is merely
+        // answering an ask_agent question, so skip it in answer-mode.
+        if (_handoff && !answerMode)
+            systemPrompt = HandoffPreamble.For(_h2c) + "\n\n" + systemPrompt;
         if (_h2c)
             systemPrompt = H2cPreamble.Text + "\n\n" + systemPrompt;
         var card = new AgentCard
@@ -131,6 +187,9 @@ public sealed class Runtime
                 ApprovalHandler = _approvalHandler,
                 Interpreter = _interpreter,
                 Mcp = _config.Mcp,
+                Rag = Rag,
+                KnowledgeBase = KnowledgeBase,
+                AskAgent = answerMode ? null : AskAgentAsync,
             });
         }
 

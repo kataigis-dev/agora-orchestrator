@@ -10,6 +10,9 @@ Define a graph of AI agents, each backed by a configurable language model (OpenA
 # Build
 dotnet build
 
+# Generate a config interactively
+dotnet run --project src/Agora.Cli -- init
+
 # Run a single agent
 dotnet run --project src/Agora.Cli -- run --config examples/agora.yaml --agent planner --input "Write a note"
 
@@ -26,14 +29,26 @@ dotnet run --project src/Agora.Cli -- ingest --config examples/agora-rag.yaml
 ## CLI usage
 
 ```
-agora <run|validate|ingest> [options]
+agora <init|run|validate|ingest> [options]
 ```
 
 | Command | Description |
 |---------|-------------|
+| `init` | Build a config file interactively (guided wizard) |
 | `run` | Run a single agent or a graph |
 | `validate` | Validate a config file |
 | `ingest` | Ingest RAG knowledge sources |
+
+### `init` options
+
+| Option | Description |
+|--------|-------------|
+| `--output <file>` | Destination path (defaults to `./agora.yaml`) |
+
+The wizard asks for the communication mode, providers, models and agents, plus the
+optional sections (skills, MCP tool servers, RAG, and per-agent tools/approvals for
+HITL) and — for multi-agent setups — the execution graph, then writes a validated
+config.
 
 ### `run` options
 

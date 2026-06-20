@@ -2,9 +2,9 @@
 type: overview
 title: Agora Orchestrator — Project Overview
 tags: [multi-agent, orchestration, dotnet, llm, yaml, graph]
-related: [agora-orchestrator, agent-graph, h2c-protocol, rag-pipeline, skills, mcp-tools, human-in-the-loop]
+related: [agora-orchestrator, agent-graph, h2c-protocol, rag-pipeline, skills, mcp-tools, human-in-the-loop, guided-config]
 created: 2026-06-17
-updated: 2026-06-17
+updated: 2026-06-19
 ---
 
 # Agora Orchestrator — Overview
@@ -50,7 +50,8 @@ Agora.Cli / Agora.Api
 
 ## Configurazione YAML
 
-Un singolo file YAML definisce tutto:
+Un singolo file YAML definisce tutto. Per generarlo senza scriverlo a mano c'è
+il wizard guidato `agora init` — vedi [[guided-config]].
 ```yaml
 version: "1"
 communication: natural

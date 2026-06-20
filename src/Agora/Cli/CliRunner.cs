@@ -14,19 +14,27 @@ public static class CliRunner
         TextWriter? @out = null,
         TextWriter? error = null,
         IToolAgentFactory? toolAgentFactory = null,
-        Agora.HumanInTheLoop.IApprovalHandler? approvalHandler = null)
+        Agora.HumanInTheLoop.IApprovalHandler? approvalHandler = null,
+        TextReader? @in = null,
+        Agora.HumanInTheLoop.IConflictResolver? conflictResolver = null,
+        Func<Configuration.VectorStoreConfig?, Agora.Rag.IVectorStore?>? storeResolver = null)
     {
         var stdout = @out ?? Console.Out;
         var stderr = error ?? Console.Error;
         if (args.Length == 0)
         {
-            stderr.WriteLine("usage: agora <run|ingest|validate> [options]");
+            stderr.WriteLine("usage: agora <init|run|ingest|validate> [options]");
+            stderr.WriteLine("  init     [--output <file>]   guided config builder");
             stderr.WriteLine("  run      --config <file> --input <text> [--agent <id>] [--graph]");
             return 1;
         }
 
         var command = args[0];
         var options = ParseOptions(args.Skip(1));
+
+        if (command == "init")
+            return ConfigWizard.Run(@in ?? Console.In, stdout, stderr,
+                options.TryGetValue("output", out var path) ? path : null);
 
         if (command == "validate")
         {
@@ -43,7 +51,8 @@ public static class CliRunner
                 var isGraph = options.ContainsKey("graph");
                 var runtime = Runtime.FromConfig(Require(options, "config"),
                     provider ?? throw new InvalidOperationException("no chat provider supplied"),
-                    toolAgentFactory: toolAgentFactory, approvalHandler: approvalHandler);
+                    toolAgentFactory: toolAgentFactory, approvalHandler: approvalHandler,
+                    conflictResolver: conflictResolver, storeResolver: storeResolver);
                 if (isGraph)
                 {
                     var result = runtime.RunAsync(Require(options, "input")).GetAwaiter().GetResult();
@@ -69,7 +78,8 @@ public static class CliRunner
             try
             {
                 var runtime = Runtime.FromConfig(Require(options, "config"),
-                    provider ?? throw new InvalidOperationException("no chat provider supplied"));
+                    provider ?? throw new InvalidOperationException("no chat provider supplied"),
+                    storeResolver: storeResolver);
                 if (runtime.Rag is null)
                 {
                     stderr.WriteLine("ERROR: config has no enabled 'rag' section");

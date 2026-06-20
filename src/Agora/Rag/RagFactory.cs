@@ -5,13 +5,15 @@ namespace Agora.Rag;
 
 public static class RagFactory
 {
-    public static RagPipeline? Build(AgoraConfig config, IChatProvider? provider = null, ModelSpec? refineSpec = null)
+    public static RagPipeline? Build(
+        AgoraConfig config, IChatProvider? provider = null, ModelSpec? refineSpec = null,
+        Func<VectorStoreConfig?, IVectorStore?>? storeResolver = null)
     {
         var rag = config.Rag;
         if (rag is null || !rag.Enabled)
             return null;
         var embedder = BuildEmbedder(rag.Retrieval?.Embedder);
-        var store = BuildStore(rag.Retrieval?.VectorStore);
+        var store = BuildStore(rag.Retrieval?.VectorStore, storeResolver);
         var refiner = BuildRefiner(rag, provider, refineSpec);
         return new RagPipeline(
             refiner, embedder, store,
@@ -31,13 +33,18 @@ public static class RagFactory
         };
     }
 
-    private static IVectorStore BuildStore(VectorStoreConfig? spec)
+    private static IVectorStore BuildStore(
+        VectorStoreConfig? spec, Func<VectorStoreConfig?, IVectorStore?>? storeResolver)
     {
         var type = spec?.Type ?? "memory";
         return type switch
         {
             "memory" => new InMemoryVectorStore(),
-            _ => throw new NotSupportedException($"unknown vector_store type '{type}'"),
+            "file" => new FileVectorStore(spec?.Path
+                ?? throw new NotSupportedException("vector_store type 'file' requires a 'path'")),
+            // Non-core stores (e.g. a vector DB) are resolved by the edge-injected resolver.
+            _ => storeResolver?.Invoke(spec)
+                ?? throw new NotSupportedException($"unknown vector_store type '{type}'"),
         };
     }
 

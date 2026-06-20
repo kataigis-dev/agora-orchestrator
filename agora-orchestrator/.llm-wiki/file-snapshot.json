@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": 1781812602986,
+  "updatedAt": 1781915500461,
   "files": {
     "purpose.md": {
       "hash": "9134da4e208cd2cf9165e14f448ad14b",
@@ -13,84 +13,104 @@
       "mtimeMs": 1781724056133
     },
     "wiki/concepts/agent-graph.md": {
-      "hash": "894af2b5a33a771f91c7dc1aa3ff243d",
-      "size": 2204,
-      "mtimeMs": 1781812576471
+      "hash": "30cf48d028b0c44a402c12258dc320fc",
+      "size": 2589,
+      "mtimeMs": 1781915486667
     },
     "wiki/concepts/communication-modes.md": {
-      "hash": "7fb9d393a8e6421284fab09ac8e2824c",
-      "size": 1646,
-      "mtimeMs": 1781812582694
+      "hash": "d273d5c8af09f0f9f209eee9222da189",
+      "size": 1597,
+      "mtimeMs": 1781814729813
+    },
+    "wiki/concepts/context-memory.md": {
+      "hash": "8e1d27c57716c12de6ae6731f4ce0ede",
+      "size": 3052,
+      "mtimeMs": 1781915479464
     },
     "wiki/concepts/edge-types.md": {
-      "hash": "8353a20739d1a35024b503cce7299911",
-      "size": 1832,
-      "mtimeMs": 1781812594685
+      "hash": "88f49f25d17de35fb9c8194b5b5f4df1",
+      "size": 1773,
+      "mtimeMs": 1781814729813
+    },
+    "wiki/concepts/guided-config.md": {
+      "hash": "df86904977c2fbaf3c978eb7e3a04e88",
+      "size": 4459,
+      "mtimeMs": 1781876418330
     },
     "wiki/concepts/h2c-protocol.md": {
-      "hash": "77fc3d6a23031cf962aed363fd4d3e3c",
-      "size": 1407,
-      "mtimeMs": 1781724350551
+      "hash": "c31f9af5110cf944a5a79aad032e2fb0",
+      "size": 1349,
+      "mtimeMs": 1781814729813
+    },
+    "wiki/concepts/handoff-context.md": {
+      "hash": "891adaa631995ebcf7a00536ab489202",
+      "size": 2868,
+      "mtimeMs": 1781875880990
     },
     "wiki/concepts/human-in-the-loop.md": {
-      "hash": "ee3fd8a32c6fe522d5bda1d6f990f7ea",
-      "size": 2205,
-      "mtimeMs": 1781812589801
+      "hash": "87e1aa6cbb18c119a822bbdda6308f30",
+      "size": 2535,
+      "mtimeMs": 1781873552927
     },
     "wiki/concepts/mcp-tools.md": {
-      "hash": "5f037758d677649f566a37d54eea8ca4",
-      "size": 2760,
-      "mtimeMs": 1781812579775
+      "hash": "7cbfa01f7e4f9649d3c2812c2fdd1fe9",
+      "size": 3178,
+      "mtimeMs": 1781875914554
     },
     "wiki/concepts/rag-pipeline.md": {
-      "hash": "ca1953b3eaea62842d38a0b8aee6ab7c",
-      "size": 2375,
-      "mtimeMs": 1781812591860
+      "hash": "5ec5e0c0aa45a014cfcc195bc402837e",
+      "size": 3017,
+      "mtimeMs": 1781913184525
+    },
+    "wiki/concepts/shared-knowledge-base.md": {
+      "hash": "acced474ffd830196046aab0839ad653",
+      "size": 6091,
+      "mtimeMs": 1781877266709
     },
     "wiki/concepts/signal.md": {
-      "hash": "2c33b95b14d79619be56dc22a433117c",
-      "size": 1994,
-      "mtimeMs": 1781812573708
+      "hash": "168785899c231a7164adfc337e5acc87",
+      "size": 1921,
+      "mtimeMs": 1781814729813
     },
     "wiki/concepts/skills.md": {
-      "hash": "dba760d9f39e5480c1f8c27d9ae97878",
-      "size": 1729,
-      "mtimeMs": 1781812592769
+      "hash": "ab00803341e143f74c5a13e295f64264",
+      "size": 1667,
+      "mtimeMs": 1781814729813
     },
     "wiki/entities/agora-agent-framework.md": {
-      "hash": "58204c5f98b2846502fb0fe441ad2475",
-      "size": 1640,
-      "mtimeMs": 1781724312395
+      "hash": "d1d02ffa0fff0c044e82873d3521e335",
+      "size": 1602,
+      "mtimeMs": 1781814729813
     },
     "wiki/entities/agora-api.md": {
-      "hash": "badd12358b610e7a75fcb78c3c30e23f",
-      "size": 1101,
-      "mtimeMs": 1781724300224
+      "hash": "8d548a94c0a35774eff7d2db5b1f2b99",
+      "size": 1066,
+      "mtimeMs": 1781814729814
     },
     "wiki/entities/agora-cli.md": {
-      "hash": "ffc48b9d044aabbbbd2b235b90d8795e",
-      "size": 1406,
-      "mtimeMs": 1781724292152
+      "hash": "bfdf97be3ab2a7d470737f7458d98f5b",
+      "size": 1700,
+      "mtimeMs": 1781857148119
     },
     "wiki/entities/agora-orchestrator.md": {
-      "hash": "baf6ac69132b38314c299a931d475388",
-      "size": 1655,
-      "mtimeMs": 1781812584591
+      "hash": "18d95cb89ce3a54dec43cd661547ed4d",
+      "size": 1608,
+      "mtimeMs": 1781814729814
     },
     "wiki/index.md": {
-      "hash": "107a9ad6aabd47a54e3e1f14974d7e6f",
-      "size": 1164,
-      "mtimeMs": 1781724439556
+      "hash": "4ddd1712b607872dbf207464b4c858e9",
+      "size": 1541,
+      "mtimeMs": 1781915491616
     },
     "wiki/log.md": {
-      "hash": "fd63471f88f91900ad7a1016e0998e79",
-      "size": 1453,
-      "mtimeMs": 1781812602246
+      "hash": "455c1f7c179638e13c13005a305c2a3d",
+      "size": 6283,
+      "mtimeMs": 1781915499709
     },
     "wiki/overview.md": {
-      "hash": "482436c49fc8b784e86a6b3167f2acfd",
-      "size": 2544,
-      "mtimeMs": 1781812583367
+      "hash": "2bb5fc2a08c2d2ce36dc6bc90f8051d1",
+      "size": 2660,
+      "mtimeMs": 1781857176012
     }
   }
 }

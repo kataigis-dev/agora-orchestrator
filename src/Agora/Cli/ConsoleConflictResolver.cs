@@ -1,0 +1,45 @@
+using Agora.HumanInTheLoop;
+
+namespace Agora.Cli;
+
+/// <summary>Prompts a human on the console to resolve a knowledge-base conflict.</summary>
+public sealed class ConsoleConflictResolver : IConflictResolver
+{
+    private readonly TextReader _input;
+    private readonly TextWriter _output;
+
+    public ConsoleConflictResolver(TextReader? input = null, TextWriter? output = null)
+    {
+        _input = input ?? Console.In;
+        _output = output ?? Console.Error;
+    }
+
+    public Task<ConflictDecision> ResolveAsync(
+        ConflictResolutionRequest request, CancellationToken cancellationToken = default)
+    {
+        _output.WriteLine($"[conflict] agent '{request.AgentId}' wants to record:");
+        _output.WriteLine($"  NEW: {request.NewEntry}");
+        _output.WriteLine("  conflicts with existing:");
+        foreach (var existing in request.ExistingEntries)
+            _output.WriteLine($"    - {existing}");
+        if (request.Explanation.Length > 0)
+            _output.WriteLine($"  reason: {request.Explanation}");
+
+        _output.Write("resolve? [e]xisting / [n]ew / [m]erge: ");
+        var choice = _input.ReadLine()?.Trim().ToLowerInvariant() ?? "";
+
+        if (choice.StartsWith("n"))
+            return Task.FromResult(new ConflictDecision { Resolution = ConflictResolution.KeepNew });
+        if (choice.StartsWith("m"))
+        {
+            _output.Write("merged text: ");
+            var merged = _input.ReadLine()?.Trim() ?? "";
+            return Task.FromResult(new ConflictDecision
+            {
+                Resolution = ConflictResolution.Merge,
+                MergedText = merged,
+            });
+        }
+        return Task.FromResult(new ConflictDecision { Resolution = ConflictResolution.KeepExisting });
+    }
+}

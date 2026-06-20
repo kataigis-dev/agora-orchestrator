@@ -1,0 +1,41 @@
+version: "1"
+communication: natural
+
+# Handoff mode: each agent passes ONLY the context it explicitly declares
+# (<<artifact handoff=...>>) to the next agent, not its full output.
+handoff: true
+
+defaults: { model: balanced, timeout: 120 }
+
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+
+models:
+  fast:     { provider: openai, model: gpt-4o-mini }
+  balanced: { provider: openai, model: gpt-4o }
+
+agents:
+  planner:
+    model: balanced
+    role: >
+      Decompose the task into ordered steps. The writer will NOT see this full
+      reasoning — emit only what it needs to start, ending with
+      <<artifact handoff=...>> containing the concise plan.
+  writer:
+    model: balanced
+    role: >
+      Write the answer using the handoff you received. Pass the finished draft to
+      the reviewer with <<artifact handoff=...>>.
+  reviewer:
+    model: fast
+    role: >
+      Review the handed-off draft. If good, end with <<signal approved>>;
+      otherwise end with <<signal needs_revision>> and a short note.
+
+graph:
+  entry: planner
+  edges:
+    - { from: planner,  to: writer,   type: handoff }
+    - { from: writer,   to: reviewer, type: sequential }
+    - { from: reviewer, to: writer,   type: conditional, when: needs_revision, max_loops: 2 }
+    - { from: reviewer, to: END,      type: conditional, when: approved }

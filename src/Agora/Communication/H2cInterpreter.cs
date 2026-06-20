@@ -13,12 +13,17 @@ public sealed class H2cInterpreter : IOutputInterpreter
     public (string Output, Dictionary<string, object> Signals, Dictionary<string, string> Artifacts) Interpret(string text)
     {
         var signals = new Dictionary<string, object>();
+        var artifacts = new Dictionary<string, string>();
         foreach (var block in _parser.Parse(text))
         {
             signals[block.Subtype.ToLowerInvariant()] = true;
             foreach (var (key, value) in block.Fields)
+            {
                 signals[key] = value;
+                if (key.Equals("handoff", StringComparison.OrdinalIgnoreCase))
+                    artifacts["handoff"] = value;
+            }
         }
-        return (text, signals, new Dictionary<string, string>());
+        return (text, signals, artifacts);
     }
 }

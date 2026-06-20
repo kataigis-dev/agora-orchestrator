@@ -31,6 +31,13 @@ public sealed class AgentFrameworkAgent : IAgent
         // Built-in filesystem tools (no MCP server needed)
         tools.AddRange(BuiltInFileTools.Create(_ctx.Card.Tools));
 
+        // Built-in shared knowledge base tools (rag_search / rag_write)
+        tools.AddRange(RagTools.Create(_ctx.Card.Tools, _ctx.Rag, _ctx.KnowledgeBase, _ctx.Card.Id));
+
+        // Built-in ask_agent tool (ask another agent after rag_search comes up short)
+        if (AskAgentTool.Create(_ctx.Card.Tools, _ctx.AskAgent) is { } askAgent)
+            tools.Add(askAgent);
+
         // MCP tools
         await using var mcp = await McpToolSession.ConnectAsync(_ctx.Mcp, _ctx.Card.Tools, CancellationToken.None);
         foreach (var tool in mcp.Tools)

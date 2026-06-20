@@ -14,10 +14,14 @@
 - [[h2c-protocol]] — Protocollo strutturato `[TYPE:SUBTYPE]` per comunicazione agente→orchestratore
 - [[signal]] — Token `<<signal name>>` per routing condizionale in modalità natural
 - [[communication-modes]] — Confronto tra modalità `h2c` (default) e `natural`
+- [[handoff-context]] — Passaggio di contesto minimo tra agenti (`handoff: true`)
 - [[rag-pipeline]] — Pipeline Retrieval-Augmented Generation: ingest, embed, retrieve, inject
+- [[shared-knowledge-base]] — RAG scrivibile: `KnowledgeBase`, conflict-judge LLM, risoluzione HITL
+- [[context-memory]] — Compressione del contesto via RAG: salva e recupera top-K (`memory: enabled`)
 - [[skills]] — Prompt file Markdown riutilizzabili come tool degli agenti
 - [[mcp-tools]] — Tool esterni tramite Model Context Protocol (stdio)
 - [[human-in-the-loop]] — Approvazione umana per azioni critiche (HITL)
+- [[guided-config]] — Comando `agora init`: costruzione interattiva della config YAML
 
 ## Sources
 

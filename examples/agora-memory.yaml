@@ -1,0 +1,39 @@
+version: "1"
+communication: natural
+
+# Context memory: save each agent's declared artifacts and recall only the
+# top-K most relevant ones into the next agent, instead of dumping them all.
+memory:
+  enabled: true
+  top_k: 5
+
+defaults: { model: balanced, timeout: 120 }
+
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+
+models:
+  fast:     { provider: openai, model: gpt-4o-mini }
+  balanced: { provider: openai, model: gpt-4o }
+
+agents:
+  researcher:
+    model: balanced
+    role: >
+      Investigate the task. Record key findings the others will need as
+      <<artifact finding=...>> tokens — only those are kept in shared memory.
+  planner:
+    model: balanced
+    role: >
+      Produce a plan. You receive only the findings relevant to your step
+      (recalled from memory), not everyone's full output.
+  writer:
+    model: balanced
+    role: "Write the final answer using the recalled context."
+
+graph:
+  entry: researcher
+  edges:
+    - { from: researcher, to: planner, type: sequential }
+    - { from: planner,    to: writer,  type: sequential }
+    - { from: writer,     to: END,     type: sequential }

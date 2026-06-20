@@ -5,15 +5,25 @@ namespace Agora.Orchestration;
 
 public sealed class GraphExecutor
 {
+    private const string HandoffKey = "handoff";
+
     private readonly Graph _graph;
     private readonly Func<string, IAgent> _agentFactory;
     private readonly int _maxSteps;
+    private readonly bool _handoff;
+    private readonly Agora.Rag.ContextMemory? _memory;
+    private readonly int _memoryTopK;
 
-    public GraphExecutor(Graph graph, Func<string, IAgent> agentFactory, int maxSteps = 100)
+    public GraphExecutor(
+        Graph graph, Func<string, IAgent> agentFactory, int maxSteps = 100, bool handoff = false,
+        Agora.Rag.ContextMemory? memory = null, int memoryTopK = 5)
     {
         _graph = graph;
         _agentFactory = agentFactory;
         _maxSteps = maxSteps;
+        _handoff = handoff;
+        _memory = memory;
+        _memoryTopK = memoryTopK;
     }
 
     public async Task<State> RunAsync(string userInput, string seedContext = "")
@@ -61,16 +71,27 @@ public sealed class GraphExecutor
             using (Tracing.BeginSpan("node.run", new() { ["node"] = node.Id }))
             {
                 var agent = _agentFactory(node.Id);
-                var artifactsSummary = state.ArtifactSummary();
                 var inbox = state.Inbox(node.Id);
-                var context = string.IsNullOrEmpty(artifactsSummary) ? inbox
-                    : string.IsNullOrEmpty(inbox) ? artifactsSummary
-                    : $"{artifactsSummary}\n\n{inbox}";
+                // Memory mode compresses the shared channel: recall only the top-K relevant entries
+                // instead of dumping every accumulated artifact.
+                var shared = _memory is not null
+                    ? await _memory.RecallAsync($"{state.UserInput}\n{inbox}", _memoryTopK)
+                    : state.ArtifactSummary();
+                var context = string.IsNullOrEmpty(shared) ? inbox
+                    : string.IsNullOrEmpty(inbox) ? shared
+                    : $"{shared}\n\n{inbox}";
                 result = await agent.RunAsync(state.UserInput, context);
                 state.Outputs[node.Id] = result.Output;
                 state.Signals = new Dictionary<string, object>(result.Signals);
                 foreach (var (key, value) in result.Artifacts)
-                    state.Artifacts[key] = value;
+                    // In handoff mode the 'handoff' artifact is a targeted channel to the next
+                    // agent, not part of the globally-summarized shared artifacts.
+                    if (!_handoff || key != HandoffKey)
+                        state.Artifacts[key] = value;
+                // Save the agent's declared artifacts (incl. handoff) as recallable memory.
+                if (_memory is not null)
+                    foreach (var (key, value) in result.Artifacts)
+                        await _memory.RememberAsync($"{key}: {value}", node.Id);
                 state.LastAgent = node.Id;
             }
 
@@ -111,7 +132,19 @@ public sealed class GraphExecutor
             }
 
             if (next != Graph.End)
-                state.Messages.Add(new Message(current, next, state.Outputs[current]));
+            {
+                if (_handoff)
+                {
+                    // Pass only the explicit handoff payload; if the agent emitted none, the next
+                    // agent gets no inbox context (it must rely on RAG / shared artifacts instead).
+                    if (result.Artifacts.TryGetValue(HandoffKey, out var payload) && !string.IsNullOrEmpty(payload))
+                        state.Messages.Add(new Message(current, next, payload));
+                }
+                else
+                {
+                    state.Messages.Add(new Message(current, next, state.Outputs[current]));
+                }
+            }
             current = next;
         }
 

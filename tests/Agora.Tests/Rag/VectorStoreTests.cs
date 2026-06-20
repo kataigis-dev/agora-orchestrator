@@ -36,4 +36,30 @@ public class VectorStoreTests
         Assert.Equal(new[] { "cat" }, hits.Select(h => h.Text));
         Assert.Single(store.Query(new float[] { 1, 1 }, topK: 1, scoreThreshold: 0.0));
     }
+
+    [Fact]
+    public void Upsert_AssignsId_AndDeleteRemovesIt()
+    {
+        var store = new InMemoryVectorStore();
+        store.Upsert(new[] { new Chunk("cat", "a"), new Chunk("dog", "b") },
+            new[] { new float[] { 1, 0 }, new float[] { 0, 1 } });
+        var cat = store.Query(new float[] { 1, 0 }, topK: 1).Single();
+        Assert.NotEqual("", cat.Id);
+
+        store.Delete(new[] { cat.Id });
+        var remaining = store.Query(new float[] { 1, 1 }, topK: 5, scoreThreshold: 0.0);
+        Assert.Equal(new[] { "dog" }, remaining.Select(h => h.Text));
+    }
+
+    [Fact]
+    public void Upsert_WithExistingId_UpdatesInPlace()
+    {
+        var store = new InMemoryVectorStore();
+        store.Upsert(new[] { new Chunk("v1", "a") }, new[] { new float[] { 1, 0 } });
+        var stored = store.Query(new float[] { 1, 0 }, topK: 1).Single();
+
+        store.Upsert(new[] { stored with { Text = "v2" } }, new[] { new float[] { 1, 0 } });
+        var hits = store.Query(new float[] { 1, 0 }, topK: 5, scoreThreshold: 0.0);
+        Assert.Equal("v2", Assert.Single(hits).Text);
+    }
 }

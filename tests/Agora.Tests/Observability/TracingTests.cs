@@ -3,6 +3,12 @@ using Xunit;
 
 namespace Agora.Tests.Observability;
 
+// Recording is process-wide global state; run this in a non-parallel collection so spans
+// emitted by other tests (Runtime/graph runs) don't leak into the recorder mid-assert.
+[CollectionDefinition("Tracing recorder", DisableParallelization = true)]
+public sealed class TracingRecorderCollection;
+
+[Collection("Tracing recorder")]
 public class TracingTests
 {
     [Fact]

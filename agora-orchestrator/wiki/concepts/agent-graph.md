@@ -2,9 +2,9 @@
 type: concept
 title: Agent Graph
 tags: [graph, orchestration, multi-agent, routing]
-related: [edge-types, signal, h2c-protocol, agora-orchestrator]
+related: [edge-types, signal, h2c-protocol, handoff-context, agora-orchestrator]
 created: 2026-06-17
-updated: 2026-06-17
+updated: 2026-06-19
 ---
 
 # Agent Graph
@@ -47,6 +47,13 @@ public sealed class Graph
 - `LastAgent` — ultimo agente eseguito
 - `Inbox(agentId)` — restituisce tutti i messaggi indirizzati all'agente specificato
 - `ArtifactSummary()` — restituisce una stringa formattata con tutti gli artifact correnti
+
+Su ogni hop l'output del nodo corrente viene inoltrato al successivo come messaggio
+in `Messages`. Con `handoff: true` viene inoltrato **solo** il payload di handoff
+dichiarato (o niente) invece dell'output completo — vedi [[handoff-context]]. Con
+`memory: { enabled: true }` il contesto condiviso non è più il dump di tutti gli
+artifact ma le **top-K voci più rilevanti** recuperate dalla memoria — vedi
+[[context-memory]].
 
 ## Configurazione YAML
 
