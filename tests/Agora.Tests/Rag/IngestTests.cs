@@ -34,7 +34,7 @@ public class IngestTests
 
         Assert.Equal(2, count);
         var vec = (await embedder.EmbedAsync(new[] { "cats" }))[0];
-        var hits = store.Query(vec, topK: 1, scoreThreshold: 0.0);
+        var hits = await store.QueryAsync(vec, topK: 1, scoreThreshold: 0.0);
         Assert.NotEmpty(hits);
         Assert.Contains("cats", hits[0].Text);
     }

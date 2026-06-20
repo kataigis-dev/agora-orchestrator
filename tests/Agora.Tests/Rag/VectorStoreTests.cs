@@ -14,52 +14,52 @@ public class VectorStoreTests
     }
 
     [Fact]
-    public void Store_ReturnsMostSimilarFirst()
+    public async Task Store_ReturnsMostSimilarFirst()
     {
         var store = new InMemoryVectorStore();
-        store.Upsert(
+        await store.UpsertAsync(
             new[] { new Chunk("cat", "a"), new Chunk("dog", "b") },
             new[] { new float[] { 1, 0 }, new float[] { 0, 1 } });
-        var hits = store.Query(new float[] { 0.9f, 0.1f }, topK: 2);
+        var hits = await store.QueryAsync(new float[] { 0.9f, 0.1f }, topK: 2);
         Assert.Equal(new[] { "cat", "dog" }, hits.Select(h => h.Text));
         Assert.True(hits[0].Score > hits[1].Score);
     }
 
     [Fact]
-    public void Store_RespectsThresholdAndTopK()
+    public async Task Store_RespectsThresholdAndTopK()
     {
         var store = new InMemoryVectorStore();
-        store.Upsert(
+        await store.UpsertAsync(
             new[] { new Chunk("cat", "a"), new Chunk("dog", "b") },
             new[] { new float[] { 1, 0 }, new float[] { 0, 1 } });
-        var hits = store.Query(new float[] { 1, 0 }, topK: 5, scoreThreshold: 0.5);
+        var hits = await store.QueryAsync(new float[] { 1, 0 }, topK: 5, scoreThreshold: 0.5);
         Assert.Equal(new[] { "cat" }, hits.Select(h => h.Text));
-        Assert.Single(store.Query(new float[] { 1, 1 }, topK: 1, scoreThreshold: 0.0));
+        Assert.Single(await store.QueryAsync(new float[] { 1, 1 }, topK: 1, scoreThreshold: 0.0));
     }
 
     [Fact]
-    public void Upsert_AssignsId_AndDeleteRemovesIt()
+    public async Task Upsert_AssignsId_AndDeleteRemovesIt()
     {
         var store = new InMemoryVectorStore();
-        store.Upsert(new[] { new Chunk("cat", "a"), new Chunk("dog", "b") },
+        await store.UpsertAsync(new[] { new Chunk("cat", "a"), new Chunk("dog", "b") },
             new[] { new float[] { 1, 0 }, new float[] { 0, 1 } });
-        var cat = store.Query(new float[] { 1, 0 }, topK: 1).Single();
+        var cat = (await store.QueryAsync(new float[] { 1, 0 }, topK: 1)).Single();
         Assert.NotEqual("", cat.Id);
 
-        store.Delete(new[] { cat.Id });
-        var remaining = store.Query(new float[] { 1, 1 }, topK: 5, scoreThreshold: 0.0);
+        await store.DeleteAsync(new[] { cat.Id });
+        var remaining = await store.QueryAsync(new float[] { 1, 1 }, topK: 5, scoreThreshold: 0.0);
         Assert.Equal(new[] { "dog" }, remaining.Select(h => h.Text));
     }
 
     [Fact]
-    public void Upsert_WithExistingId_UpdatesInPlace()
+    public async Task Upsert_WithExistingId_UpdatesInPlace()
     {
         var store = new InMemoryVectorStore();
-        store.Upsert(new[] { new Chunk("v1", "a") }, new[] { new float[] { 1, 0 } });
-        var stored = store.Query(new float[] { 1, 0 }, topK: 1).Single();
+        await store.UpsertAsync(new[] { new Chunk("v1", "a") }, new[] { new float[] { 1, 0 } });
+        var stored = (await store.QueryAsync(new float[] { 1, 0 }, topK: 1)).Single();
 
-        store.Upsert(new[] { stored with { Text = "v2" } }, new[] { new float[] { 1, 0 } });
-        var hits = store.Query(new float[] { 1, 0 }, topK: 5, scoreThreshold: 0.0);
+        await store.UpsertAsync(new[] { stored with { Text = "v2" } }, new[] { new float[] { 1, 0 } });
+        var hits = await store.QueryAsync(new float[] { 1, 0 }, topK: 5, scoreThreshold: 0.0);
         Assert.Equal("v2", Assert.Single(hits).Text);
     }
 }

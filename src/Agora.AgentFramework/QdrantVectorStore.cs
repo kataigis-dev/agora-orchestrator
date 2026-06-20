@@ -29,11 +29,12 @@ public sealed class QdrantVectorStore : IVectorStore
         _client = new QdrantClient(uri.Host, port, https: uri.Scheme == "https");
     }
 
-    public void Upsert(IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors)
+    public async Task UpsertAsync(
+        IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken = default)
     {
         if (chunks.Count == 0)
             return;
-        EnsureCollectionAsync(vectors[0].Length).GetAwaiter().GetResult();
+        await EnsureCollectionAsync(vectors[0].Length, cancellationToken).ConfigureAwait(false);
 
         var points = new List<PointStruct>(chunks.Count);
         for (var i = 0; i < chunks.Count; i++)
@@ -44,31 +45,11 @@ public sealed class QdrantVectorStore : IVectorStore
             point.Payload["source"] = chunks[i].Source;
             points.Add(point);
         }
-        _client.UpsertAsync(_collection, points).GetAwaiter().GetResult();
+        await _client.UpsertAsync(_collection, points, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
-    public IReadOnlyList<Chunk> Query(IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0)
-        => QueryAsync(vector, topK, scoreThreshold).GetAwaiter().GetResult();
-
-    public void Delete(IReadOnlyList<string> ids)
-    {
-        var guids = ids.Where(id => Guid.TryParse(id, out _)).Select(Guid.Parse).ToList();
-        if (guids.Count > 0)
-            _client.DeleteAsync(_collection, guids).GetAwaiter().GetResult();
-    }
-
-    private async Task EnsureCollectionAsync(int dimension)
-    {
-        if (_collectionReady)
-            return;
-        if (!await _client.CollectionExistsAsync(_collection).ConfigureAwait(false))
-            await _client.CreateCollectionAsync(
-                _collection,
-                new VectorParams { Size = (ulong)dimension, Distance = Distance.Cosine }).ConfigureAwait(false);
-        _collectionReady = true;
-    }
-
-    private async Task<IReadOnlyList<Chunk>> QueryAsync(IReadOnlyList<float> vector, int topK, double scoreThreshold)
+    public async Task<IReadOnlyList<Chunk>> QueryAsync(
+        IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0, CancellationToken cancellationToken = default)
     {
         IReadOnlyList<ScoredPoint> hits;
         try
@@ -78,7 +59,8 @@ public sealed class QdrantVectorStore : IVectorStore
                 query: vector.ToArray(),
                 limit: (ulong)topK,
                 scoreThreshold: (float)scoreThreshold,
-                payloadSelector: true).ConfigureAwait(false);
+                payloadSelector: true,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (Grpc.Core.RpcException)
         {
@@ -91,5 +73,24 @@ public sealed class QdrantVectorStore : IVectorStore
             Source: h.Payload.TryGetValue("source", out var source) ? source.StringValue : "",
             Score: h.Score,
             Id: h.Id.Uuid)).ToList();
+    }
+
+    public async Task DeleteAsync(IReadOnlyList<string> ids, CancellationToken cancellationToken = default)
+    {
+        var guids = ids.Where(id => Guid.TryParse(id, out _)).Select(Guid.Parse).ToList();
+        if (guids.Count > 0)
+            await _client.DeleteAsync(_collection, guids, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task EnsureCollectionAsync(int dimension, CancellationToken cancellationToken)
+    {
+        if (_collectionReady)
+            return;
+        if (!await _client.CollectionExistsAsync(_collection, cancellationToken).ConfigureAwait(false))
+            await _client.CreateCollectionAsync(
+                _collection,
+                new VectorParams { Size = (ulong)dimension, Distance = Distance.Cosine },
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        _collectionReady = true;
     }
 }

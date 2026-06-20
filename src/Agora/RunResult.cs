@@ -8,4 +8,7 @@ public sealed record RunResult
     public required string Output { get; init; }
     public required State State { get; init; }
     public EnrichedInput? Enriched { get; init; }
+
+    /// <summary>The run id checkpoints are stored under (when checkpointing is enabled).</summary>
+    public string? RunId { get; init; }
 }

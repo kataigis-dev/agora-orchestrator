@@ -16,9 +16,11 @@ Eseguibile CLI (`Agora.Cli`) che espone i comandi principali del framework.
 | Comando | Descrizione |
 |---------|-------------|
 | `init` | Costruisce una config YAML in modo guidato — vedi [[guided-config]] |
-| `run` | Esegue un singolo agente o un grafo |
+| `run` | Esegue un singolo agente o un grafo (opz. `--checkpoint`/`--run-id`) |
+| `resume` | Riprende un run grafo da checkpoint — vedi [[checkpointing]] |
 | `validate` | Valida un file di configurazione YAML |
 | `ingest` | Indicizza sorgenti per RAG |
+| `eval` | Esegue uno scenario di eval deterministico (replay con risposte scriptate) |
 
 ## Opzioni di `init`
 

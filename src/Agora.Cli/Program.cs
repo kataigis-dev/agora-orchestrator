@@ -7,4 +7,5 @@ return CliRunner.Run(
     toolAgentFactory: new AgentFrameworkToolAgentFactory(),
     approvalHandler: new ConsoleApprovalHandler(),
     conflictResolver: new ConsoleConflictResolver(),
-    storeResolver: AgentFrameworkVectorStores.TryCreate);
+    storeResolver: AgentFrameworkVectorStores.TryCreate,
+    embedderResolver: AgentFrameworkEmbedders.TryCreate);

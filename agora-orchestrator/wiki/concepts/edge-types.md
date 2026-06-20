@@ -40,6 +40,31 @@ I segnali vengono emessi tramite:
 - `<<signal done>>` in modalità **natural**
 - `[STATE:DONE]` in modalità **H2C**
 
+## `route`
+
+Routing **deciso da un LLM** invece che da signal token: ogni edge `route` porta una
+descrizione in `when`; dopo l'esecuzione del nodo, un `IRouter` (`LlmRouter`) sceglie il
+target la cui descrizione meglio si adatta all'output. Più robusto del `conditional`
+quando il modello non rispetta la sintassi dei segnali.
+
+```yaml
+- { from: classifier, to: refund,  type: route, when: "il cliente vuole un rimborso" }
+- { from: classifier, to: support, type: route, when: "il cliente ha bisogno di aiuto" }
+```
+
+Senza router disponibile, si ricade sul primo edge `route` come sequenziale.
+
+## `parallel`
+
+Gli edge `parallel` in uscita da un nodo ne diramano i successori in **esecuzione
+concorrente** (fork); i branch convergono su un unico nodo join. Vedi
+[[parallel-execution]].
+
+```yaml
+- { from: planner, to: branch_a, type: parallel }
+- { from: planner, to: branch_b, type: parallel }
+```
+
 ## Classe `Edge`
 
 ```csharp

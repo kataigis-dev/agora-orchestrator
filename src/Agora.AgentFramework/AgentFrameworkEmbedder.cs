@@ -1,3 +1,4 @@
+using System.ClientModel;
 using Agora.Rag;
 using Microsoft.Extensions.AI;
 using OpenAI;
@@ -15,8 +16,14 @@ public sealed class AgentFrameworkEmbedder : IEmbedder
     public AgentFrameworkEmbedder(IEmbeddingGenerator<string, Embedding<float>> generator)
         => _generator = generator;
 
-    public static AgentFrameworkEmbedder OpenAI(string model, string apiKey)
-        => new(new OpenAIClient(apiKey).GetEmbeddingClient(model).AsIEmbeddingGenerator());
+    public static AgentFrameworkEmbedder OpenAI(string model, string apiKey, string? apiBase = null)
+    {
+        var options = new OpenAIClientOptions();
+        if (!string.IsNullOrEmpty(apiBase))
+            options.Endpoint = new Uri(apiBase);
+        var client = new OpenAIClient(new ApiKeyCredential(string.IsNullOrEmpty(apiKey) ? "no-key" : apiKey), options);
+        return new(client.GetEmbeddingClient(model).AsIEmbeddingGenerator());
+    }
 
     public async Task<IReadOnlyList<float[]>> EmbedAsync(
         IReadOnlyList<string> texts, CancellationToken cancellationToken = default)

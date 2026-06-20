@@ -36,7 +36,7 @@ public class RuntimeToolAgentTests : IDisposable
 
     private sealed class StubAgent : IAgent
     {
-        public Task<AgentResult> RunAsync(string userInput, string context = "")
+        public Task<AgentResult> RunAsync(string userInput, string context = "", Action<string>? onChunk = null)
             => Task.FromResult(new AgentResult { Output = "stub" });
     }
 

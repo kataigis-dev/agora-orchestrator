@@ -7,10 +7,12 @@ public interface IVectorStore
     /// replaces the entry with that id; an empty id is inserted with a freshly
     /// assigned id. Implementations may be a local store or a remote vector DB.
     /// </summary>
-    void Upsert(IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors);
+    Task UpsertAsync(
+        IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken = default);
 
-    IReadOnlyList<Chunk> Query(IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0);
+    Task<IReadOnlyList<Chunk>> QueryAsync(
+        IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0, CancellationToken cancellationToken = default);
 
     /// <summary>Removes entries by their stable ids. Unknown ids are ignored.</summary>
-    void Delete(IReadOnlyList<string> ids);
+    Task DeleteAsync(IReadOnlyList<string> ids, CancellationToken cancellationToken = default);
 }

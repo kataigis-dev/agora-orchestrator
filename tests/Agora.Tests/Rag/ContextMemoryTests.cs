@@ -21,7 +21,7 @@ public class ContextMemoryTests
     {
         var store = new InMemoryVectorStore();
         var embedder = new FakeEmbedder(64);
-        store.Upsert(new[] { new Chunk("a knowledge base fact", "kb.md") },
+        await store.UpsertAsync(new[] { new Chunk("a knowledge base fact", "kb.md") },
             await embedder.EmbedAsync(new[] { "a knowledge base fact" }));
         var mem = Mem(store);
         await mem.RememberAsync("a memory entry", "planner");
@@ -43,5 +43,16 @@ public class ContextMemoryTests
             await mem.RememberAsync($"entry number {i}", "a");
         var recalled = await mem.RecallAsync("entry", topK: 2);
         Assert.Equal(2, recalled.Split("\n- ").Length - 1);
+    }
+
+    [Fact]
+    public async Task Recall_RespectsMaxCharsBudget()
+    {
+        var mem = Mem(new InMemoryVectorStore());
+        for (var i = 0; i < 6; i++)
+            await mem.RememberAsync($"entry number {i} with several words", "a");
+
+        var entries = (await mem.RecallAsync("entry", topK: 6, maxChars: 35)).Split("\n- ").Length - 1;
+        Assert.InRange(entries, 1, 2); // at least the top one, but the budget caps the rest
     }
 }

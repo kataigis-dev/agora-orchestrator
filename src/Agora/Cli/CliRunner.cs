@@ -1,5 +1,7 @@
+using System.Text.Json;
 using Agora.Agents;
 using Agora.Configuration;
+using Agora.Eval;
 using Agora.Orchestration;
 using Agora.Providers;
 using Agora.Rag;
@@ -17,15 +19,18 @@ public static class CliRunner
         Agora.HumanInTheLoop.IApprovalHandler? approvalHandler = null,
         TextReader? @in = null,
         Agora.HumanInTheLoop.IConflictResolver? conflictResolver = null,
-        Func<Configuration.VectorStoreConfig?, Agora.Rag.IVectorStore?>? storeResolver = null)
+        Func<Configuration.VectorStoreConfig?, Agora.Rag.IVectorStore?>? storeResolver = null,
+        Func<Agora.Rag.EmbedderSpec, Agora.Rag.IEmbedder?>? embedderResolver = null)
     {
         var stdout = @out ?? Console.Out;
         var stderr = error ?? Console.Error;
         if (args.Length == 0)
         {
-            stderr.WriteLine("usage: agora <init|run|ingest|validate> [options]");
+            stderr.WriteLine("usage: agora <init|run|resume|ingest|validate|eval> [options]");
             stderr.WriteLine("  init     [--output <file>]   guided config builder");
-            stderr.WriteLine("  run      --config <file> --input <text> [--agent <id>] [--graph]");
+            stderr.WriteLine("  run      --config <file> --input <text> [--agent <id>] [--graph] [--stream] [--checkpoint <dir>] [--run-id <id>]");
+            stderr.WriteLine("  resume   --config <file> --checkpoint <dir> --run-id <id>");
+            stderr.WriteLine("  eval     --config <file> --scenario <file.json>");
             return 1;
         }
 
@@ -35,6 +40,35 @@ public static class CliRunner
         if (command == "init")
             return ConfigWizard.Run(@in ?? Console.In, stdout, stderr,
                 options.TryGetValue("output", out var path) ? path : null);
+
+        if (command == "eval")
+        {
+            try
+            {
+                var scenarioPath = Require(options, "scenario");
+                if (!File.Exists(scenarioPath))
+                    throw new ConfigException($"scenario file not found: {scenarioPath}");
+                var scenario = JsonSerializer.Deserialize<Scenario>(File.ReadAllText(scenarioPath),
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? throw new ConfigException("scenario file is empty or invalid");
+                var result = ScenarioRunner.RunAsync(Require(options, "config"), scenario)
+                    .GetAwaiter().GetResult();
+                if (result.Passed)
+                {
+                    stdout.WriteLine("PASS");
+                    return 0;
+                }
+                stderr.WriteLine("FAIL");
+                foreach (var failure in result.Failures)
+                    stderr.WriteLine($"  - {failure}");
+                return 1;
+            }
+            catch (Exception e) when (e is ConfigException or GraphError or KeyNotFoundException or FileNotFoundException)
+            {
+                stderr.WriteLine($"ERROR: {e.Message}");
+                return 1;
+            }
+        }
 
         if (command == "validate")
         {
@@ -49,21 +83,50 @@ public static class CliRunner
             try
             {
                 var isGraph = options.ContainsKey("graph");
+                var checkpoints = options.TryGetValue("checkpoint", out var cpDir)
+                    ? new FileCheckpointStore(cpDir) : null;
+                var stream = options.ContainsKey("stream");
+                Action<string>? onChunk = stream ? chunk => stdout.Write(chunk) : null;
                 var runtime = Runtime.FromConfig(Require(options, "config"),
                     provider ?? throw new InvalidOperationException("no chat provider supplied"),
                     toolAgentFactory: toolAgentFactory, approvalHandler: approvalHandler,
-                    conflictResolver: conflictResolver, storeResolver: storeResolver);
+                    conflictResolver: conflictResolver, storeResolver: storeResolver,
+                    embedderResolver: embedderResolver, checkpointStore: checkpoints);
                 if (isGraph)
                 {
-                    var result = runtime.RunAsync(Require(options, "input")).GetAwaiter().GetResult();
-                    stdout.WriteLine(result.Output);
+                    var result = runtime.RunAsync(Require(options, "input"), options.GetValueOrDefault("run-id"), onChunk)
+                        .GetAwaiter().GetResult();
+                    if (stream) stdout.WriteLine(); else stdout.WriteLine(result.Output);
+                    if (checkpoints is not null)
+                        stderr.WriteLine($"run-id: {result.RunId}");
                 }
                 else
                 {
-                    var result = runtime.RunAgentAsync(Require(options, "agent"), Require(options, "input"))
+                    var result = runtime.RunAgentAsync(Require(options, "agent"), Require(options, "input"), onChunk)
                         .GetAwaiter().GetResult();
-                    stdout.WriteLine(result.Output);
+                    if (stream) stdout.WriteLine(); else stdout.WriteLine(result.Output);
                 }
+                return 0;
+            }
+            catch (Exception e) when (e is ConfigException or GraphError or KeyNotFoundException or FileNotFoundException)
+            {
+                stderr.WriteLine($"ERROR: {e.Message}");
+                return 1;
+            }
+        }
+
+        if (command == "resume")
+        {
+            try
+            {
+                var runtime = Runtime.FromConfig(Require(options, "config"),
+                    provider ?? throw new InvalidOperationException("no chat provider supplied"),
+                    toolAgentFactory: toolAgentFactory, approvalHandler: approvalHandler,
+                    conflictResolver: conflictResolver, storeResolver: storeResolver,
+                    embedderResolver: embedderResolver,
+                    checkpointStore: new FileCheckpointStore(Require(options, "checkpoint")));
+                var result = runtime.ResumeAsync(Require(options, "run-id")).GetAwaiter().GetResult();
+                stdout.WriteLine(result.Output);
                 return 0;
             }
             catch (Exception e) when (e is ConfigException or GraphError or KeyNotFoundException or FileNotFoundException)
@@ -79,7 +142,7 @@ public static class CliRunner
             {
                 var runtime = Runtime.FromConfig(Require(options, "config"),
                     provider ?? throw new InvalidOperationException("no chat provider supplied"),
-                    storeResolver: storeResolver);
+                    storeResolver: storeResolver, embedderResolver: embedderResolver);
                 if (runtime.Rag is null)
                 {
                     stderr.WriteLine("ERROR: config has no enabled 'rag' section");

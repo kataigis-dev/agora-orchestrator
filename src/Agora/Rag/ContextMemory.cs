@@ -2,6 +2,12 @@ using System.Text;
 
 namespace Agora.Rag;
 
+/// <summary>Tuning for RAG-backed context memory.</summary>
+/// <param name="TopK">How many relevant entries to recall.</param>
+/// <param name="MaxChars">Cap on the recalled context size in characters (0 = unlimited).</param>
+/// <param name="RememberOutputs">Also remember each agent's (truncated) output, not only declared artifacts.</param>
+public sealed record MemoryOptions(int TopK = 5, int MaxChars = 0, bool RememberOutputs = false);
+
 /// <summary>
 /// RAG-backed working memory for context compression. Agents' declared artifacts are
 /// <see cref="RememberAsync"/>-ed (append-only, no conflict check), and only the top-K most
@@ -27,27 +33,35 @@ public sealed class ContextMemory
         if (string.IsNullOrWhiteSpace(text))
             return;
         var vector = (await _embedder.EmbedAsync(new[] { text }, cancellationToken))[0];
-        _store.Upsert(new[] { new Chunk(text, SourcePrefix + agentId) }, new[] { vector });
+        await _store.UpsertAsync(new[] { new Chunk(text, SourcePrefix + agentId) }, new[] { vector }, cancellationToken);
     }
 
     /// <summary>Returns a formatted block of the top-K memory entries most relevant to the query,
     /// or empty when there is nothing relevant.</summary>
-    public async Task<string> RecallAsync(string query, int topK, CancellationToken cancellationToken = default)
+    public async Task<string> RecallAsync(
+        string query, int topK, int maxChars = 0, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query) || topK <= 0)
             return "";
         var vector = (await _embedder.EmbedAsync(new[] { query }, cancellationToken))[0];
         // Over-fetch then keep only memory entries, so a shared store's KB facts don't crowd them out.
-        var hits = _store.Query(vector, Math.Max(topK * 4, 20), 0.0)
+        var hits = (await _store.QueryAsync(vector, Math.Max(topK * 4, 20), 0.0, cancellationToken))
             .Where(c => c.Source.StartsWith(SourcePrefix, StringComparison.Ordinal))
             .Take(topK)
             .ToList();
         if (hits.Count == 0)
             return "";
 
-        var sb = new StringBuilder("Relevant context:");
-        foreach (var hit in hits)
-            sb.Append("\n- ").Append(hit.Text);
+        const string header = "Relevant context:";
+        var sb = new StringBuilder(header);
+        for (var i = 0; i < hits.Count; i++)
+        {
+            var line = "\n- " + hits[i].Text;
+            // Keep at least the most relevant entry; otherwise stop at the char budget.
+            if (maxChars > 0 && i > 0 && sb.Length + line.Length > maxChars)
+                break;
+            sb.Append(line);
+        }
         return sb.ToString();
     }
 }

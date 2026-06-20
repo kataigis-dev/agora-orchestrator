@@ -1,5 +1,29 @@
 # Research Log
 
+## 2026-06-20 — Miglioramenti: embedder da config, conflict-judge efficiente, memory, eval
+
+Avviato il programma di miglioramenti (10 voci tracciate). Completate finora:
+- **Embedder da config**: `type: openai|ollama` selezionabile da YAML via resolver iniettato
+  dal bordo (`AgentFrameworkEmbedders`); chiavi risolte dal provider come per il chat client
+- **Conflict-judge efficiente**: prefiltro per similarità (`conflictThreshold`) + cache degli esiti
+- **Context memory evoluta**: `max_chars` (budget recall) + `remember_outputs` (salva anche gli output)
+- **Eval/replay harness**: `agora eval --config --scenario` con risposte scriptate (Fake provider),
+  run deterministico e check su output/segnali; `Eval/Scenario` + `ScenarioRunner`
+- **Routing intelligente**: edge `type: route` con `IRouter`/`LlmRouter` — un LLM sceglie il
+  branch in base alle descrizioni `when`, più robusto del routing a signal-token
+- **Esecuzione parallela** (fork/join): edge `type: parallel`, branch concorrenti via
+  `Task.WhenAll` (mutazione di `State` seriale, nessuna race), convergenza su un join.
+  `GraphExecutor.FanOutAsync`; concept `parallel-execution`, esempio `agora-parallel.yaml`
+- **Checkpointing & resume**: `StateSnapshot` (JSON, signals tipizzati) + `ICheckpointStore`
+  (`InMemory`/`File`); checkpoint dopo ogni nodo; `GraphExecutor.RunAsync(resumeFrom:)` +
+  `Runtime.ResumeAsync`; CLI `run --checkpoint`/`--run-id` e comando `resume`. Concept `checkpointing`
+- **Token streaming**: `IStreamingChatProvider` (capability, non rompe `IChatProvider`) su
+  Fake/AgentFramework/Resilient; sink `Action<string>` propagato Runtime→executor→agente;
+  CLI `run --stream`. Tool agent e branch paralleli esclusi in v1. Concept `streaming`
+- **`IVectorStore` async**: `UpsertAsync`/`QueryAsync`/`DeleteAsync`; tolto il sync-over-async
+  di `QdrantVectorStore`. Aggiornati InMemory/File/Qdrant + RagPipeline/Ingestor/KnowledgeBase/ContextMemory
+  e tutti i test. 209 core verdi
+
 ## 2026-06-20 — Context memory (compressione contesto via RAG)
 
 - Modalità opt-in `memory: { enabled, top_k }`: invece di iniettare tutti gli artifact,

@@ -35,7 +35,7 @@ public sealed class Ingestor
             return 0;
 
         var vectors = await _embedder.EmbedAsync(chunks.Select(c => c.Text).ToList(), cancellationToken);
-        _store.Upsert(chunks, vectors);
+        await _store.UpsertAsync(chunks, vectors, cancellationToken);
         return chunks.Count;
     }
 

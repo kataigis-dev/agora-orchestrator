@@ -10,7 +10,10 @@
 ## Concepts
 
 - [[agent-graph]] — Grafo diretto di agenti LLM con routing basato su segnali
-- [[edge-types]] — Tipi di edge: `sequential`, `handoff`, `conditional`
+- [[edge-types]] — Tipi di edge: `sequential`, `handoff`, `conditional`, `route`, `parallel`
+- [[parallel-execution]] — Esecuzione concorrente di branch (fork/join)
+- [[checkpointing]] — Esecuzione durevole: salva lo stato per step e riprende (`run --checkpoint`, `resume`)
+- [[streaming]] — Streaming dei token (`IStreamingChatProvider`, `run --stream`)
 - [[h2c-protocol]] — Protocollo strutturato `[TYPE:SUBTYPE]` per comunicazione agente→orchestratore
 - [[signal]] — Token `<<signal name>>` per routing condizionale in modalità natural
 - [[communication-modes]] — Confronto tra modalità `h2c` (default) e `natural`

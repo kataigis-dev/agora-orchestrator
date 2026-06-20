@@ -18,7 +18,8 @@ public sealed class FileVectorStore : IVectorStore
         Load();
     }
 
-    public void Upsert(IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors)
+    public async Task UpsertAsync(
+        IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken = default)
     {
         for (var i = 0; i < chunks.Count; i++)
         {
@@ -28,21 +29,25 @@ public sealed class FileVectorStore : IVectorStore
             if (existing >= 0) _items[existing] = stored;
             else _items.Add(stored);
         }
-        Save();
+        await SaveAsync(cancellationToken);
     }
 
-    public IReadOnlyList<Chunk> Query(IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0)
-        => _items
+    public Task<IReadOnlyList<Chunk>> QueryAsync(
+        IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0, CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<Chunk> hits = _items
             .Select(item => item.Chunk with { Score = VectorMath.CosineSimilarity(vector, item.Vector) })
             .Where(c => c.Score >= scoreThreshold)
             .OrderByDescending(c => c.Score)
             .Take(topK)
             .ToList();
+        return Task.FromResult(hits);
+    }
 
-    public void Delete(IReadOnlyList<string> ids)
+    public async Task DeleteAsync(IReadOnlyList<string> ids, CancellationToken cancellationToken = default)
     {
         if (_items.RemoveAll(item => ids.Contains(item.Chunk.Id)) > 0)
-            Save();
+            await SaveAsync(cancellationToken);
     }
 
     private void Load()
@@ -54,13 +59,13 @@ public sealed class FileVectorStore : IVectorStore
             _items.Add((new Chunk(r.Text, r.Source, Id: r.Id), r.Vector));
     }
 
-    private void Save()
+    private async Task SaveAsync(CancellationToken cancellationToken)
     {
         var dir = Path.GetDirectoryName(Path.GetFullPath(_path));
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
         var records = _items.Select(i => new Record(i.Chunk.Id, i.Chunk.Text, i.Chunk.Source, i.Vector)).ToList();
-        File.WriteAllText(_path, JsonSerializer.Serialize(records));
+        await File.WriteAllTextAsync(_path, JsonSerializer.Serialize(records), cancellationToken);
     }
 
     private sealed record Record(string Id, string Text, string Source, float[] Vector);

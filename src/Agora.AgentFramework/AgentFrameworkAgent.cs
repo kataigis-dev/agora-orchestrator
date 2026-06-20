@@ -19,8 +19,9 @@ public sealed class AgentFrameworkAgent : IAgent
 
     public AgentFrameworkAgent(AgentBuildContext ctx) => _ctx = ctx;
 
-    public async Task<AgentResult> RunAsync(string userInput, string context = "")
+    public async Task<AgentResult> RunAsync(string userInput, string context = "", Action<string>? onChunk = null)
     {
+        // Streaming is not wired through the tool-calling/approval loop yet; tool agents ignore onChunk.
         var spec = _ctx.Spec;
         var approvals = _ctx.Approvals.ToHashSet(StringComparer.Ordinal);
 

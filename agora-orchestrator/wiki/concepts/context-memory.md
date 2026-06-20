@@ -21,7 +21,9 @@ Opt-in; di default disattivata.
 ```yaml
 memory:
   enabled: true
-  top_k: 5      # quante voci rilevanti recuperare per agente
+  top_k: 5             # quante voci rilevanti recuperare per agente
+  max_chars: 0         # budget sul contesto recuperato (0 = illimitato)
+  remember_outputs: false  # salva anche l'output (troncato), non solo gli artifact dichiarati
 ```
 
 ## Come funziona
@@ -68,7 +70,9 @@ embedder/store offline.
 
 ## Note
 
-- Vengono salvati **solo gli artifact dichiarati**: se gli agenti non dichiarano nulla,
-  la memoria resta vuota e il contesto condiviso si azzera (compressione massima, ma è
-  responsabilità degli agenti dichiarare ciò che conta).
+- Di default vengono salvati **solo gli artifact dichiarati**: se gli agenti non dichiarano
+  nulla, la memoria resta vuota. Con `remember_outputs: true` si salva anche l'output (troncato),
+  così la memoria non dipende dalla disciplina del prompt.
+- `max_chars` limita la dimensione del contesto recuperato (mantiene comunque la voce più
+  rilevante), per garantire un tetto sui token.
 - La compressione è **per rilevanza** (recupero vettoriale), senza chiamate LLM aggiuntive.

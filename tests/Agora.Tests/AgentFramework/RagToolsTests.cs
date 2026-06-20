@@ -22,7 +22,7 @@ public class RagToolsTests
     {
         var embedder = new FakeEmbedder(64);
         var vectors = await embedder.EmbedAsync(new[] { text });
-        store.Upsert(new[] { new Chunk(text, "kb.md") }, vectors);
+        await store.UpsertAsync(new[] { new Chunk(text, "kb.md") }, vectors);
         return new RagPipeline(new NoOpRefiner(), embedder, store, topK: 3, scoreThreshold: 0.0);
     }
 
@@ -47,7 +47,7 @@ public class RagToolsTests
 
         var result = AsString(await write.InvokeAsync(Args(("text", "the deadline is friday"))));
         Assert.Contains("Added", result);
-        Assert.Single(store.Query(new float[64], topK: 100, scoreThreshold: 0.0));
+        Assert.Single(await store.QueryAsync(new float[64], topK: 100, scoreThreshold: 0.0));
     }
 
     [Fact]

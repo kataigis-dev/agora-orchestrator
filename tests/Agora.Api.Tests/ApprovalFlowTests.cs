@@ -16,7 +16,7 @@ public class ApprovalFlowTests
             private readonly AgentBuildContext _ctx;
             public ApprovalAgent(AgentBuildContext ctx) => _ctx = ctx;
 
-            public async Task<AgentResult> RunAsync(string userInput, string context = "")
+            public async Task<AgentResult> RunAsync(string userInput, string context = "", Action<string>? onChunk = null)
             {
                 var approved = await _ctx.ApprovalHandler!.RequestAsync(new ApprovalRequest
                 {

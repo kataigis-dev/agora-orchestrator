@@ -1,7 +1,7 @@
 namespace Agora.Providers;
 
 /// <summary>Deterministic in-memory provider for tests and offline runs.</summary>
-public sealed class FakeChatProvider : IChatProvider
+public sealed class FakeChatProvider : IStreamingChatProvider
 {
     private readonly Queue<string> _responses;
     private readonly string _default;
@@ -23,5 +23,17 @@ public sealed class FakeChatProvider : IChatProvider
         {
             Text = text, InputTokens = 10, OutputTokens = 5, Model = spec.Model,
         });
+    }
+
+    public async Task<CompletionResult> StreamAsync(
+        IReadOnlyList<ChatMessage> messages, ModelSpec spec, Action<string> onChunk,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await CompleteAsync(messages, spec, cancellationToken);
+        // Emit the response word-by-word so streaming consumers can be exercised deterministically.
+        var words = result.Text.Split(' ');
+        for (var i = 0; i < words.Length; i++)
+            onChunk(i == 0 ? words[i] : " " + words[i]);
+        return result;
     }
 }

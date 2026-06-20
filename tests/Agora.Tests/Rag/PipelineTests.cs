@@ -11,7 +11,7 @@ public class PipelineTests
         var store = new InMemoryVectorStore();
         var chunks = new[] { new Chunk("cats are great pets", "a"), new Chunk("databases store rows", "b") };
         var vectors = await embedder.EmbedAsync(chunks.Select(c => c.Text).ToList());
-        store.Upsert(chunks, vectors);
+        await store.UpsertAsync(chunks, vectors);
         return new RagPipeline(new NoOpRefiner(), embedder, store, topK: topK, scoreThreshold: 0.0);
     }
 

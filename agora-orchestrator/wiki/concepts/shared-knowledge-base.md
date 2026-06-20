@@ -24,11 +24,11 @@ essere locale o remota; il core resta framework-free e un eventuale adapter vers
 un DB su container viene iniettato dal bordo (come l'embedder/provider reale).
 
 ```csharp
-public interface IVectorStore
+public interface IVectorStore // async: nessun sync-over-async coi DB remoti
 {
-    void Upsert(IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors); // insert o update per Id
-    IReadOnlyList<Chunk> Query(IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0);
-    void Delete(IReadOnlyList<string> ids);                                   // necessario per sostituire voci
+    Task UpsertAsync(IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors, CancellationToken ct = default);
+    Task<IReadOnlyList<Chunk>> QueryAsync(IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0, CancellationToken ct = default);
+    Task DeleteAsync(IReadOnlyList<string> ids, CancellationToken ct = default); // necessario per sostituire voci
 }
 ```
 
@@ -57,6 +57,10 @@ agent-driven:
 4. `NoConflict` → scrive (`NoConflict`);
 5. `Resolved` → **sostituisce** le voci in conflitto con quella riconciliata (`AutoResolved`);
 6. `Unresolved` → escala a `IConflictResolver` (umano).
+
+**Efficienza**: il judge LLM scatta solo se il vicino più simile supera `conflictThreshold`
+(default 0.8) — i vicini poco simili vengono aggiunti senza giudizio; inoltre gli esiti del
+judge sono in **cache** per `(testo, vicini)`, così scritture identiche non ri-chiamano l'LLM.
 
 ## Rilevamento conflitti: `IConflictJudge`
 

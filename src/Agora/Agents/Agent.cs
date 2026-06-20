@@ -18,7 +18,7 @@ public sealed class Agent : IAgent
         _interpreter = interpreter ?? new SignalInterpreter();
     }
 
-    public async Task<AgentResult> RunAsync(string userInput, string context = "")
+    public async Task<AgentResult> RunAsync(string userInput, string context = "", Action<string>? onChunk = null)
     {
         var messages = new List<ChatMessage>();
         var system = BuildSystemPrompt();
@@ -27,7 +27,9 @@ public sealed class Agent : IAgent
         var userContent = string.IsNullOrEmpty(context) ? userInput : $"{context}\n\n{userInput}";
         messages.Add(new ChatMessage("user", userContent));
 
-        var result = await _provider.CompleteAsync(messages, _spec);
+        var result = onChunk is not null && _provider is IStreamingChatProvider streaming
+            ? await streaming.StreamAsync(messages, _spec, onChunk)
+            : await _provider.CompleteAsync(messages, _spec);
         var (output, signals, artifacts) = _interpreter.Interpret(result.Text);
         return new AgentResult
         {

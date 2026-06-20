@@ -20,11 +20,14 @@ public sealed class Runtime
     private readonly IApprovalHandler? _approvalHandler;
     private readonly IConflictResolver? _conflictResolver;
     private readonly Func<Configuration.VectorStoreConfig?, IVectorStore?>? _storeResolver;
+    private readonly Func<EmbedderSpec, IEmbedder?>? _embedderResolver;
     private readonly SkillRegistry _skillRegistry;
     private readonly IOutputInterpreter _interpreter;
     private readonly bool _h2c;
     private readonly bool _handoff;
     private readonly ContextMemory? _memory;
+    private readonly IRouter? _router;
+    private readonly ICheckpointStore? _checkpoints;
 
     public Runtime(
         AgoraConfig config,
@@ -34,9 +37,12 @@ public sealed class Runtime
         IToolAgentFactory? toolAgentFactory = null,
         IApprovalHandler? approvalHandler = null,
         IConflictResolver? conflictResolver = null,
-        Func<Configuration.VectorStoreConfig?, IVectorStore?>? storeResolver = null)
+        Func<Configuration.VectorStoreConfig?, IVectorStore?>? storeResolver = null,
+        Func<EmbedderSpec, IEmbedder?>? embedderResolver = null,
+        ICheckpointStore? checkpointStore = null)
     {
         _config = config;
+        _checkpoints = checkpointStore;
         _provider = provider is ResilientChatProvider ? provider : new ResilientChatProvider(provider);
         _specs = ModelResolver.Resolve(config);
         _configDir = configDir;
@@ -44,6 +50,7 @@ public sealed class Runtime
         _approvalHandler = approvalHandler;
         _conflictResolver = conflictResolver;
         _storeResolver = storeResolver;
+        _embedderResolver = embedderResolver;
         _skillRegistry = SkillLoader.Load(config.Skills?.Directories ?? new List<string>());
         _h2c = string.Equals(config.Communication, "h2c", StringComparison.OrdinalIgnoreCase);
         _handoff = config.Handoff == true;
@@ -51,6 +58,9 @@ public sealed class Runtime
         Rag = rag ?? BuildRag();
         KnowledgeBase = BuildKnowledgeBase();
         _memory = BuildMemory();
+        _router = _config.Defaults.Model is string routerAlias && _specs.TryGetValue(routerAlias, out var routerSpec)
+            ? new LlmRouter(_provider, routerSpec)
+            : null;
     }
 
     public AgoraConfig Config => _config;
@@ -63,12 +73,14 @@ public sealed class Runtime
         string path, IChatProvider provider, RagPipeline? rag = null,
         IToolAgentFactory? toolAgentFactory = null, IApprovalHandler? approvalHandler = null,
         IConflictResolver? conflictResolver = null,
-        Func<Configuration.VectorStoreConfig?, IVectorStore?>? storeResolver = null)
+        Func<Configuration.VectorStoreConfig?, IVectorStore?>? storeResolver = null,
+        Func<EmbedderSpec, IEmbedder?>? embedderResolver = null,
+        ICheckpointStore? checkpointStore = null)
     {
         var full = Path.GetFullPath(path);
         return new Runtime(
             ConfigLoader.Load(full), provider, Path.GetDirectoryName(full), rag, toolAgentFactory,
-            approvalHandler, conflictResolver, storeResolver);
+            approvalHandler, conflictResolver, storeResolver, embedderResolver, checkpointStore);
     }
 
     private RagPipeline? BuildRag()
@@ -78,7 +90,7 @@ public sealed class Runtime
             return null;
         var refineModel = rag.Refine?.Model;
         ModelSpec? refineSpec = refineModel is not null && _specs.TryGetValue(refineModel, out var spec) ? spec : null;
-        return RagFactory.Build(_config, _provider, refineSpec, _storeResolver);
+        return RagFactory.Build(_config, _provider, refineSpec, _storeResolver, _embedderResolver);
     }
 
     private KnowledgeBase? BuildKnowledgeBase()
@@ -103,18 +115,16 @@ public sealed class Runtime
         return new ContextMemory(embedder, store);
     }
 
-    public async Task<AgentResult> RunAgentAsync(string agentId, string userInput)
+    public async Task<AgentResult> RunAgentAsync(string agentId, string userInput, Action<string>? onChunk = null)
     {
         using var _ = Tracing.BeginSpan("agent.run", new() { ["agent"] = agentId });
-        return await BuildAgent(agentId).RunAsync(userInput);
+        return await BuildAgent(agentId).RunAsync(userInput, "", onChunk);
     }
 
-    public async Task<RunResult> RunAsync(string userInput)
+    public async Task<RunResult> RunAsync(string userInput, string? runId = null, Action<string>? onChunk = null)
     {
-        var graph = GraphBuilder.Build(_config);
-        GraphBuilder.Validate(graph, _config.Agents.Keys.ToHashSet());
-        var executor = new GraphExecutor(graph, BuildAgent, handoff: _handoff,
-            memory: _memory, memoryTopK: _config.Memory?.TopK ?? 5);
+        var id = runId ?? (_checkpoints is not null ? Guid.NewGuid().ToString("N") : "run");
+        var executor = BuildExecutor(id, onChunk);
 
         EnrichedInput? enriched = null;
         var seedContext = "";
@@ -126,8 +136,38 @@ public sealed class Runtime
 
         using var _ = Tracing.BeginSpan("graph.run");
         var state = await executor.RunAsync(userInput, seedContext);
+        return BuildResult(state, id, enriched);
+    }
+
+    /// <summary>Resumes a previously checkpointed run from where it left off.</summary>
+    public async Task<RunResult> ResumeAsync(string runId)
+    {
+        if (_checkpoints is null)
+            throw new InvalidOperationException("resume requires a checkpoint store");
+        var snapshot = _checkpoints.Load(runId)
+            ?? throw new KeyNotFoundException($"no checkpoint found for run '{runId}'");
+
+        using var _ = Tracing.BeginSpan("graph.resume");
+        var state = await BuildExecutor(runId).RunAsync(snapshot.UserInput, resumeFrom: snapshot);
+        return BuildResult(state, runId, enriched: null);
+    }
+
+    private GraphExecutor BuildExecutor(string runId, Action<string>? onChunk = null)
+    {
+        var graph = GraphBuilder.Build(_config);
+        GraphBuilder.Validate(graph, _config.Agents.Keys.ToHashSet());
+        var memoryOptions = _config.Memory is { } m
+            ? new MemoryOptions(m.TopK, m.MaxChars, m.RememberOutputs)
+            : new MemoryOptions();
+        return new GraphExecutor(graph, BuildAgent, handoff: _handoff,
+            memory: _memory, memoryOptions: memoryOptions, router: _router,
+            checkpoints: _checkpoints, runId: runId, onChunk: onChunk);
+    }
+
+    private static RunResult BuildResult(State state, string runId, EnrichedInput? enriched)
+    {
         var output = state.LastAgent is not null ? state.Outputs.GetValueOrDefault(state.LastAgent, "") : "";
-        return new RunResult { Output = output, State = state, Enriched = enriched };
+        return new RunResult { Output = output, State = state, Enriched = enriched, RunId = runId };
     }
 
     public IAgent BuildAgent(string agentId) => BuildAgent(agentId, answerMode: false);

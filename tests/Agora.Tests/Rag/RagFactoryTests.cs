@@ -59,4 +59,42 @@ public class RagFactoryTests
     [Fact]
     public void Factory_UnknownStoreType_NoResolver_Throws()
         => Assert.Throws<NotSupportedException>(() => RagFactory.Build(Config(RagWithStore("qdrant"))));
+
+    private static AgoraConfig ConfigWithEmbedder(EmbedderConfig embedder, string? apiKeyEnv) => new()
+    {
+        Providers = apiKeyEnv is null
+            ? new()
+            : new() { ["openai"] = new ProviderConfig { ApiKeyEnv = apiKeyEnv, BaseUrl = "http://base" } },
+        Models = new() { ["m"] = new ModelConfig { Provider = "openai", Model = "x" } },
+        Agents = new() { ["a"] = new AgentConfig { Model = "m" } },
+        Rag = new RagConfig { Enabled = true, Retrieval = new RetrievalConfig { Embedder = embedder } },
+    };
+
+    [Fact]
+    public void Factory_RealEmbedder_UsesResolver_WithResolvedKeyAndModel()
+    {
+        Environment.SetEnvironmentVariable("EMB_KEY_TEST", "secret-123");
+        try
+        {
+            EmbedderSpec? captured = null;
+            var fake = new FakeEmbedder();
+            var cfg = ConfigWithEmbedder(
+                new EmbedderConfig { Type = "openai", Provider = "openai", Model = "text-embedding-3-small" },
+                "EMB_KEY_TEST");
+
+            var pipeline = RagFactory.Build(cfg, embedderResolver: spec => { captured = spec; return fake; });
+
+            Assert.Same(fake, pipeline!.Embedder);
+            Assert.Equal("openai", captured!.Type);
+            Assert.Equal("text-embedding-3-small", captured.Model);
+            Assert.Equal("secret-123", captured.ApiKey);
+            Assert.Equal("http://base", captured.ApiBase);
+        }
+        finally { Environment.SetEnvironmentVariable("EMB_KEY_TEST", null); }
+    }
+
+    [Fact]
+    public void Factory_RealEmbedder_NoResolver_Throws()
+        => Assert.Throws<NotSupportedException>(() =>
+            RagFactory.Build(ConfigWithEmbedder(new EmbedderConfig { Type = "openai" }, null)));
 }

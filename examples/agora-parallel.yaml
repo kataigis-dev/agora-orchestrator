@@ -1,0 +1,35 @@
+version: "1"
+communication: natural
+
+defaults: { model: balanced, timeout: 120 }
+
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+
+models:
+  fast:     { provider: openai, model: gpt-4o-mini }
+  balanced: { provider: openai, model: gpt-4o }
+
+agents:
+  planner:
+    model: fast
+    role: "Frame the question for the researchers."
+  research_web:
+    model: balanced
+    role: "Research the question from a web/general-knowledge angle."
+  research_docs:
+    model: balanced
+    role: "Research the question from the internal-docs angle."
+  synthesizer:
+    model: balanced
+    role: "Combine the parallel research results into one answer."
+
+# planner fans out to two researchers that run concurrently, then both feed the synthesizer.
+graph:
+  entry: planner
+  edges:
+    - { from: planner, to: research_web,  type: parallel }
+    - { from: planner, to: research_docs, type: parallel }
+    - { from: research_web,  to: synthesizer, type: sequential }
+    - { from: research_docs, to: synthesizer, type: sequential }
+    - { from: synthesizer, to: END, type: sequential }

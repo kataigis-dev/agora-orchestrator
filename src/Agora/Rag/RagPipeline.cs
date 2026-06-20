@@ -31,7 +31,7 @@ public sealed class RagPipeline
         var hits = new List<Chunk>();
         foreach (var vector in vectors)
         {
-            foreach (var chunk in Store.Query(vector, _topK, _scoreThreshold))
+            foreach (var chunk in await Store.QueryAsync(vector, _topK, _scoreThreshold, cancellationToken))
             {
                 if (seen.Add((chunk.Source, chunk.Text)))
                     hits.Add(chunk);

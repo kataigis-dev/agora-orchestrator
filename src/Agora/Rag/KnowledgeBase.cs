@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Agora.HumanInTheLoop;
 
 namespace Agora.Rag;
@@ -37,13 +39,18 @@ public sealed class KnowledgeBase
     private readonly int _neighborK;
     private readonly double _scoreThreshold;
 
+    private readonly double _conflictThreshold;
+    private readonly Dictionary<string, ConflictAssessment> _assessmentCache = new();
+    private const int MaxCacheEntries = 512;
+
     public KnowledgeBase(
         IEmbedder embedder,
         IVectorStore store,
         IConflictJudge judge,
         IConflictResolver? resolver = null,
         int neighborK = 5,
-        double scoreThreshold = 0.5)
+        double scoreThreshold = 0.5,
+        double conflictThreshold = 0.8)
     {
         _embedder = embedder;
         _store = store;
@@ -51,25 +58,34 @@ public sealed class KnowledgeBase
         _resolver = resolver;
         _neighborK = neighborK;
         _scoreThreshold = scoreThreshold;
+        _conflictThreshold = conflictThreshold;
     }
 
     public async Task<WriteResult> WriteAsync(
         string text, string source = "agent", string agentId = "", CancellationToken cancellationToken = default)
     {
         var vector = await EmbedOne(text, cancellationToken);
-        var neighbors = _store.Query(vector, _neighborK, _scoreThreshold);
+        var neighbors = await _store.QueryAsync(vector, _neighborK, _scoreThreshold, cancellationToken);
 
         if (neighbors.Count == 0)
         {
-            Add(text, vector, source);
+            await AddAsync(text, vector, source, cancellationToken);
             return new WriteResult(WriteOutcome.Added, text);
         }
 
-        var assessment = await _judge.AssessAsync(text, neighbors, cancellationToken);
+        // Prefilter: only spend an LLM judge call when a neighbor is close enough to plausibly
+        // conflict; loosely-related entries (below conflictThreshold) are added without judging.
+        if (neighbors[0].Score < _conflictThreshold)
+        {
+            await AddAsync(text, vector, source, cancellationToken);
+            return new WriteResult(WriteOutcome.NoConflict, text, "below conflict threshold");
+        }
+
+        var assessment = await AssessCachedAsync(text, neighbors, cancellationToken);
         switch (assessment.Verdict)
         {
             case ConflictVerdict.NoConflict:
-                Add(text, vector, source);
+                await AddAsync(text, vector, source, cancellationToken);
                 return new WriteResult(WriteOutcome.NoConflict, text);
 
             case ConflictVerdict.Resolved:
@@ -81,7 +97,7 @@ public sealed class KnowledgeBase
                 return await EscalateAsync(text, vector, source, agentId, neighbors, assessment, cancellationToken);
 
             default:
-                Add(text, vector, source);
+                await AddAsync(text, vector, source, cancellationToken);
                 return new WriteResult(WriteOutcome.NoConflict, text);
         }
     }
@@ -126,14 +142,36 @@ public sealed class KnowledgeBase
         if (superseded is { Count: > 0 })
         {
             var ids = superseded.Select(c => c.Id).Where(id => !string.IsNullOrEmpty(id)).ToList();
-            if (ids.Count > 0) _store.Delete(ids);
+            if (ids.Count > 0) await _store.DeleteAsync(ids, cancellationToken);
         }
-        Add(text, vector ?? await EmbedOne(text, cancellationToken), source);
+        await AddAsync(text, vector ?? await EmbedOne(text, cancellationToken), source, cancellationToken);
     }
 
-    private void Add(string text, float[] vector, string source)
-        => _store.Upsert(new[] { new Chunk(text, source) }, new[] { vector });
+    private Task AddAsync(string text, float[] vector, string source, CancellationToken cancellationToken)
+        => _store.UpsertAsync(new[] { new Chunk(text, source) }, new[] { vector }, cancellationToken);
 
     private async Task<float[]> EmbedOne(string text, CancellationToken cancellationToken)
         => (await _embedder.EmbedAsync(new[] { text }, cancellationToken))[0];
+
+    /// <summary>Judges a write, caching by (new text + neighbor texts) so identical writes don't
+    /// re-invoke the LLM. Safe: once a conflict is resolved the superseded neighbors are deleted,
+    /// which changes the neighbor set (and thus the key) for later writes.</summary>
+    private async Task<ConflictAssessment> AssessCachedAsync(
+        string text, IReadOnlyList<Chunk> neighbors, CancellationToken cancellationToken)
+    {
+        var key = CacheKey(text, neighbors);
+        if (_assessmentCache.TryGetValue(key, out var cached))
+            return cached;
+        var assessment = await _judge.AssessAsync(text, neighbors, cancellationToken);
+        if (_assessmentCache.Count >= MaxCacheEntries)
+            _assessmentCache.Clear();
+        _assessmentCache[key] = assessment;
+        return assessment;
+    }
+
+    private static string CacheKey(string text, IReadOnlyList<Chunk> neighbors)
+    {
+        var joined = text + "\u0001" + string.Join("\u0001", neighbors.Select(n => n.Text));
+        return Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(joined)));
+    }
 }

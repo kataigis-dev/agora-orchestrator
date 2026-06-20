@@ -26,7 +26,7 @@ public class RuntimeRagTests
         var embedder = new FakeEmbedder(64);
         var store = new InMemoryVectorStore();
         var vectors = await embedder.EmbedAsync(new[] { text });
-        store.Upsert(new[] { new Chunk(text, source) }, vectors);
+        await store.UpsertAsync(new[] { new Chunk(text, source) }, vectors);
         return new RagPipeline(new NoOpRefiner(), embedder, store, topK: 2, scoreThreshold: 0.0);
     }
 

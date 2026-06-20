@@ -41,9 +41,9 @@ rag:
     model: ""             # modello per il refine LLM
   retrieval:
     embedder:
-      type: ""            # "azure" | "ollama"
-      provider: ""
-      model: ""
+      type: fake          # "fake" | "openai" | "ollama"
+      provider: openai    # quale provider per chiave/base (per type non-fake)
+      model: text-embedding-3-small
     vector_store:
       type: memory        # "memory" | "file" | "qdrant"
       path: ""            # per "file"
@@ -82,3 +82,6 @@ Oltre alla lettura (retrieve), il RAG può essere **scritto** dagli agenti trami
   [[shared-knowledge-base]]
 - `LlmRefiner` chiama il provider LLM per riformulare la query prima del retrieval
 - `FakeEmbedder` è usato nei test per evitare chiamate reali ai provider
+- Embedder reali (`type: openai`/`ollama`) sono selezionabili **da config**: il core risolve
+  chiave/base dal provider e li passa a un resolver iniettato dal bordo
+  (`AgentFrameworkEmbedders.TryCreate`), come per il vector store
