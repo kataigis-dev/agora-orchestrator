@@ -21,7 +21,7 @@ public sealed class AgoraConfig
     /// <summary>Default model alias and runtime settings applied when an agent omits its own.</summary>
     public Defaults Defaults { get; set; } = new();
 
-    /// <summary>LLM providers keyed by name (e.g. <c>openai</c>, <c>ollama</c>).</summary>
+    /// <summary>LLM providers keyed by name (e.g. <c>openai</c>, <c>ollama</c>, <c>github-copilot</c>).</summary>
     public Dictionary<string, ProviderConfig> Providers { get; set; } = new();
 
     /// <summary>Model aliases keyed by name, each mapping to a provider + concrete model.</summary>

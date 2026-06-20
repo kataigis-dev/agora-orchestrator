@@ -10,10 +10,12 @@ namespace Agora.AgentFramework;
 /// <summary>Builds the appropriate Microsoft.Extensions.AI chat client for a model spec.</summary>
 internal static class ChatClients
 {
-    /// <summary>Returns an <see cref="IChatClient"/> for the spec's provider (Ollama, or OpenAI-compatible).</summary>
+    /// <summary>Returns an <see cref="IChatClient"/> for the spec's provider (Ollama, GitHub Copilot,
+    /// or any OpenAI-compatible endpoint).</summary>
     public static IChatClient Build(ModelSpec spec) => spec.Provider switch
     {
         "ollama" => new OllamaApiClient(new Uri(spec.ApiBase ?? "http://localhost:11434"), spec.Model),
+        "github-copilot" or "copilot" => CopilotChatClient.Build(spec),
         _ => BuildChatClient(spec).AsIChatClient(),
     };
 

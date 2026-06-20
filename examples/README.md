@@ -26,6 +26,15 @@ Uses llama studio / LM Studio with `google/gemma-4-e4b`.
 dotnet run --project src/Agora.Cli -- run --config examples/agora-llama.yaml --agent assistant --input "Hello"
 ```
 
+### agora-copilot.yaml — GitHub Copilot provider
+
+Single agent backed by GitHub Copilot (`api.githubcopilot.com`). Uses your editor's Copilot
+sign-in token, or `GITHUB_COPILOT_OAUTH_TOKEN` if set. Requires a Copilot subscription.
+
+```bash
+dotnet run --project src/Agora.Cli -- run --config examples/agora-copilot.yaml --agent assistant --input "Hello"
+```
+
 ### agora-generate-api.yaml — Code generation with review
 
 Graph: generator → reviewer (conditional: fix/done). Uses MCP filesystem to read/write files,

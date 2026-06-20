@@ -59,7 +59,7 @@ public static class ConfigWizard
     private static void ReadProviders(TextReader input, TextWriter output, AgoraConfig config)
     {
         output.WriteLine();
-        output.WriteLine("Providers — e.g. openai, anthropic, ollama (at least one).");
+        output.WriteLine("Providers — e.g. openai, ollama, github-copilot (at least one).");
         while (true)
         {
             var done = config.Providers.Count > 0;

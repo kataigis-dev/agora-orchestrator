@@ -23,4 +23,9 @@ public sealed record AgentCard
 
     /// <summary>Subset of <see cref="Tools"/> that require human approval before running.</summary>
     public IReadOnlyList<string> Approvals { get; init; } = Array.Empty<string>();
+
+    /// <summary>Composes the agent's instructions by joining the non-empty <see cref="Role"/> and
+    /// <see cref="SystemPrompt"/> with a blank line (used as the system message / agent instructions).</summary>
+    public string ComposeInstructions() =>
+        string.Join("\n\n", new[] { Role, SystemPrompt }.Where(p => !string.IsNullOrEmpty(p)));
 }

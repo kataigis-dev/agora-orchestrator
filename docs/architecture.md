@@ -48,6 +48,14 @@ a directed graph of agents:
 3. May call tools (built-in, MCP) or skills.
 4. Produces an output; routing signals/artifacts are parsed from it.
 
+### Execution observation
+
+The executor stays presentation-free: it emits run events (graph start, node start, parallel
+fork, signals, artifacts, edge taken, complete) to an injected `IExecutionObserver`. The default
+`ConsoleExecutionObserver` renders the colored CLI visualization; `NullExecutionObserver` silences
+it. This seam keeps orchestration testable (assert the event sequence) and lets you plug structured
+logging without touching the engine.
+
 ## Communication
 
 ### H2C

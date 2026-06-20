@@ -57,6 +57,31 @@ providers:
 Any OpenAI-compatible endpoint (LM Studio, vLLM, TGI, LocalAI, Azure OpenAI with an Azure base_url),
 via the OpenAI client with a custom `Endpoint`.
 
+### GitHub Copilot
+
+```yaml
+providers:
+  github-copilot:
+    api_key_env: GITHUB_COPILOT_OAUTH_TOKEN   # GitHub OAuth token; optional (see below)
+models:
+  copilot: { provider: github-copilot, model: gpt-4o }
+```
+
+Targets the Copilot editor endpoint (`https://api.githubcopilot.com`). It speaks the OpenAI
+chat-completions format but needs the editor headers (`Editor-Version`, `Copilot-Integration-Id`)
+and a short-lived **session token**. Agora handles that automatically: it takes a long-lived GitHub
+**OAuth token** and exchanges it at `https://api.github.com/copilot_internal/v2/token`, caching the
+session token and refreshing it before it expires (`CopilotChatClient` / `CopilotTokenProvider`).
+
+The OAuth token is resolved in this order:
+
+1. The provider's `api_key_env` (an env var holding the OAuth token), if set.
+2. Otherwise your editor's Copilot sign-in file: `~/.config/github-copilot/apps.json` (or
+   `hosts.json`) — i.e. if you're already signed in to Copilot in VS Code / Neovim, no config needed.
+
+Requires an active GitHub Copilot subscription. Aliases: `github-copilot` and `copilot`.
+Embeddings are not provided over this endpoint — use another provider for `rag`.
+
 ## Models
 
 A model alias maps to a provider + concrete model:

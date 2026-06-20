@@ -87,7 +87,9 @@ Agents drive routing with signals: `<<signal done>>` (natural) or the block subt
 
 ### Real-time visualization (CLI)
 
-With `--graph` the CLI prints the graph and each step (agent, input, signals, artifacts, chosen edge).
+With `--graph` the CLI prints the graph and each step (agent, input, signals, artifacts, chosen
+edge). The rendering is produced by `ConsoleExecutionObserver`, the default `IExecutionObserver`;
+pass `NullExecutionObserver` (or a custom one) to silence or redirect it.
 
 ## State (blackboard)
 

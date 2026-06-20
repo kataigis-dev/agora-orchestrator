@@ -1,0 +1,20 @@
+version: "1"
+communication: natural
+defaults: { model: copilot, temperature: 0.3, max_tokens: 4096, timeout: 120 }
+providers:
+  # GitHub Copilot editor endpoint. The api_key_env holds a GitHub OAuth token, which is
+  # exchanged internally for a short-lived Copilot session token. If omitted, the token is
+  # read from your editor's sign-in file (~/.config/github-copilot/apps.json).
+  github-copilot:
+    api_key_env: GITHUB_COPILOT_OAUTH_TOKEN
+models:
+  copilot: { provider: github-copilot, model: gpt-4o }
+agents:
+  assistant:
+    model: copilot
+    role: "You are a helpful AI assistant."
+    system_prompt: "Answer concisely and accurately."
+graph:
+  entry: assistant
+  edges:
+    - { from: assistant, to: END, type: sequential }

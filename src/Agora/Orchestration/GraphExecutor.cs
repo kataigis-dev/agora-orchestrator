@@ -22,15 +22,17 @@ public sealed class GraphExecutor
     private readonly ICheckpointStore? _checkpoints;
     private readonly string _runId;
     private readonly Action<string>? _onChunk;
+    private readonly IExecutionObserver _observer;
     private const int OutputMemoryCap = 2000;
 
     /// <summary>Creates an executor for a graph, with optional handoff mode, context memory, LLM
-    /// router, checkpoint store, run id, and a streaming token sink.</summary>
+    /// router, checkpoint store, run id, a streaming token sink, and an execution observer
+    /// (defaults to <see cref="ConsoleExecutionObserver"/>).</summary>
     public GraphExecutor(
         Graph graph, Func<string, IAgent> agentFactory, int maxSteps = 100, bool handoff = false,
         Agora.Rag.ContextMemory? memory = null, Agora.Rag.MemoryOptions? memoryOptions = null,
         IRouter? router = null, ICheckpointStore? checkpoints = null, string? runId = null,
-        Action<string>? onChunk = null)
+        Action<string>? onChunk = null, IExecutionObserver? observer = null)
     {
         _graph = graph;
         _agentFactory = agentFactory;
@@ -42,6 +44,7 @@ public sealed class GraphExecutor
         _checkpoints = checkpoints;
         _runId = runId ?? "run";
         _onChunk = onChunk;
+        _observer = observer ?? new ConsoleExecutionObserver();
     }
 
     /// <summary>Runs the graph from the entry node (or resumes from <paramref name="resumeFrom"/>) until
@@ -55,21 +58,7 @@ public sealed class GraphExecutor
         if (resumeFrom is null && !string.IsNullOrEmpty(seedContext))
             state.Messages.Add(new Message("rag", _graph.Entry, seedContext));
 
-        var original = Console.ForegroundColor;
-
-        void Render(string msg) { Console.Out.WriteLine(msg); Console.Out.Flush(); }
-
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Render("━━━ Agent Graph Execution ━━━");
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.Out.Write("  Graph: "); Console.Out.Flush();
-        Console.ForegroundColor = ConsoleColor.White;
-        var lines = new List<string>();
-        foreach (var edge in _graph.Edges)
-            lines.Add($"{edge.Source} ──{edge.Type}→ {edge.Target}");
-        Render(string.Join("\n" + new string(' ', 9), lines));
-        Render("");
-        Console.ForegroundColor = original;
+        _observer.OnGraphStart(_graph);
 
         var current = resumeFrom?.Current ?? _graph.Entry;
         var steps = resumeFrom?.Steps ?? 0;
@@ -80,15 +69,7 @@ public sealed class GraphExecutor
                 throw new ExecutionError($"exceeded max_steps={_maxSteps}");
 
             var node = _graph.Nodes[current];
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.Out.Write($"  ▶ [{steps}] Agent: "); Console.Out.Flush();
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.Out.WriteLine(node.Id); Console.Out.Flush();
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Render($"  └─ input: {Truncate(userInput, 50)}");
-            Render("");
-            Console.ForegroundColor = original;
+            _observer.OnNodeStart(steps, node.Id, userInput);
 
             AgentResult result;
             using (Tracing.BeginSpan("node.run", new() { ["node"] = node.Id }))
@@ -112,46 +93,17 @@ public sealed class GraphExecutor
                 .Select(e => e.Target).Distinct().ToList();
             if (parallelTargets.Count > 0)
             {
-                current = await FanOutAsync(current, parallelTargets, state, Render);
+                current = await FanOutAsync(current, parallelTargets, state);
                 Checkpoint(state, current, steps);
                 continue;
             }
 
             var next = await NextNodeAsync(current, state);
 
-            var signals = state.Signals.Count > 0
-                ? string.Join(", ", state.Signals.Keys) : "none";
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Render($"  └─ signals: {signals}");
-            Console.ForegroundColor = original;
-
-            if (result.Artifacts.Count > 0)
-            {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                foreach (var (key, value) in result.Artifacts)
-                    Render($"  └─ artifact {key}: {Truncate(value, 60)}");
-                Console.ForegroundColor = original;
-            }
-
-            var edgeLabel = EdgeLabel(current, next, state);
-            if (next != Graph.End)
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Out.Write($"  ──▶ {edgeLabel} → "); Console.Out.Flush();
-                Console.ForegroundColor = ConsoleColor.White;
-                Render(next);
-                Render("");
-                Console.ForegroundColor = original;
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Out.Write($"  ──▶ {edgeLabel} → "); Console.Out.Flush();
-                Console.ForegroundColor = ConsoleColor.Magenta;
-                Render("END");
-                Render("");
-                Console.ForegroundColor = original;
-            }
+            _observer.OnSignals(state.Signals.Keys.ToList());
+            foreach (var (key, value) in result.Artifacts)
+                _observer.OnArtifact(key, value);
+            _observer.OnEdge(EdgeLabel(current, next, state), next, next == Graph.End);
 
             if (next != Graph.End)
             {
@@ -171,11 +123,7 @@ public sealed class GraphExecutor
             Checkpoint(state, current, steps);
         }
 
-        Console.ForegroundColor = ConsoleColor.Green;
-        Render("━━━ Execution Complete ━━━");
-        Render("");
-        Console.ForegroundColor = original;
-
+        _observer.OnGraphComplete();
         return state;
     }
 
@@ -220,13 +168,12 @@ public sealed class GraphExecutor
     /// <summary>Runs the fork's parallel branches concurrently (agent calls run at the same time),
     /// records their results serially, and returns the single node they converge on.</summary>
     private async Task<string> FanOutAsync(
-        string fork, IReadOnlyList<string> branches, State state, Action<string> render)
+        string fork, IReadOnlyList<string> branches, State state)
     {
         // Deliver the fork's output to each branch's inbox before running them.
         foreach (var branch in branches)
             state.Messages.Add(new Message(fork, branch, state.Outputs[fork]));
-        render($"  ⇉ parallel: {string.Join(", ", branches)}");
-        render("");
+        _observer.OnParallel(branches);
 
         // Concurrency is in the (expensive) agent calls; state is mutated only after they all finish.
         var results = await Task.WhenAll(branches.Select(async branch =>

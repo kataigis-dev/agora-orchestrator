@@ -4,14 +4,17 @@ using Microsoft.Extensions.AI;
 namespace Agora.AgentFramework;
 
 /// <summary>Chat provider backed by Microsoft.Extensions.AI, dispatching to OpenAI-compatible
-/// endpoints or Ollama based on the model spec.</summary>
-public sealed class AgentFrameworkChatProvider : IStreamingChatProvider
+/// endpoints or Ollama based on the model spec. Clients are reused via a <see cref="ChatClientCache"/>
+/// and released when the provider is disposed.</summary>
+public sealed class AgentFrameworkChatProvider : IStreamingChatProvider, IDisposable
 {
+    private readonly ChatClientCache _clients = new();
+
     /// <inheritdoc />
     public async Task<CompletionResult> CompleteAsync(
         IReadOnlyList<Agora.Providers.ChatMessage> messages, ModelSpec spec, CancellationToken cancellationToken = default)
     {
-        IChatClient chatClient = ChatClients.Build(spec);
+        IChatClient chatClient = _clients.Get(spec);
         var response = await chatClient.GetResponseAsync(ToChatMessages(messages), Options(spec),
             cancellationToken: cancellationToken);
         return new CompletionResult { Text = response.Text ?? string.Empty, Model = spec.Model };
@@ -22,7 +25,7 @@ public sealed class AgentFrameworkChatProvider : IStreamingChatProvider
         IReadOnlyList<Agora.Providers.ChatMessage> messages, ModelSpec spec, Action<string> onChunk,
         CancellationToken cancellationToken = default)
     {
-        IChatClient chatClient = ChatClients.Build(spec);
+        IChatClient chatClient = _clients.Get(spec);
         var text = new System.Text.StringBuilder();
         await foreach (var update in chatClient.GetStreamingResponseAsync(
             ToChatMessages(messages), Options(spec), cancellationToken: cancellationToken))
@@ -50,4 +53,7 @@ public sealed class AgentFrameworkChatProvider : IStreamingChatProvider
         "assistant" => ChatRole.Assistant,
         _ => ChatRole.User,
     };
+
+    /// <summary>Disposes the cached chat clients.</summary>
+    public void Dispose() => _clients.Dispose();
 }

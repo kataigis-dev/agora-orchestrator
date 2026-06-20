@@ -15,10 +15,16 @@ namespace Agora.AgentFramework;
 public sealed class AgentFrameworkAgent : IAgent
 {
     private readonly AgentBuildContext _ctx;
+    private readonly ChatClientCache _clients;
     private readonly RetryPolicy _retry = new(new SystemClock());
 
-    /// <summary>Creates the agent from its build context (card, model, skills, tools, handlers).</summary>
-    public AgentFrameworkAgent(AgentBuildContext ctx) => _ctx = ctx;
+    /// <summary>Creates the agent from its build context (card, model, skills, tools, handlers) and the
+    /// shared client cache used to reuse the underlying chat client across runs.</summary>
+    public AgentFrameworkAgent(AgentBuildContext ctx, ChatClientCache clients)
+    {
+        _ctx = ctx;
+        _clients = clients;
+    }
 
     /// <summary>Assembles the tool set (skills, filesystem, RAG, ask_agent, MCP), runs the agent
     /// through the approval loop until no approvals remain, and interprets the final reply.
@@ -29,40 +35,32 @@ public sealed class AgentFrameworkAgent : IAgent
         var spec = _ctx.Spec;
         var approvals = _ctx.Approvals.ToHashSet(StringComparer.Ordinal);
 
-        var tools = new List<AITool>();
+        // Assemble every candidate tool unwrapped: skills, filesystem, shared KB, ask_agent, MCP.
+        var rawTools = new List<AITool>();
         if (_ctx.Skills.Count > 0)
-            tools.Add(SkillTools.LoadSkill(_ctx.Skills));
-
-        // Built-in filesystem tools (no MCP server needed)
-        tools.AddRange(BuiltInFileTools.Create(_ctx.Card.Tools));
-
-        // Built-in shared knowledge base tools (rag_search / rag_write)
-        tools.AddRange(RagTools.Create(_ctx.Card.Tools, _ctx.Rag, _ctx.KnowledgeBase, _ctx.Card.Id));
-
-        // Built-in ask_agent tool (ask another agent after rag_search comes up short)
+            rawTools.Add(SkillTools.LoadSkill(_ctx.Skills));
+        rawTools.AddRange(BuiltInFileTools.Create(_ctx.Card.Tools));
+        rawTools.AddRange(RagTools.Create(_ctx.Card.Tools, _ctx.Rag, _ctx.KnowledgeBase, _ctx.Card.Id));
         if (AskAgentTool.Create(_ctx.Card.Tools, _ctx.AskAgent) is { } askAgent)
-            tools.Add(askAgent);
+            rawTools.Add(askAgent);
 
-        // MCP tools
         await using var mcp = await McpToolSession.ConnectAsync(_ctx.Mcp, _ctx.Card.Tools, CancellationToken.None);
-        foreach (var tool in mcp.Tools)
+        rawTools.AddRange(mcp.Tools);
+
+        // Gate any approval-listed tool — built-in or MCP — through ApprovalRequiredAIFunction.
+        var tools = new List<AITool>(rawTools.Count);
+        foreach (var tool in rawTools)
         {
             if (!approvals.Contains(tool.Name))
-            {
                 tools.Add(tool);
-            }
             else if (tool is AIFunction fn)
-            {
                 tools.Add(new ApprovalRequiredAIFunction(fn));
-            }
             else
-            {
                 throw new InvalidOperationException(
                     $"tool '{tool.Name}' requires approval but is not an AIFunction that can be gated");
-            }
         }
 
-        var chatClient = ChatClients.Build(spec);
+        var chatClient = _clients.Get(spec);
         AIAgent agent = new ChatClientAgent(chatClient, new ChatClientAgentOptions
         {
             ChatOptions = new ChatOptions
@@ -74,7 +72,7 @@ public sealed class AgentFrameworkAgent : IAgent
         });
 
         var messages = new List<Microsoft.Extensions.AI.ChatMessage>();
-        var instructions = BuildInstructions();
+        var instructions = _ctx.Card.ComposeInstructions();
         if (!string.IsNullOrEmpty(instructions))
             messages.Add(new Microsoft.Extensions.AI.ChatMessage(ChatRole.System, instructions));
         var userContent = string.IsNullOrEmpty(context) ? userInput : $"{context}\n\n{userInput}";
@@ -136,11 +134,4 @@ public sealed class AgentFrameworkAgent : IAgent
         McpServerToolCallContent m => (m.Name, m.Arguments?.ToString() ?? string.Empty),
         _ => (call.CallId, string.Empty),
     };
-
-    /// <summary>Concatenates the card's role and system prompt into the agent instructions.</summary>
-    private string BuildInstructions()
-    {
-        var parts = new[] { _ctx.Card.Role, _ctx.Card.SystemPrompt }.Where(p => !string.IsNullOrEmpty(p));
-        return string.Join("\n\n", parts);
-    }
 }

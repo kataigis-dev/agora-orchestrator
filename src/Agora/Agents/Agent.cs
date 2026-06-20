@@ -26,7 +26,7 @@ public sealed class Agent : IAgent
     public async Task<AgentResult> RunAsync(string userInput, string context = "", Action<string>? onChunk = null)
     {
         var messages = new List<ChatMessage>();
-        var system = BuildSystemPrompt();
+        var system = _card.ComposeInstructions();
         if (!string.IsNullOrEmpty(system))
             messages.Add(new ChatMessage("system", system));
         var userContent = string.IsNullOrEmpty(context) ? userInput : $"{context}\n\n{userInput}";
@@ -44,12 +44,5 @@ public sealed class Agent : IAgent
             Signals = signals,
             Artifacts = artifacts,
         };
-    }
-
-    /// <summary>Concatenates the card's role and system prompt into a single system message.</summary>
-    private string BuildSystemPrompt()
-    {
-        var parts = new[] { _card.Role, _card.SystemPrompt }.Where(p => !string.IsNullOrEmpty(p));
-        return string.Join("\n\n", parts);
     }
 }
