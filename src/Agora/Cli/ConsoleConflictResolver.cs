@@ -8,12 +8,14 @@ public sealed class ConsoleConflictResolver : IConflictResolver
     private readonly TextReader _input;
     private readonly TextWriter _output;
 
+    /// <summary>Creates the resolver, defaulting to <see cref="Console.In"/> and <see cref="Console.Error"/>.</summary>
     public ConsoleConflictResolver(TextReader? input = null, TextWriter? output = null)
     {
         _input = input ?? Console.In;
         _output = output ?? Console.Error;
     }
 
+    /// <summary>Prints the conflict and prompts the user to keep existing, keep new, or merge.</summary>
     public Task<ConflictDecision> ResolveAsync(
         ConflictResolutionRequest request, CancellationToken cancellationToken = default)
     {

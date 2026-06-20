@@ -9,6 +9,8 @@ namespace Agora.AgentFramework;
 /// </summary>
 internal static class AskAgentTool
 {
+    /// <summary>Creates the <c>ask_agent</c> tool when it is allow-listed and an ask callback exists;
+    /// otherwise returns null.</summary>
     public static AITool? Create(IReadOnlyList<string> allowedTools, Func<string, string, Task<string>>? ask)
     {
         var set = allowedTools.ToHashSet(StringComparer.Ordinal);

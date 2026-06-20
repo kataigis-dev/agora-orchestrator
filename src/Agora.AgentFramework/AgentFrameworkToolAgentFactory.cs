@@ -8,5 +8,6 @@ namespace Agora.AgentFramework;
 /// </summary>
 public sealed class AgentFrameworkToolAgentFactory : IToolAgentFactory
 {
+    /// <inheritdoc />
     public IAgent Create(AgentBuildContext context) => new AgentFrameworkAgent(context);
 }

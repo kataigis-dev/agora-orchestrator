@@ -17,8 +17,12 @@ public sealed class AgentFrameworkAgent : IAgent
     private readonly AgentBuildContext _ctx;
     private readonly RetryPolicy _retry = new(new SystemClock());
 
+    /// <summary>Creates the agent from its build context (card, model, skills, tools, handlers).</summary>
     public AgentFrameworkAgent(AgentBuildContext ctx) => _ctx = ctx;
 
+    /// <summary>Assembles the tool set (skills, filesystem, RAG, ask_agent, MCP), runs the agent
+    /// through the approval loop until no approvals remain, and interprets the final reply.
+    /// <paramref name="onChunk"/> is ignored: tool agents don't stream yet.</summary>
     public async Task<AgentResult> RunAsync(string userInput, string context = "", Action<string>? onChunk = null)
     {
         // Streaming is not wired through the tool-calling/approval loop yet; tool agents ignore onChunk.
@@ -108,6 +112,7 @@ public sealed class AgentFrameworkAgent : IAgent
         return new AgentResult { Output = output, Signals = signals, Artifacts = artifacts };
     }
 
+    /// <summary>Routes a tool-approval request to the injected handler (fail-closed if none).</summary>
     private async Task<bool> ApprovalFor(ToolApprovalRequestContent request)
     {
         if (_ctx.ApprovalHandler is null)
@@ -122,6 +127,7 @@ public sealed class AgentFrameworkAgent : IAgent
         });
     }
 
+    /// <summary>Extracts a tool call's name and a readable argument string for the approval prompt.</summary>
     private static (string Name, string Arguments) Describe(ToolCallContent call) => call switch
     {
         FunctionCallContent f => (f.Name, f.Arguments is null
@@ -131,6 +137,7 @@ public sealed class AgentFrameworkAgent : IAgent
         _ => (call.CallId, string.Empty),
     };
 
+    /// <summary>Concatenates the card's role and system prompt into the agent instructions.</summary>
     private string BuildInstructions()
     {
         var parts = new[] { _ctx.Card.Role, _ctx.Card.SystemPrompt }.Where(p => !string.IsNullOrEmpty(p));

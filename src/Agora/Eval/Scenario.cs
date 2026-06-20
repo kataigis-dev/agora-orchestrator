@@ -7,6 +7,7 @@ namespace Agora.Eval;
 /// </summary>
 public sealed class Scenario
 {
+    /// <summary>The input fed to the run.</summary>
     public string Input { get; set; } = "";
 
     /// <summary>Scripted model responses, returned in order to each agent call.</summary>
@@ -25,4 +26,5 @@ public sealed class Scenario
     public string? Agent { get; set; }
 }
 
+/// <summary>Outcome of running a scenario: whether it passed and the list of failed expectations.</summary>
 public sealed record EvalResult(bool Passed, IReadOnlyList<string> Failures);

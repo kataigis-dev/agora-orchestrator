@@ -9,6 +9,7 @@ namespace Agora.AgentFramework;
 /// </summary>
 public static class AgentFrameworkEmbedders
 {
+    /// <summary>Creates a real embedder for <c>openai</c>/<c>ollama</c> specs, or null otherwise.</summary>
     public static IEmbedder? TryCreate(EmbedderSpec spec) => spec.Type switch
     {
         "openai" => AgentFrameworkEmbedder.OpenAI(spec.Model, spec.ApiKey ?? "", spec.ApiBase),

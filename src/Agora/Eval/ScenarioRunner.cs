@@ -6,6 +6,8 @@ namespace Agora.Eval;
 /// then checks the expectations. Deterministic and offline — ideal for pipeline regression tests.</summary>
 public static class ScenarioRunner
 {
+    /// <summary>Runs the scenario against the config with scripted responses and returns whether all
+    /// output/signal expectations held.</summary>
     public static async Task<EvalResult> RunAsync(string configPath, Scenario scenario)
     {
         var provider = new FakeChatProvider(scenario.Responses);

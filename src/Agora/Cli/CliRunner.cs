@@ -5,11 +5,18 @@ using Agora.Rag;
 
 namespace Agora.Cli;
 
+/// <summary>CLI entry point: parses arguments, selects the command, and runs it with the supplied
+/// edge dependencies. Returns a process exit code.</summary>
 public static class CliRunner
 {
+    /// <summary>Dispatches <paramref name="args"/> to the matching command and returns its exit code.
+    /// I/O streams default to the console but can be injected (used by tests).</summary>
     public static int Run(
         string[] args,
         IChatProvider? provider = null,
+        TextWriter? @out = null,
+        TextWriter? error = null,
+        TextReader? @in = null,
         IToolAgentFactory? toolAgentFactory = null,
         HumanInTheLoop.IApprovalHandler? approvalHandler = null,
         HumanInTheLoop.IConflictResolver? conflictResolver = null,
@@ -18,8 +25,9 @@ public static class CliRunner
     {
         var action = args.ElementAtOrDefault(0);
         var options = ParseOptions(args?.Skip(1));
-        var state = new ConfigState(options, provider, toolAgentFactory, 
-            approvalHandler, conflictResolver, storeResolver, embedderResolver);
+        var state = new ConfigState(options, provider, toolAgentFactory,
+            approvalHandler, conflictResolver, storeResolver, embedderResolver,
+            @in ?? Console.In, @out ?? Console.Out, error ?? Console.Error);
         var command = action switch
         {
             "init" => CommandStrategy.Init,
@@ -34,6 +42,7 @@ public static class CliRunner
         return CommandStrategy.Execute(command, state);
     }
 
+    /// <summary>Parses <c>--key value</c> / <c>--flag</c> arguments into a map (flags become "true").</summary>
     private static Dictionary<string, string> ParseOptions(IEnumerable<string>? args)
     {
         if (args?.Count() is null or 0) return [];

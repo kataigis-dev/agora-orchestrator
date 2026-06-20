@@ -6,24 +6,29 @@ using Agora.Rag;
 
 namespace Agora.Cli;
 
+/// <summary>The handlers behind each CLI verb (<c>init</c>/<c>run</c>/<c>resume</c>/<c>ingest</c>/
+/// <c>validate</c>/<c>eval</c>), each a <c>ConfigState → exit code</c> function.</summary>
 internal static class CommandStrategy
 {
-    public static Func<ConfigState, int> EmptyArgs => (_) =>
+    /// <summary>Prints usage and returns a non-zero exit code (no/unknown verb).</summary>
+    public static Func<ConfigState, int> EmptyArgs => (state) =>
     {
-        Console.Error.WriteLine("usage: agora <init|run|resume|ingest|validate|eval> [options]");
-        Console.Error.WriteLine("  init     [--output <file>]   guided config builder");
-        Console.Error.WriteLine("  run      --config <file> --input <text> [--agent <id>] [--graph] [--stream] [--checkpoint <dir>] [--run-id <id>]");
-        Console.Error.WriteLine("  resume   --config <file> --checkpoint <dir> --run-id <id>");
-        Console.Error.WriteLine("  eval     --config <file> --scenario <file.json>");
+        state.Error.WriteLine("usage: agora <init|run|resume|ingest|validate|eval> [options]");
+        state.Error.WriteLine("  init     [--output <file>]   guided config builder");
+        state.Error.WriteLine("  run      --config <file> --input <text> [--agent <id>] [--graph] [--stream] [--checkpoint <dir>] [--run-id <id>]");
+        state.Error.WriteLine("  resume   --config <file> --checkpoint <dir> --run-id <id>");
+        state.Error.WriteLine("  eval     --config <file> --scenario <file.json>");
         return 1;
     };
 
+    /// <summary>Runs the guided config wizard, writing to <c>--output</c> (or the default path).</summary>
     public static Func<ConfigState, int> Init => (state) =>
     {
-        return ConfigWizard.Run(Console.In, Console.Out, Console.Error,
+        return ConfigWizard.Run(state.In, state.Out, state.Error,
                 state.Options.TryGetValue("output", out var path) ? path : null);
     };
 
+    /// <summary>Runs an eval scenario (<c>--scenario</c>) against a config and reports PASS/FAIL.</summary>
     public static Func<ConfigState, int> Eval => (state) =>
     {
         var scenarioPath = Require(state.Options, "scenario");
@@ -37,29 +42,39 @@ internal static class CommandStrategy
             .GetAwaiter().GetResult();
         if (result.Passed)
         {
-            Console.Out.WriteLine("PASS");
+            state.Out.WriteLine("PASS");
             return 0;
         }
-        Console.Error.WriteLine("FAIL");
+        state.Error.WriteLine("FAIL");
         foreach (var failure in result.Failures)
-            Console.Error.WriteLine($"  - {failure}");
+            state.Error.WriteLine($"  - {failure}");
         return 1;
     };
 
+    /// <summary>Loads and validates a config, printing OK on success or INVALID on failure.</summary>
     public static Func<ConfigState, int> Validate => (state) =>
     {
-        ConfigLoader.Load(Require(state.Options, "config"));
-        Console.Out.WriteLine("OK");
+        try
+        {
+            ConfigLoader.Load(Require(state.Options, "config"));
+        }
+        catch (ConfigException e)
+        {
+            state.Error.WriteLine($"INVALID: {e.Message}");
+            return 1;
+        }
+        state.Out.WriteLine("OK");
         return 0;
     };
 
+    /// <summary>Runs a single agent or the graph, with optional streaming and checkpointing.</summary>
     public static Func<ConfigState, int> Run => (state) =>
     {
         var isGraph = state.Options.ContainsKey("graph");
         var checkpoints = state.Options.TryGetValue("checkpoint", out var cpDir)
             ? new FileCheckpointStore(cpDir) : null;
         var stream = state.Options.ContainsKey("stream");
-        Action<string>? onChunk = stream ? chunk => Console.Out.Write(chunk) : null;
+        Action<string>? onChunk = stream ? chunk => state.Out.Write(chunk) : null;
         var runtime = Runtime.FromConfig(Require(state.Options, "config"),
             state.Provider ?? throw new InvalidOperationException("no chat provider supplied"),
             toolAgentFactory: state.ToolAgentFactory, approvalHandler: state.ApprovalHandler,
@@ -69,19 +84,20 @@ internal static class CommandStrategy
         {
             var result = runtime.RunAsync(Require(state.Options, "input"), state.Options.GetValueOrDefault("run-id"), onChunk)
                 .GetAwaiter().GetResult();
-            if (stream) Console.Out.WriteLine(); else Console.Out.WriteLine(result.Output);
+            if (stream) state.Out.WriteLine(); else state.Out.WriteLine(result.Output);
             if (checkpoints is not null)
-                Console.Error.WriteLine($"run-id: {result.RunId}");
+                state.Error.WriteLine($"run-id: {result.RunId}");
         }
         else
         {
             var result = runtime.RunAgentAsync(Require(state.Options, "agent"), Require(state.Options, "input"), onChunk)
                 .GetAwaiter().GetResult();
-            if (stream) Console.Out.WriteLine(); else Console.Out.WriteLine(result.Output);
+            if (stream) state.Out.WriteLine(); else state.Out.WriteLine(result.Output);
         }
         return 0;
     };
 
+    /// <summary>Resumes a previously checkpointed graph run by <c>--run-id</c>.</summary>
     public static Func<ConfigState, int> Resume = (state) =>
     {
         var runtime = Runtime.FromConfig(Require(state.Options, "config"),
@@ -91,10 +107,11 @@ internal static class CommandStrategy
             embedderResolver: state.EmbedderResolver,
             checkpointStore: new FileCheckpointStore(Require(state.Options, "checkpoint")));
         var result = runtime.ResumeAsync(Require(state.Options, "run-id")).GetAwaiter().GetResult();
-        Console.Out.WriteLine(result.Output);
+        state.Out.WriteLine(result.Output);
         return 0;
     };
 
+    /// <summary>Ingests the config's RAG sources into its vector store and reports the chunk count.</summary>
     public static Func<ConfigState, int> Ingest => (state) =>
     {
         var runtime = Runtime.FromConfig(Require(state.Options, "config"),
@@ -102,7 +119,7 @@ internal static class CommandStrategy
             storeResolver: state.StoreResolver, embedderResolver: state.EmbedderResolver);
         if (runtime.Rag is null)
         {
-            Console.Error.WriteLine("ERROR: config has no enabled 'rag' section");
+            state.Error.WriteLine("ERROR: config has no enabled 'rag' section");
             return 1;
         }
         var ingestCfg = runtime.Config.Rag?.Ingest;
@@ -110,10 +127,11 @@ internal static class CommandStrategy
             chunkSize: ingestCfg?.ChunkSize ?? 800, overlap: ingestCfg?.ChunkOverlap ?? 120);
         var count = ingestor.IngestPathsAsync(ingestCfg?.Sources ?? new List<string>())
             .GetAwaiter().GetResult();
-        Console.Out.WriteLine($"ingested {count} chunks");
+        state.Out.WriteLine($"ingested {count} chunks");
         return 0;
     };
 
+    /// <summary>Runs a command, converting any thrown exception into an error message and exit code 1.</summary>
     public static int Execute(Func<ConfigState, int> command, ConfigState state)
     {
         try
@@ -122,11 +140,12 @@ internal static class CommandStrategy
         }
         catch(Exception ex)
         {
-            Console.Error.WriteLine($"ERROR: {ex.Message}");
+            state.Error.WriteLine($"ERROR: {ex.Message}");
             return 1;
         }
     }
 
+    /// <summary>Returns a required option's value, or throws if it's missing.</summary>
     private static string Require(Dictionary<string, string> options, string name)
         => options.TryGetValue(name, out var value)
             ? value

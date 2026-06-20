@@ -9,6 +9,8 @@ namespace Agora.AgentFramework;
 /// </summary>
 internal static class SkillTools
 {
+    /// <summary>Builds the <c>load_skill</c> function whose description lists the available skills and
+    /// which returns a named skill's full body on call.</summary>
     public static AIFunction LoadSkill(IReadOnlyList<Skill> skills)
     {
         var byName = skills.ToDictionary(s => s.Name, StringComparer.Ordinal);

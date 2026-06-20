@@ -11,6 +11,8 @@ namespace Agora.AgentFramework;
 /// </summary>
 internal static class RagTools
 {
+    /// <summary>Builds the allow-listed KB tools (<c>rag_search</c>/<c>rag_write</c>) available to the
+    /// agent, given the RAG pipeline and knowledge base.</summary>
     public static List<AITool> Create(
         IReadOnlyList<string> allowedTools, RagPipeline? rag, KnowledgeBase? knowledgeBase, string agentId)
     {

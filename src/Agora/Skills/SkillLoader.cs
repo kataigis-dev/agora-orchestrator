@@ -5,6 +5,8 @@ namespace Agora.Skills;
 /// <summary>Loads Agent Skills from SKILL.md files (YAML frontmatter + Markdown body).</summary>
 public static class SkillLoader
 {
+    /// <summary>Recursively discovers and parses every <c>SKILL.md</c> under the given directories
+    /// into a registry.</summary>
     public static SkillRegistry Load(IReadOnlyList<string> directories)
     {
         var skills = new List<Skill>();
@@ -18,6 +20,7 @@ public static class SkillLoader
         return new SkillRegistry(skills);
     }
 
+    /// <summary>Parses a single SKILL.md file, splitting YAML frontmatter from the Markdown body.</summary>
     internal static Skill Parse(string path)
     {
         var text = File.ReadAllText(path);
@@ -44,6 +47,7 @@ public static class SkillLoader
         };
     }
 
+    /// <summary>Deserializes the YAML frontmatter into a flat key/value map.</summary>
     private static Dictionary<string, string> ParseFrontmatter(string frontmatter)
     {
         if (string.IsNullOrWhiteSpace(frontmatter))

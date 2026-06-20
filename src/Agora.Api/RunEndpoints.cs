@@ -3,8 +3,11 @@ using Agora.Runs;
 
 namespace Agora.Api;
 
+/// <summary>Maps the run lifecycle HTTP endpoints (start, status, approvals, ingest).</summary>
 public static class RunEndpoints
 {
+    /// <summary>Registers <c>POST /runs</c>, <c>GET /runs/{id}</c>, <c>POST /runs/{id}/approvals</c>,
+    /// and <c>POST /ingest</c> on the app.</summary>
     public static void MapAgoraRunEndpoints(this WebApplication app)
     {
         app.MapPost("/runs", async (StartRunRequest req, AgoraConfig cfg, IRunStore store, RunQueue queue) =>

@@ -41,10 +41,12 @@ app.MapAgoraRunEndpoints();
 
 app.Run();
 
+// Extracts the value of the --config argument, or null when absent.
 static string? GetConfigPath(string[] args)
 {
     var i = Array.IndexOf(args, "--config");
     return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 }
 
+/// <summary>Entry-point marker class made public so integration tests can host the API.</summary>
 public partial class Program { }

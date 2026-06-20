@@ -13,6 +13,8 @@ public sealed class ApprovalGate
 
     private readonly ConcurrentDictionary<string, Entry> _entries = new();
 
+    /// <summary>Registers a pending approval for a run and returns a task that completes when it is
+    /// resolved (or is canceled with the token).</summary>
     public Task<bool> WaitAsync(string runId, ApprovalRequest request, CancellationToken cancellationToken = default)
     {
         var id = Guid.NewGuid().ToString("N");

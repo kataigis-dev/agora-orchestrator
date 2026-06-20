@@ -9,6 +9,7 @@ public sealed class PendingApprovalHandler : IApprovalHandler
     private readonly ApprovalGate _gate;
     private readonly IRunStore _store;
 
+    /// <summary>Creates the handler bound to a run id, the shared approval gate, and the run store.</summary>
     public PendingApprovalHandler(string runId, ApprovalGate gate, IRunStore store)
     {
         _runId = runId;
@@ -16,6 +17,8 @@ public sealed class PendingApprovalHandler : IApprovalHandler
         _store = store;
     }
 
+    /// <summary>Marks the run awaiting-approval, parks on the gate until resolved, then restores the
+    /// running status.</summary>
     public async Task<bool> RequestAsync(ApprovalRequest request, CancellationToken cancellationToken = default)
     {
         _store.Update(_runId, r => r.Status = RunStatus.AwaitingApproval);

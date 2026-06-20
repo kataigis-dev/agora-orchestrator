@@ -10,8 +10,12 @@ public sealed class RetryPolicy
 {
     private readonly IClock _clock;
 
+    /// <summary>Creates the policy using the given clock for delays and timeouts.</summary>
     public RetryPolicy(IClock clock) => _clock = clock;
 
+    /// <summary>Runs <paramref name="operation"/> with retries and per-attempt timeout from
+    /// <paramref name="spec"/>; rethrows the last error if all attempts fail. Genuine caller
+    /// cancellation propagates without retry.</summary>
     public async Task<T> ExecuteAsync<T>(
         Func<CancellationToken, Task<T>> operation, ModelSpec spec, CancellationToken cancellationToken = default)
     {

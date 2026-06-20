@@ -8,6 +8,7 @@ namespace Agora.AgentFramework;
 /// </summary>
 internal static class BuiltInFileTools
 {
+    /// <summary>Builds the subset of filesystem tools the agent allow-lists (read/write/search/list).</summary>
     public static List<AITool> Create(IReadOnlyList<string> allowedTools)
     {
         var set = allowedTools.ToHashSet(StringComparer.Ordinal);

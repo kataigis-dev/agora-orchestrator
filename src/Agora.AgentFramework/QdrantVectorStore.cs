@@ -16,6 +16,8 @@ public sealed class QdrantVectorStore : IVectorStore
     private readonly string _collection;
     private bool _collectionReady;
 
+    /// <summary>Connects to a Qdrant server at <paramref name="url"/> for the given collection (or uses
+    /// an injected <paramref name="client"/> in tests). Defaults to the gRPC port 6334.</summary>
     public QdrantVectorStore(string url, string collection, QdrantClient? client = null)
     {
         _collection = collection;
@@ -29,6 +31,7 @@ public sealed class QdrantVectorStore : IVectorStore
         _client = new QdrantClient(uri.Host, port, https: uri.Scheme == "https");
     }
 
+    /// <inheritdoc />
     public async Task UpsertAsync(
         IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken = default)
     {
@@ -48,6 +51,7 @@ public sealed class QdrantVectorStore : IVectorStore
         await _client.UpsertAsync(_collection, points, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Chunk>> QueryAsync(
         IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0, CancellationToken cancellationToken = default)
     {
@@ -75,6 +79,7 @@ public sealed class QdrantVectorStore : IVectorStore
             Id: h.Id.Uuid)).ToList();
     }
 
+    /// <inheritdoc />
     public async Task DeleteAsync(IReadOnlyList<string> ids, CancellationToken cancellationToken = default)
     {
         var guids = ids.Where(id => Guid.TryParse(id, out _)).Select(Guid.Parse).ToList();
@@ -82,6 +87,7 @@ public sealed class QdrantVectorStore : IVectorStore
             await _client.DeleteAsync(_collection, guids, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Creates the collection (cosine distance, given dimension) on first use if it is absent.</summary>
     private async Task EnsureCollectionAsync(int dimension, CancellationToken cancellationToken)
     {
         if (_collectionReady)

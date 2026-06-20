@@ -10,6 +10,12 @@ using Agora.Skills;
 
 namespace Agora;
 
+/// <summary>
+/// The composition root: from a config it resolves models, builds the RAG pipeline, shared
+/// knowledge base, context memory, and graph, and exposes entry points to run a single agent, run
+/// or resume a graph. Wraps the provider with resilience and injects the communication/handoff/
+/// language preambles into each agent.
+/// </summary>
 public sealed class Runtime
 {
     private readonly AgoraConfig _config;
@@ -29,6 +35,8 @@ public sealed class Runtime
     private readonly IRouter? _router;
     private readonly ICheckpointStore? _checkpoints;
 
+    /// <summary>Builds the runtime from a config and provider, wiring optional edge dependencies
+    /// (tool factory, HITL handlers, RAG resolvers, checkpoint store).</summary>
     public Runtime(
         AgoraConfig config,
         IChatProvider provider,
@@ -63,12 +71,16 @@ public sealed class Runtime
             : null;
     }
 
+    /// <summary>The loaded configuration.</summary>
     public AgoraConfig Config => _config;
+
+    /// <summary>The RAG read pipeline, or null when RAG is disabled.</summary>
     public RagPipeline? Rag { get; }
 
     /// <summary>Write path into the shared knowledge base (same store as <see cref="Rag"/>), or null when RAG is off.</summary>
     public KnowledgeBase? KnowledgeBase { get; }
 
+    /// <summary>Loads the config at <paramref name="path"/> and builds a runtime from it.</summary>
     public static Runtime FromConfig(
         string path, IChatProvider provider, RagPipeline? rag = null,
         IToolAgentFactory? toolAgentFactory = null, IApprovalHandler? approvalHandler = null,
@@ -83,6 +95,7 @@ public sealed class Runtime
             approvalHandler, conflictResolver, storeResolver, embedderResolver, checkpointStore);
     }
 
+    /// <summary>Builds the RAG pipeline from config (with the optional LLM refiner), or null if absent.</summary>
     private RagPipeline? BuildRag()
     {
         var rag = _config.Rag;
@@ -93,6 +106,8 @@ public sealed class Runtime
         return RagFactory.Build(_config, _provider, refineSpec, _storeResolver, _embedderResolver);
     }
 
+    /// <summary>Builds the writable knowledge base over the RAG embedder/store, using an LLM conflict
+    /// judge when a default model is configured; null when RAG is off.</summary>
     private KnowledgeBase? BuildKnowledgeBase()
     {
         if (Rag is null)
@@ -104,6 +119,8 @@ public sealed class Runtime
         return new KnowledgeBase(Rag.Embedder, Rag.Store, judge, _conflictResolver);
     }
 
+    /// <summary>Builds context memory when enabled, reusing the RAG embedder/store or falling back to
+    /// an offline store; null when memory is disabled.</summary>
     private ContextMemory? BuildMemory()
     {
         if (_config.Memory?.Enabled != true)
@@ -115,12 +132,15 @@ public sealed class Runtime
         return new ContextMemory(embedder, store);
     }
 
+    /// <summary>Runs a single agent (no graph) on the input, optionally streaming its output.</summary>
     public async Task<AgentResult> RunAgentAsync(string agentId, string userInput, Action<string>? onChunk = null)
     {
         using var _ = Tracing.BeginSpan("agent.run", new() { ["agent"] = agentId });
         return await BuildAgent(agentId).RunAsync(userInput, "", onChunk);
     }
 
+    /// <summary>Runs the configured graph: seeds RAG context if enabled, executes to completion, and
+    /// returns the result (with a run id when checkpointing).</summary>
     public async Task<RunResult> RunAsync(string userInput, string? runId = null, Action<string>? onChunk = null)
     {
         var id = runId ?? (_checkpoints is not null ? Guid.NewGuid().ToString("N") : "run");
@@ -152,6 +172,8 @@ public sealed class Runtime
         return BuildResult(state, runId, enriched: null);
     }
 
+    /// <summary>Builds and validates the graph and wraps it in an executor wired with handoff/memory/
+    /// router/checkpoint settings.</summary>
     private GraphExecutor BuildExecutor(string runId, Action<string>? onChunk = null)
     {
         var graph = GraphBuilder.Build(_config);
@@ -164,12 +186,14 @@ public sealed class Runtime
             checkpoints: _checkpoints, runId: runId, onChunk: onChunk);
     }
 
+    /// <summary>Assembles a <see cref="RunResult"/> from the end state, taking the last agent's output.</summary>
     private static RunResult BuildResult(State state, string runId, EnrichedInput? enriched)
     {
         var output = state.LastAgent is not null ? state.Outputs.GetValueOrDefault(state.LastAgent, "") : "";
         return new RunResult { Output = output, State = state, Enriched = enriched, RunId = runId };
     }
 
+    /// <summary>Builds the runnable agent for an id (used as the executor's agent factory).</summary>
     public IAgent BuildAgent(string agentId) => BuildAgent(agentId, answerMode: false);
 
     /// <summary>Re-runs a target agent to answer another agent's <c>ask_agent</c> tool call.
@@ -182,6 +206,9 @@ public sealed class Runtime
         return result.Output;
     }
 
+    /// <summary>Builds an agent: resolves its model/prompt, prepends the handoff/H2C/language
+    /// preambles, and returns either a tool-capable agent (if it declares skills/tools) or a plain
+    /// one. In answer-mode the handoff preamble and <c>ask_agent</c> tool are omitted.</summary>
     private IAgent BuildAgent(string agentId, bool answerMode)
     {
         if (!_config.Agents.TryGetValue(agentId, out var agentConfig))
@@ -238,6 +265,8 @@ public sealed class Runtime
         return new Agent(card, _provider, spec, _interpreter);
     }
 
+    /// <summary>Resolves an agent's system prompt from its inline value or prompt file (relative to
+    /// the config directory), or empty when neither is set.</summary>
     private string ResolvePrompt(AgentConfig agentConfig)
     {
         if (!string.IsNullOrEmpty(agentConfig.SystemPrompt))

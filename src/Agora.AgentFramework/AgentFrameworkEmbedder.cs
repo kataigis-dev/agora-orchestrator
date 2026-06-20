@@ -13,9 +13,12 @@ public sealed class AgentFrameworkEmbedder : IEmbedder
 {
     private readonly IEmbeddingGenerator<string, Embedding<float>> _generator;
 
+    /// <summary>Wraps an existing embedding generator.</summary>
     public AgentFrameworkEmbedder(IEmbeddingGenerator<string, Embedding<float>> generator)
         => _generator = generator;
 
+    /// <summary>Creates an embedder against OpenAI (or an OpenAI-compatible endpoint via
+    /// <paramref name="apiBase"/>) for the given model.</summary>
     public static AgentFrameworkEmbedder OpenAI(string model, string apiKey, string? apiBase = null)
     {
         var options = new OpenAIClientOptions();
@@ -25,6 +28,7 @@ public sealed class AgentFrameworkEmbedder : IEmbedder
         return new(client.GetEmbeddingClient(model).AsIEmbeddingGenerator());
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<float[]>> EmbedAsync(
         IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
     {

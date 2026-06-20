@@ -11,6 +11,8 @@ namespace Agora.Cli;
 /// </summary>
 public static class ConfigWizard
 {
+    /// <summary>Runs the wizard against the given I/O, building and writing the config; returns the
+    /// exit code (1 if aborted or the file already exists and the user declines to overwrite).</summary>
     public static int Run(TextReader input, TextWriter output, TextWriter error, string? defaultPath = null)
     {
         try
@@ -25,6 +27,7 @@ public static class ConfigWizard
         }
     }
 
+    /// <summary>Drives all the prompts in order and assembles the resulting <see cref="AgoraConfig"/>.</summary>
     private static AgoraConfig Build(TextReader input, TextWriter output)
     {
         output.WriteLine("Agora config wizard — press Enter to accept the [default].");
@@ -52,6 +55,7 @@ public static class ConfigWizard
         return config;
     }
 
+    /// <summary>Prompts for one or more providers (name + optional key env/base URL).</summary>
     private static void ReadProviders(TextReader input, TextWriter output, AgoraConfig config)
     {
         output.WriteLine();
@@ -76,6 +80,7 @@ public static class ConfigWizard
         }
     }
 
+    /// <summary>Prompts for one or more model aliases (alias → provider + concrete model).</summary>
     private static void ReadModels(TextReader input, TextWriter output, AgoraConfig config)
     {
         output.WriteLine();
@@ -97,6 +102,7 @@ public static class ConfigWizard
         }
     }
 
+    /// <summary>Prompts for one or more agents (id, model, role, and—when enabled—skills/tools/approvals).</summary>
     private static void ReadAgents(TextReader input, TextWriter output, AgoraConfig config)
     {
         output.WriteLine();
@@ -144,6 +150,7 @@ public static class ConfigWizard
         }
     }
 
+    /// <summary>Optionally prompts for skill directories.</summary>
     private static void ReadSkills(TextReader input, TextWriter output, AgoraConfig config)
     {
         output.WriteLine();
@@ -161,6 +168,7 @@ public static class ConfigWizard
             config.Skills = new SkillsConfig { Directories = dirs };
     }
 
+    /// <summary>Optionally prompts for MCP tool servers (stdio or http).</summary>
     private static void ReadMcp(TextReader input, TextWriter output, AgoraConfig config)
     {
         output.WriteLine();
@@ -190,6 +198,7 @@ public static class ConfigWizard
             config.Mcp = mcp;
     }
 
+    /// <summary>Optionally prompts for the RAG pipeline (store, ingest sources, chunking, top_k, refine).</summary>
     private static void ReadRag(TextReader input, TextWriter output, AgoraConfig config)
     {
         output.WriteLine();
@@ -235,6 +244,7 @@ public static class ConfigWizard
         };
     }
 
+    /// <summary>For multi-agent configs, optionally prompts for the entry node and edges.</summary>
     private static void ReadGraph(TextReader input, TextWriter output, AgoraConfig config)
     {
         if (config.Agents.Count < 2)
@@ -278,6 +288,8 @@ public static class ConfigWizard
         config.Graph = graph;
     }
 
+    /// <summary>Writes the config to the chosen path (confirming overwrite), re-validates it, and
+    /// prints next-step commands.</summary>
     private static int Write(AgoraConfig config, TextReader input, TextWriter output, TextWriter error, string? defaultPath)
     {
         output.WriteLine();
@@ -313,6 +325,7 @@ public static class ConfigWizard
 
     // --- prompt helpers ---------------------------------------------------
 
+    /// <summary>Prompts once, returning the entered value or the default on a blank line.</summary>
     private static string Ask(TextReader input, TextWriter output, string prompt, string @default)
     {
         var suffix = @default.Length > 0 ? $" [{@default}]" : "";
@@ -321,6 +334,7 @@ public static class ConfigWizard
         return line.Length == 0 ? @default : line;
     }
 
+    /// <summary>Prompts repeatedly until a non-empty value is entered.</summary>
     private static string Required(TextReader input, TextWriter output, string prompt)
     {
         while (true)
@@ -331,11 +345,13 @@ public static class ConfigWizard
         }
     }
 
+    /// <summary>Prompts for a whitespace/comma-separated list of values.</summary>
     private static List<string> AskList(TextReader input, TextWriter output, string prompt)
         => Ask(input, output, prompt, "")
             .Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
 
+    /// <summary>Prompts for a list, re-asking until every value is within <paramref name="allowed"/>.</summary>
     private static List<string> AskSubset(TextReader input, TextWriter output, string prompt,
         IReadOnlyList<string> allowed)
     {
@@ -348,6 +364,7 @@ public static class ConfigWizard
         }
     }
 
+    /// <summary>Prompts for a non-negative integer, re-asking on invalid input.</summary>
     private static int AskInt(TextReader input, TextWriter output, string prompt, int @default)
     {
         while (true)
@@ -358,6 +375,8 @@ public static class ConfigWizard
         }
     }
 
+    /// <summary>Prompts for one of <paramref name="options"/>, re-asking until a valid choice (or a
+    /// blank line when <paramref name="allowBlank"/> is set).</summary>
     private static string Choice(TextReader input, TextWriter output, string prompt,
         IReadOnlyList<string> options, string @default, bool allowBlank = false)
     {
@@ -371,12 +390,14 @@ public static class ConfigWizard
         }
     }
 
+    /// <summary>Prompts for a yes/no answer with the given default.</summary>
     private static bool YesNo(TextReader input, TextWriter output, string prompt, bool defaultYes)
     {
         var value = Ask(input, output, $"{prompt} [{(defaultYes ? "Y/n" : "y/N")}]", defaultYes ? "y" : "n");
         return value.StartsWith("y", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Reads and trims a line; throws <see cref="AbortException"/> at end of input.</summary>
     private static string ReadLine(TextReader input)
     {
         var line = input.ReadLine();
@@ -384,7 +405,9 @@ public static class ConfigWizard
         return line.Trim();
     }
 
+    /// <summary>Maps an empty string to null (so omitted optional fields are not serialized).</summary>
     private static string? Blank(string value) => value.Length == 0 ? null : value;
 
+    /// <summary>Signals that input ended before the wizard finished.</summary>
     private sealed class AbortException : Exception;
 }

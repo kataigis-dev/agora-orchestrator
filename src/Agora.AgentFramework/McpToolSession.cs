@@ -12,6 +12,8 @@ namespace Agora.AgentFramework;
 internal sealed class McpToolSession : IAsyncDisposable
 {
     private readonly IReadOnlyList<McpClient> _clients;
+
+    /// <summary>The allow-listed tools exposed by the connected MCP servers.</summary>
     public IReadOnlyList<AITool> Tools { get; }
 
     private McpToolSession(IReadOnlyList<McpClient> clients, IReadOnlyList<AITool> tools)
@@ -20,6 +22,8 @@ internal sealed class McpToolSession : IAsyncDisposable
         Tools = tools;
     }
 
+    /// <summary>Connects to the configured MCP servers and collects the tools matching the agent's
+    /// allow-list; returns an empty session when MCP is unconfigured or nothing is allow-listed.</summary>
     public static async Task<McpToolSession> ConnectAsync(
         McpConfig? mcp, IReadOnlyList<string> allow, CancellationToken cancellationToken)
     {
@@ -41,6 +45,7 @@ internal sealed class McpToolSession : IAsyncDisposable
         return new McpToolSession(clients, tools);
     }
 
+    /// <summary>Builds an HTTP or stdio transport for a server config.</summary>
     private static IClientTransport BuildTransport(string name, McpServerConfig server) =>
         server.Url is not null
             ? new HttpClientTransport(new HttpClientTransportOptions
@@ -56,6 +61,7 @@ internal sealed class McpToolSession : IAsyncDisposable
                 Arguments = server.Args,
             });
 
+    /// <summary>Disposes all connected MCP clients (terminating any stdio child processes).</summary>
     public async ValueTask DisposeAsync()
     {
         foreach (var client in _clients)

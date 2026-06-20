@@ -6,5 +6,8 @@ using Agora.Rag;
 
 namespace Agora.Cli;
 
-internal record ConfigState(Dictionary<string, string> Options, IChatProvider? Provider, IToolAgentFactory? ToolAgentFactory, IApprovalHandler? ApprovalHandler, 
-    IConflictResolver? ConflictResolver, Func<VectorStoreConfig?, IVectorStore?>? StoreResolver, Func<EmbedderSpec, IEmbedder?>? EmbedderResolver);
+/// <summary>Parsed CLI options bundled with the injected I/O streams and edge dependencies
+/// (provider, tool factory, HITL handlers, and RAG resolvers) that each command needs.</summary>
+internal record ConfigState(Dictionary<string, string> Options, IChatProvider? Provider, IToolAgentFactory? ToolAgentFactory, IApprovalHandler? ApprovalHandler,
+    IConflictResolver? ConflictResolver, Func<VectorStoreConfig?, IVectorStore?>? StoreResolver, Func<EmbedderSpec, IEmbedder?>? EmbedderResolver,
+    TextReader In, TextWriter Out, TextWriter Error);
