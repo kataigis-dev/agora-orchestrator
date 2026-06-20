@@ -23,6 +23,8 @@ Avviato il programma di miglioramenti (10 voci tracciate). Completate finora:
 - **`IVectorStore` async**: `UpsertAsync`/`QueryAsync`/`DeleteAsync`; tolto il sync-over-async
   di `QdrantVectorStore`. Aggiornati InMemory/File/Qdrant + RagPipeline/Ingestor/KnowledgeBase/ContextMemory
   e tutti i test. 209 core verdi
+- **Wiki sync**: allineati `overview` (concetti, architettura, stato) e `index` (entità CLI) alle
+  nuove capacità; aggiunte le opzioni `--stream`/`--checkpoint`/`--run-id` all'entità `agora-cli`
 
 ## 2026-06-20 — Context memory (compressione contesto via RAG)
 

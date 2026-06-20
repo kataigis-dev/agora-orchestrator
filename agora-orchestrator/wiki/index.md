@@ -3,7 +3,7 @@
 ## Entities
 
 - [[agora-orchestrator]] — Core library .NET 10 per orchestrazione multi-agente, framework-free
-- [[agora-cli]] — Eseguibile CLI: `run`, `validate`, `ingest`
+- [[agora-cli]] — Eseguibile CLI: `init`, `run`, `resume`, `ingest`, `validate`, `eval`
 - [[agora-api]] — Server REST ASP.NET Core per esecuzione agenti via HTTP
 - [[agora-agent-framework]] — Integrazione OpenAI, Ollama, MCP (progetto satellite)
 

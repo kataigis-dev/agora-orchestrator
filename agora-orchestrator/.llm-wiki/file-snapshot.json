@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": 1781958327366,
+  "updatedAt": 1781965116635,
   "files": {
     "purpose.md": {
       "hash": "9134da4e208cd2cf9165e14f448ad14b",
@@ -103,9 +103,9 @@
       "mtimeMs": 1781814729814
     },
     "wiki/entities/agora-cli.md": {
-      "hash": "346322d662f0a3a7898ac7e13a7bdf33",
-      "size": 1899,
-      "mtimeMs": 1781954489911
+      "hash": "69addc1da772a9be914f1c3c37bf645f",
+      "size": 2140,
+      "mtimeMs": 1781965094096
     },
     "wiki/entities/agora-orchestrator.md": {
       "hash": "18d95cb89ce3a54dec43cd661547ed4d",
@@ -113,19 +113,19 @@
       "mtimeMs": 1781814729814
     },
     "wiki/index.md": {
-      "hash": "2eb7e761fed0882612514bfec46aa8b1",
-      "size": 1830,
-      "mtimeMs": 1781955425108
+      "hash": "778eba1dca0a72ea6cf3f0173d5a712a",
+      "size": 1856,
+      "mtimeMs": 1781965077460
     },
     "wiki/log.md": {
-      "hash": "8b332ef78aff1df1d5d3de6f314adfe1",
-      "size": 8266,
-      "mtimeMs": 1781958326361
+      "hash": "5a6038ffd9b48f5498334ba05cf891cf",
+      "size": 8465,
+      "mtimeMs": 1781965115920
     },
     "wiki/overview.md": {
-      "hash": "2bb5fc2a08c2d2ce36dc6bc90f8051d1",
-      "size": 2660,
-      "mtimeMs": 1781857176012
+      "hash": "d647232ebf558ee2b8c91ae5ad02091f",
+      "size": 3520,
+      "mtimeMs": 1781965071135
     }
   }
 }

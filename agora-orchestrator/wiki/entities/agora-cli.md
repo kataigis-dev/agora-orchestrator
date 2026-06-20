@@ -36,6 +36,9 @@ Eseguibile CLI (`Agora.Cli`) che espone i comandi principali del framework.
 | `--input <text>` | Input utente / task |
 | `--agent <id>` | Agente da eseguire (single-agent mode) |
 | `--graph` | Esegui il grafo definito in config |
+| `--stream` | Streaming dei token su stdout — vedi [[streaming]] |
+| `--checkpoint <dir>` | Salva i checkpoint per step (abilita `resume`) — vedi [[checkpointing]] |
+| `--run-id <id>` | Id del run per i checkpoint (default: generato) |
 
 ## Esempi di utilizzo
 

@@ -2,9 +2,9 @@
 type: overview
 title: Agora Orchestrator — Project Overview
 tags: [multi-agent, orchestration, dotnet, llm, yaml, graph]
-related: [agora-orchestrator, agent-graph, h2c-protocol, rag-pipeline, skills, mcp-tools, human-in-the-loop, guided-config]
+related: [agora-orchestrator, agent-graph, edge-types, parallel-execution, checkpointing, streaming, handoff-context, rag-pipeline, shared-knowledge-base, context-memory, skills, mcp-tools, human-in-the-loop, guided-config]
 created: 2026-06-17
-updated: 2026-06-19
+updated: 2026-06-20
 ---
 
 # Agora Orchestrator — Overview
@@ -22,9 +22,10 @@ Agora.Cli / Agora.Api
        │                      │
    Agent (IAgent) ◄───── AgentConfig (YAML)
        │
-    IChatProvider (OpenAI / Ollama / compatibile)
+    IChatProvider (OpenAI / Ollama / compatibile, streaming)
        │
- [Skills] [RAG] [MCP Tools] [HITL]
+ [Skills] [RAG / Knowledge Base] [Context Memory] [MCP Tools] [HITL]
+ [Parallel fork/join] [Router LLM] [Checkpoint/Resume]
 ```
 
 ## Progetti nella solution
@@ -38,15 +39,26 @@ Agora.Cli / Agora.Api
 
 ## Concetti chiave
 
+Orchestrazione:
 - **[[agent-graph]]** — Grafo diretto dove ogni nodo è un agente LLM
-- **[[edge-types]]** — `sequential`, `handoff`, `conditional` (con `when` e `max_loops`)
-- **[[h2c-protocol]]** — Protocollo strutturato `[TYPE:SUBTYPE]` per la comunicazione agente→orchestratore
-- **[[signal]]** — Token `<<signal name>>` in modalità natural per routing condizionale
-- **[[rag-pipeline]]** — Pipeline di Retrieval-Augmented Generation opzionale
-- **[[skills]]** — Prompt file riutilizzabili come strumenti degli agenti
-- **[[mcp-tools]]** — Integrazione tool esterni tramite Model Context Protocol
-- **[[human-in-the-loop]]** — Sistema di approvazione per azioni critiche
+- **[[edge-types]]** — `sequential`, `handoff`, `conditional`, `route` (LLM), `parallel` (fork/join)
+- **[[parallel-execution]]** — Branch concorrenti fork/join
+- **[[checkpointing]]** — Esecuzione durevole: checkpoint per step + `resume`
+- **[[streaming]]** — Streaming dei token (`run --stream`)
+
+Comunicazione e contesto:
+- **[[h2c-protocol]]** — Protocollo strutturato `[TYPE:SUBTYPE]` agente→orchestratore
+- **[[signal]]** — Token `<<signal name>>` in modalità natural
 - **[[communication-modes]]** — `h2c` (default) vs `natural`
+- **[[handoff-context]]** — Passaggio di contesto minimo tra agenti (`handoff: true`)
+
+Conoscenza e tool:
+- **[[rag-pipeline]]** — Pipeline RAG opzionale (ingest, embed, retrieve)
+- **[[shared-knowledge-base]]** — RAG scrivibile con rilevamento/risoluzione conflitti
+- **[[context-memory]]** — Compressione del contesto via RAG (top-K)
+- **[[skills]]** — Prompt file riutilizzabili come strumenti degli agenti
+- **[[mcp-tools]]** — Integrazione tool esterni tramite MCP
+- **[[human-in-the-loop]]** — Sistema di approvazione per azioni critiche
 
 ## Configurazione YAML
 
@@ -74,4 +86,7 @@ graph:
 
 ## Stato attuale
 
-Core execution funzionante. RAG, HITL, MCP, REST API e CLI operativi. Vedi [[log]] per l'attività recente.
+Core execution funzionante. Operativi: RAG (lettura + knowledge base scrivibile), context
+memory, HITL, MCP, esecuzione parallela (fork/join), routing LLM, checkpointing/resume,
+token streaming, embedder/vector store da config (incl. Qdrant), eval harness, REST API e CLI.
+Vedi [[log]] per l'attività recente.
