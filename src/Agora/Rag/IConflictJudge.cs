@@ -22,6 +22,8 @@ public sealed record ConflictAssessment(
 /// <summary>Decides whether writing a new entry to the knowledge base conflicts with what is already there.</summary>
 public interface IConflictJudge
 {
+    /// <summary>Assesses a new entry against existing related entries, returning the verdict and (when
+    /// resolvable) a reconciled statement and the specific conflicting entries.</summary>
     Task<ConflictAssessment> AssessAsync(
         string newEntry, IReadOnlyList<Chunk> existing, CancellationToken cancellationToken = default);
 }

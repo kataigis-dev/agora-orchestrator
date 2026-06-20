@@ -12,12 +12,14 @@ public sealed class FileVectorStore : IVectorStore
     private readonly string _path;
     private readonly List<(Chunk Chunk, float[] Vector)> _items = new();
 
+    /// <summary>Opens the store at <paramref name="path"/>, loading any existing data.</summary>
     public FileVectorStore(string path)
     {
         _path = path;
         Load();
     }
 
+    /// <inheritdoc />
     public async Task UpsertAsync(
         IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken = default)
     {
@@ -32,6 +34,7 @@ public sealed class FileVectorStore : IVectorStore
         await SaveAsync(cancellationToken);
     }
 
+    /// <inheritdoc />
     public Task<IReadOnlyList<Chunk>> QueryAsync(
         IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0, CancellationToken cancellationToken = default)
     {
@@ -44,12 +47,14 @@ public sealed class FileVectorStore : IVectorStore
         return Task.FromResult(hits);
     }
 
+    /// <inheritdoc />
     public async Task DeleteAsync(IReadOnlyList<string> ids, CancellationToken cancellationToken = default)
     {
         if (_items.RemoveAll(item => ids.Contains(item.Chunk.Id)) > 0)
             await SaveAsync(cancellationToken);
     }
 
+    /// <summary>Loads persisted chunks and vectors from disk, if the file exists.</summary>
     private void Load()
     {
         if (!File.Exists(_path))
@@ -59,6 +64,7 @@ public sealed class FileVectorStore : IVectorStore
             _items.Add((new Chunk(r.Text, r.Source, Id: r.Id), r.Vector));
     }
 
+    /// <summary>Serializes all chunks and vectors to the backing JSON file, creating its directory.</summary>
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
         var dir = Path.GetDirectoryName(Path.GetFullPath(_path));

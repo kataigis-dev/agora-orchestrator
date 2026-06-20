@@ -1,8 +1,9 @@
-# Grafo
+# Graph
 
-## Concetti base
+## Basics
 
-Un grafo definisce il flusso di esecuzione tra agenti. È dichiarato nella sezione `graph` del config YAML:
+A graph defines the execution flow between agents. It is declared in the `graph` section of the
+YAML config:
 
 ```yaml
 graph:
@@ -13,128 +14,89 @@ graph:
     - { from: reviewer, to: END, type: conditional, when: done }
 ```
 
-## Nodi
+## Nodes
 
-Ogni nodo del grafo corrisponde a un agente definito nella sezione `agents:`. Il nodo speciale `END` termina l'esecuzione.
+Each graph node corresponds to an agent in the `agents:` section. The special node `END`
+terminates execution.
 
-## Archi (edges)
+## Edges
 
 ### sequential
 
-Esegue i nodi nell'ordine in cui sono definiti:
+Go to the target node:
 
 ```yaml
-edges:
-  - { from: planner, to: executor, type: sequential }
+- { from: planner, to: executor, type: sequential }
 ```
 
 ### handoff
 
-Passa il controllo a un nodo specifico, portando il contesto:
+Hand control to a specific node:
 
 ```yaml
-edges:
-  - { from: generator, to: reviewer, type: handoff }
+- { from: generator, to: reviewer, type: handoff }
 ```
-
-L'agente ricevente vede la cronologia della conversazione.
 
 ### conditional
 
-Decide dinamicamente il prossimo nodo in base al segnale dell'agente:
+Pick the next node from the agent's signal:
 
 ```yaml
-edges:
-  - { from: reviewer, to: generator, type: conditional, when: fix, max_loops: 5 }
-  - { from: reviewer, to: END, type: conditional, when: done }
+- { from: reviewer, to: generator, type: conditional, when: fix, max_loops: 5 }
+- { from: reviewer, to: END, type: conditional, when: done }
 ```
 
-- `when` — il valore del segnale che attiva questo edge
-- `max_loops` — numero massimo di iterazioni (previene loop infiniti)
+- `when` — the signal that activates this edge
+- `max_loops` — maximum iterations for this edge (prevents infinite loops)
 
-## Segnali
+### route
 
-Gli agenti comunicano il routing tramite segnali.
+An LLM router picks the branch whose `when` description best fits the agent's output — more robust
+than signal tokens. See the routing/edge-types pages.
 
-### In modalità Natural
-
-```
-<<signal done>>
-<<signal fix>>
-<<signal approve>>
+```yaml
+- { from: classifier, to: refund,  type: route, when: "the customer wants a refund" }
+- { from: classifier, to: support, type: route, when: "the customer needs help" }
 ```
 
-### In modalità H2C
+### parallel
 
-```
-[STATE:DONE]
-[STATE:FIX]
-[STATE:APPROVE]
-```
+Fork: branches run concurrently and converge on a single join node.
 
-## Esecuzione
-
-### GraphExecutor.RunAsync()
-
-1. Legge il nodo `entry` dal config
-2. Prepara `GraphState` con messaggi iniziali
-3. Loop:
-   a. Esegue l'agente corrente con `ExecuteAgentAsync()`
-   b. Analizza la risposta per estrarre il segnale
-   c. Determina il prossimo nodo in base agli edges
-   d. Se `END`, termina
-   e. Se conditional senza match, va al nodo successivo
-4. Restituisce `GraphResult` con tutti i messaggi prodotti
-
-### Visualizzazione real-time (CLI)
-
-Con `--graph` il CLI mostra:
-
-```
-━━━ Agent Graph Execution ━━━
-  Graph: generator ──handoff→ reviewer ──conditional→ generator ──conditional→ END
-  ▶ [1] Agent: generator
-  └─ input: Crea una todo app API
-  └─ signals: none
-  ──▶ handoff → reviewer
-  ▶ [2] Agent: reviewer
-  └─ input: Crea una todo app API
-  └─ signals: fix
-  └─ artifact language: C#            (se l'agente ha scritto <<artifact language=C#>>)
-  ──▶ condition:fix (1/5) → generator
-━━━ Execution Complete ━━━
+```yaml
+- { from: planner, to: fe, type: parallel }
+- { from: planner, to: be, type: parallel }
+- { from: fe, to: synth, type: sequential }
+- { from: be, to: synth, type: sequential }
 ```
 
-## Artifacts condivisi
+## Signals
 
-Oltre ai messaggi, gli agenti condividono dati strutturati via `State.Artifacts` (dizionario `Dictionary<string, string>`).
+Agents drive routing with signals: `<<signal done>>` (natural) or the block subtype `[STATE:DONE]`
+(h2c). If no conditional edge matches, the first non-conditional edge is taken, else `END`.
 
-- Un agente scrive un artifact con `<<artifact key=value>>` nel suo output
-- `GraphExecutor` lo estrae, lo rimuove dall'output visibile, e lo aggiunge a `State.Artifacts`
-- Prima di ogni esecuzione, tutti gli artifacts vengono serializzati nel contesto dell'agente
-- Ogni agente può leggere e sovrascrivere qualsiasi chiave
+## Execution
 
-Esempio — il primo agente imposta:
+`GraphExecutor.RunAsync()`:
 
-```
-Il progetto sarà in <<artifact language=C#>>
-```
+1. Reads the `entry` node.
+2. Builds the `State` (with the optional RAG seed message).
+3. Loop: runs the current agent, parses signals/artifacts, resolves the next node, until `END` or
+   `max_steps` (default 100). `parallel` edges fork; `route` edges use the LLM router.
+4. Returns the final `State`.
 
-Il secondo agente riceve nel contesto:
+### Real-time visualization (CLI)
 
-```
-━━━ Shared Artifacts ━━━
-  language: C#
+With `--graph` the CLI prints the graph and each step (agent, input, signals, artifacts, chosen edge).
 
-(messaggi precedenti...)
-```
+## State (blackboard)
 
-## Stato del grafo
+- `Messages` — all messages (filtered per recipient via `Inbox()`)
+- `Outputs` — last output per agent
+- `Signals` — routing signals from the last agent
+- `LoopCounters` — per conditional edge
+- `Artifacts` — structured data shared across agents (`<<artifact key=value>>`)
+- `LastAgent` — id of the last executed agent
 
-`State` (blackboard) mantiene:
-- `Messages` — tutti i messaggi scambiati (filtrati per destinatario via `Inbox()`)
-- `Outputs` — ultimo output per ogni agente (sovrascritto)
-- `Signals` — segnali di routing dall'ultimo agente
-- `LoopCounters` — contatori per ogni edge condizionale
-- `Artifacts` — dati strutturati condivisi tra tutti gli agenti
-- `LastAgent` — ID dell'ultimo agente eseguito
+Context delivery depends on the mode: full output, handoff-only (`handoff: true`), or top-K
+recalled memory (`memory`). See the handoff-context and context-memory pages.

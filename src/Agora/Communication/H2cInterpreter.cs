@@ -10,6 +10,7 @@ public sealed class H2cInterpreter : IOutputInterpreter
 {
     private readonly H2cParser _parser = new();
 
+    /// <inheritdoc />
     public (string Output, Dictionary<string, object> Signals, Dictionary<string, string> Artifacts) Interpret(string text)
     {
         var signals = new Dictionary<string, object>();

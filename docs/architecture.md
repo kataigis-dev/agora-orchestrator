@@ -1,114 +1,85 @@
-# Architettura
+# Architecture
 
-## Panoramica
+## Overview
 
-Agora Orchestrator è progettato con un'architettura a strati:
+Agora Orchestrator is layered:
 
 ```
-┌─────────────────────┐
-│  CLI / API          │  Interfacce utente
-├─────────────────────┤
-│  GraphExecutor      │  Motore di orchestrazione
-├─────────────────────┤
-│  Agent / AgentFrameworkAgent  │  Esecutori agente
-├─────────────────────┤
-│  ChatProvider       │  Provider (OpenAI, Ollama, custom)
-│  McpClient          │  Strumenti esterni
-│  RagPipeline        │  Ricerca vettoriale
-├─────────────────────┤
-│  Core (Agora)       │  Modelli, interfacce, resilience
-└─────────────────────┘
+┌───────────────────────────────┐
+│  CLI / API                     │  user interfaces
+├───────────────────────────────┤
+│  Runtime → GraphExecutor       │  orchestration engine
+├───────────────────────────────┤
+│  Agent / AgentFrameworkAgent   │  agent executors
+├───────────────────────────────┤
+│  IChatProvider  (OpenAI/Ollama)│  providers
+│  RagPipeline / KnowledgeBase   │  retrieval + writable KB
+│  ContextMemory                 │  context compression
+│  McpToolSession                │  external tools
+├───────────────────────────────┤
+│  Core (Agora)                  │  models, interfaces, resilience
+└───────────────────────────────┘
 ```
 
-## Motore del grafo (GraphExecutor)
+## Graph engine (GraphExecutor)
 
-`GraphExecutor` in `src/Agora/Orchestration/GraphExecutor.cs` è il cuore del sistema. Esegue un grafo diretto di agenti:
+`GraphExecutor` in `src/Agora/Orchestration/GraphExecutor.cs` is the heart of the system. It runs
+a directed graph of agents:
 
-1. Parte dal nodo `entry` specificato nel config
-2. Per ogni nodo, esegue l'agente associato e passa il contesto
-3. Determina il prossimo nodo in base al tipo di edge
-4. Continua fino a raggiungere `END` o il massimo di loop
+1. Starts from the `entry` node in the config.
+2. For each node, runs the associated agent with its context.
+3. Determines the next node from the edge type and the agent's signals.
+4. Continues until `END` or `max_steps` (default 100).
 
-### Tipi di edge
+### Edge types
 
-| Tipo | Comportamento |
+| Type | Behaviour |
 |---|---|
-| `sequential` | Passa al prossimo nodo in ordine di definizione |
-| `handoff` | Passa il controllo al nodo specificato in `to` |
-| `conditional` | Decide il prossimo nodo in base al segnale ricevuto |
+| `sequential` | Go to the target node |
+| `handoff` | Hand control to the target (semantically: "done, over to you") |
+| `conditional` | Take the edge only if the `when` signal is present (with optional `max_loops`) |
+| `route` | An LLM router picks the branch from each edge's `when` description |
+| `parallel` | Fork: branches run concurrently and converge on a single join node |
 
-### Ciclo di vita di un agente in un grafo
+### Agent lifecycle in a graph
 
-1. Riceve l'input (messaggi precedenti + contesto)
-2. Elabora con il modello configurato
-3. Può chiamare tools MCP o skills
-4. Produce un messaggio di output
-5. Se previsto, emette un segnale di routing
+1. Receives the context (inbox messages + shared context).
+2. Processes it with the configured model (optionally streaming).
+3. May call tools (built-in, MCP) or skills.
+4. Produces an output; routing signals/artifacts are parsed from it.
 
-## Comunicazione
+## Communication
 
-### H2C (Human-to-Computer)
+### H2C
 
-Protocollo formale con blocchi strutturati:
-
-```
-[H2C:TYPE:SUBTYPE]
-... contenuto ...
-[/H2C]
-```
-
-I comandi speciali per il grafo usano `[STATE:DONE]`, `[STATE:FIX]`, `[STATE:APPROVE]`, `[STATE:DENY]`.
+Token-compressed protocol: a `[TYPE:SUBTYPE]` header line optionally followed by a
+`key:value|key:value` fields line. Completion/verdicts are signalled by the subtype
+(e.g. `[STATE:DONE]`, `[TEST:PASS]`, `[STATE:FIX]`).
 
 ### Natural
 
-Gli agenti comunicano in linguaggio naturale e usano segnali `<<signal done>>` per il routing nel grafo.
+Agents communicate in natural language and use `<<signal name>>` tokens for routing.
 
-## Condivisione contesto con Artifacts
+## Context sharing
 
-Gli agenti possono condividere dati strutturati attraverso **Artifacts**, un dizionario chiave-valore persistente in `State.Artifacts`.
+- **Artifacts** — `<<artifact key=value>>` tokens parsed by `SignalParser` into `State.Artifacts`,
+  summarized into each agent's context (`State.ArtifactSummary`).
+- **Handoff** (`handoff: true`) — pass only the declared `handoff` artifact to the next agent.
+- **Context memory** (`memory`) — store declared artifacts and recall only the top-K relevant ones
+  per agent (compresses tokens). See the context-memory page.
 
-### Scrittura
+## Providers and models
 
-Un agente scrive un artifact nel suo output:
+Resolution chain: an agent references a model alias (`model: <id>`); the model references a
+provider (`provider: <id>`); at runtime the provider's key (from `api_key_env`) and base URL are
+resolved into a `ModelSpec`, and `Agora.AgentFramework` builds the concrete `IChatProvider`.
 
-```
-Il progetto usa <<artifact language=C#>> e <<artifact framework=net10>>
-```
+## Durability & streaming
 
-Il token `<<artifact key=value>>` viene parsato da `SignalParser`, rimosso dall'output visibile, e la coppia chiave-valore viene aggiunta a `State.Artifacts`.
-
-### Lettura
-
-Prima di ogni esecuzione, `GraphExecutor` serializza gli artifacts correnti nel contesto passato all'agente:
-
-```
-━━━ Shared Artifacts ━━━
-  language: C#
-  framework: net10
-
-(messaggi inbox...)
-```
-
-### Visibilità
-
-- Gli artifacts sono visibili a **tutti** gli agenti del grafo (non filtrati per destinatario)
-- Ogni agente può leggere e sovrascrivere qualsiasi chiave
-- Gli artifacts persistono fino al termine dell'esecuzione del grafo
-- Utili per decisioni condivise: naming convention, linguaggio, stile, path di output
-
-## Provider e modelli
-
-La risoluzione segue questa gerarchia:
-
-1. Config specifica `providers` e `models`
-2. Ogni agente referenzia un modello con `model: <id>`
-3. Il modello referenzia un provider con `provider: <id>`
-4. Al runtime, `ChatClientFactory` risolve la catena e crea il `ChatProvider` appropriato
+- **Checkpointing** — `ICheckpointStore` persists a `StateSnapshot` per step; `resume` continues a run.
+- **Streaming** — `IStreamingChatProvider` streams tokens (`run --stream`).
 
 ## Resilience
 
-`RetryPolicy` e `CircuitBreaker` in `src/Agora/Resilience/` gestiscono fallimenti delle chiamate API:
-
-- Retry con backoff esponenziale (default: 3 tentativi)
-- Circuit breaker (default: 5 fallimenti in 30s)
-- Timeout configurabile per agente
+`RetryPolicy` (`src/Agora/Resilience/`) wraps model calls with retry + exponential backoff and a
+per-agent timeout (`defaults.retries`, `retry_base_delay`, `timeout`).

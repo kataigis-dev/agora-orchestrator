@@ -2,8 +2,11 @@ using Agora.Configuration;
 
 namespace Agora.Providers;
 
+/// <summary>Flattens config models + providers + defaults into runnable <see cref="ModelSpec"/>s.</summary>
 public static class ModelResolver
 {
+    /// <summary>Builds a model-spec per alias, resolving each provider's API key (from its env var)
+    /// and base URL and folding in the default runtime settings.</summary>
     public static Dictionary<string, ModelSpec> Resolve(AgoraConfig config)
     {
         var specs = new Dictionary<string, ModelSpec>();

@@ -2,29 +2,29 @@
 
 ## Entities
 
-- [[agora-orchestrator]] — Core library .NET 10 per orchestrazione multi-agente, framework-free
-- [[agora-cli]] — Eseguibile CLI: `init`, `run`, `resume`, `ingest`, `validate`, `eval`
-- [[agora-api]] — Server REST ASP.NET Core per esecuzione agenti via HTTP
-- [[agora-agent-framework]] — Integrazione OpenAI, Ollama, MCP (progetto satellite)
+- [[agora-orchestrator]] — .NET 10 core library for multi-agent orchestration, framework-free
+- [[agora-cli]] — CLI executable: `init`, `run`, `resume`, `ingest`, `validate`, `eval`
+- [[agora-api]] — ASP.NET Core REST server to run agents over HTTP
+- [[agora-agent-framework]] — OpenAI, Ollama, MCP integration (satellite project)
 
 ## Concepts
 
-- [[agent-graph]] — Grafo diretto di agenti LLM con routing basato su segnali
-- [[edge-types]] — Tipi di edge: `sequential`, `handoff`, `conditional`, `route`, `parallel`
-- [[parallel-execution]] — Esecuzione concorrente di branch (fork/join)
-- [[checkpointing]] — Esecuzione durevole: salva lo stato per step e riprende (`run --checkpoint`, `resume`)
-- [[streaming]] — Streaming dei token (`IStreamingChatProvider`, `run --stream`)
-- [[h2c-protocol]] — Protocollo strutturato `[TYPE:SUBTYPE]` per comunicazione agente→orchestratore
-- [[signal]] — Token `<<signal name>>` per routing condizionale in modalità natural
-- [[communication-modes]] — Confronto tra modalità `h2c` (default) e `natural`
-- [[handoff-context]] — Passaggio di contesto minimo tra agenti (`handoff: true`)
-- [[rag-pipeline]] — Pipeline Retrieval-Augmented Generation: ingest, embed, retrieve, inject
-- [[shared-knowledge-base]] — RAG scrivibile: `KnowledgeBase`, conflict-judge LLM, risoluzione HITL
-- [[context-memory]] — Compressione del contesto via RAG: salva e recupera top-K (`memory: enabled`)
-- [[skills]] — Prompt file Markdown riutilizzabili come tool degli agenti
-- [[mcp-tools]] — Tool esterni tramite Model Context Protocol (stdio)
-- [[human-in-the-loop]] — Approvazione umana per azioni critiche (HITL)
-- [[guided-config]] — Comando `agora init`: costruzione interattiva della config YAML
+- [[agent-graph]] — Directed graph of LLM agents with signal-based routing
+- [[edge-types]] — Edge types: `sequential`, `handoff`, `conditional`, `route`, `parallel`
+- [[parallel-execution]] — Concurrent branch execution (fork/join)
+- [[checkpointing]] — Durable execution: per-step state checkpoint and resume (`run --checkpoint`, `resume`)
+- [[streaming]] — Token streaming (`IStreamingChatProvider`, `run --stream`)
+- [[h2c-protocol]] — Structured `[TYPE:SUBTYPE]` protocol for agent→orchestrator communication
+- [[signal]] — `<<signal name>>` tokens for conditional routing in natural mode
+- [[communication-modes]] — Comparison of `h2c` (default) and `natural` modes
+- [[handoff-context]] — Minimal context passing between agents (`handoff: true`)
+- [[rag-pipeline]] — Retrieval-Augmented Generation pipeline: ingest, embed, retrieve, inject
+- [[shared-knowledge-base]] — Writable RAG: `KnowledgeBase`, LLM conflict-judge, HITL resolution
+- [[context-memory]] — Context compression via RAG: save and recall top-K (`memory: enabled`)
+- [[skills]] — Reusable Markdown prompt files as agent tools
+- [[mcp-tools]] — External tools via the Model Context Protocol (stdio)
+- [[human-in-the-loop]] — Human approval for critical actions (HITL)
+- [[guided-config]] — `agora init` command: interactive YAML config building
 
 ## Sources
 

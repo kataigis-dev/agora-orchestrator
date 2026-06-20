@@ -1,5 +1,6 @@
 namespace Agora.Agents;
 
+/// <summary>A runnable agent: takes user input plus optional context and produces an <see cref="AgentResult"/>.</summary>
 public interface IAgent
 {
     /// <summary>Runs the agent. When <paramref name="onChunk"/> is supplied and the backing

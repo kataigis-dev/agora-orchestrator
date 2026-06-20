@@ -2,46 +2,50 @@
 type: entity
 title: Agora Orchestrator
 tags: [framework, dotnet, multi-agent, orchestration]
-related: [agent-graph, h2c-protocol, rag-pipeline, skills, mcp-tools, human-in-the-loop, agora-cli, agora-api]
+related: [agent-graph, h2c-protocol, rag-pipeline, shared-knowledge-base, context-memory, parallel-execution, checkpointing, streaming, skills, mcp-tools, human-in-the-loop, agora-cli, agora-api]
 created: 2026-06-17
-updated: 2026-06-17
+updated: 2026-06-20
 ---
 
 # Agora Orchestrator
 
-Framework .NET 10 per l'orchestrazione di pipeline multi-agente LLM. Progettato per essere **framework-free** nel core (nessuna dipendenza da SemanticKernel, LangChain o simili).
+.NET 10 framework for orchestrating multi-agent LLM pipelines. Designed to be **framework-free**
+in the core (no dependency on SemanticKernel, LangChain or similar).
 
-## Progetto: `Agora` (core)
+## Project: `Agora` (core)
 
-- `Runtime.cs` — punto di ingresso per l'esecuzione singolo-agente o grafo
-- `GraphExecutor.cs` — motore di esecuzione del grafo con loop e routing condizionale
-- `Agent.cs` / `IAgent` — astrazione agente, eseguibile su qualsiasi provider
-- `SignalParser.cs` — estrae token `<<signal name>>` dall'output dell'agente
+- `Runtime.cs` — entry point for single-agent or graph execution
+- `GraphExecutor.cs` — graph execution engine with loops, conditional routing, parallel fork/join,
+  routing, checkpointing and streaming
+- `Agent.cs` / `IAgent` — agent abstraction, runnable on any provider
+- `SignalParser.cs` — extracts `<<signal name>>` / `<<artifact key=value>>` tokens from agent output
 
-## Classi di configurazione
+## Configuration classes
 
-| Classe | Ruolo |
-|--------|-------|
-| `AgoraConfig` | Root della configurazione YAML |
+| Class | Role |
+|-------|------|
+| `AgoraConfig` | Root of the YAML configuration (incl. `handoff`, `language`, `memory`) |
 | `AgentConfig` | Model, role, system prompt, skills, tools, approvals |
-| `GraphConfig` | Entry point e lista di edge |
-| `ModelConfig` | Provider + nome modello |
+| `GraphConfig` | Entry point and edge list |
+| `ModelConfig` | Provider + model name |
 | `ProviderConfig` | Endpoint, api_key_env |
-| `RagConfig` | Sorgenti per RAG |
-| `McpConfig` | Server MCP (command + args) |
-| `SkillsConfig` | Directory delle skill |
+| `RagConfig` | Retrieval (embedder, vector store), refine, ingest sources |
+| `MemoryConfig` | Context memory (enabled, top_k, max_chars, remember_outputs) |
+| `McpConfig` | MCP servers (command + args / url) |
+| `SkillsConfig` | Skill directories |
 
-## Dipendenze esterne (Agora core)
+## External dependencies (Agora core)
 
-Nessuna — solo .NET BCL.
+None — only the .NET BCL.
 
-## Dipendenze esterne (Agora.AgentFramework)
+## External dependencies (Agora.AgentFramework)
 
-- `Microsoft.Extensions.AI.OpenAI`
-- `Microsoft.Agents.AI` + `Microsoft.Agents.AI.OpenAI`
+- `Microsoft.Extensions.AI` (+ OpenAI)
+- `Microsoft.Agents.AI`
 - `ModelContextProtocol.Core` (MCP client)
 - `OllamaSharp`
+- `Qdrant.Client` (gRPC vector DB adapter)
 
 ## Versioning
 
-La configurazione YAML ha `version: "1"` come unico campo di versione.
+The YAML configuration uses `version: "1"` as its only version field.

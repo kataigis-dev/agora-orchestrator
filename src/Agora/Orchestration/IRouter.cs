@@ -9,6 +9,7 @@ public sealed record RouteOption(string Target, string Description);
 /// </summary>
 public interface IRouter
 {
+    /// <summary>Chooses one option's <see cref="RouteOption.Target"/> given the routing context.</summary>
     Task<string> ChooseAsync(
         string context, IReadOnlyList<RouteOption> options, CancellationToken cancellationToken = default);
 }

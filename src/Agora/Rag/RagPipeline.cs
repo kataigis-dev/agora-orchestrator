@@ -7,6 +7,7 @@ public sealed class RagPipeline
     private readonly int _topK;
     private readonly double _scoreThreshold;
 
+    /// <summary>Creates the pipeline from its refiner, embedder, store, and query parameters.</summary>
     public RagPipeline(
         IRefiner refiner, IEmbedder embedder, IVectorStore store, int topK = 6, double scoreThreshold = 0.0)
     {
@@ -17,9 +18,14 @@ public sealed class RagPipeline
         _scoreThreshold = scoreThreshold;
     }
 
+    /// <summary>The embedder, exposed so the knowledge base can share the same instance.</summary>
     public IEmbedder Embedder { get; }
+
+    /// <summary>The vector store, exposed so the knowledge base can share the same instance.</summary>
     public IVectorStore Store { get; }
 
+    /// <summary>Refines the query, retrieves and de-duplicates the top chunks across all sub-queries,
+    /// and returns them bundled with the original input.</summary>
     public async Task<EnrichedInput> RunAsync(string text, CancellationToken cancellationToken = default)
     {
         var refined = await _refiner.RefineAsync(text, cancellationToken);

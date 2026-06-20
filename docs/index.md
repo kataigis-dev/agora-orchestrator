@@ -1,85 +1,92 @@
 # Agora Orchestrator
 
-Versione: 0.0.1
+Version: 0.0.1
 
-Agora Orchestrator è un framework di orchestrazione multi-agente per .NET 10, senza dipendenze esterne nel core. Permette di definire grafi di agenti AI, ciascuno configurato con un modello linguistico diverso (OpenAI, Ollama, endpoint compatibili) e orchestrarli su un grafo diretto con archi sequenziali, handoff e condizionali.
+Agora Orchestrator is a multi-agent orchestration framework for .NET 10, with no external
+dependencies in the core. It lets you define graphs of AI agents, each configured with a
+different language model (OpenAI, Ollama, compatible endpoints), and orchestrate them over a
+directed graph with sequential, handoff and conditional edges.
 
-## Scopo
+## Purpose
 
-Creare pipeline multi-agente autonome dove agenti specializzati collaborano su task complessi: generazione codice, analisi documenti, revisione, approvazione umana, ingest RAG.
+Build autonomous multi-agent pipelines where specialized agents collaborate on complex tasks:
+code generation, document analysis, review, human approval, RAG ingest.
 
-## Principi
+## Principles
 
-- Framework-free: il core `Agora` non ha dipendenze esterne
-- Config-driven: tutto è dichiarato in YAML (provider, modelli, agenti, grafo, MCP, skills, RAG)
-- Estensibile: provider chat, strumenti MCP, skills, e custom graph executors
-- Due modalità di comunicazione: H2C (formale) e natural (linguaggio naturale + segnali)
+- Framework-free: the `Agora` core has no external dependencies
+- Config-driven: everything is declared in YAML (providers, models, agents, graph, MCP, skills, RAG)
+- Extensible: chat providers, MCP tools, skills, and custom graph executors
+- Two communication modes: H2C (formal) and natural (natural language + signals)
 
-## Struttura directory
+## Directory structure
 
 ```
 src/
-├── Agora/                   # Core library (senza dipendenze esterne)
-│   ├── Orchestration/       # Motore del grafo (GraphRunner, nodi, edge)
-│   ├── Agents/              # Modelli di agente (base Agent)
-│   ├── Commands/            # Comandi CLI interni
-│   ├── Configuration/       # Parsing YAML e modelli di configurazione
-│   ├── Communication/       # Protocolli H2C e natural
-│   ├── Providers/           # Interfacce provider chat
-│   ├── Mcp/                 # Interfacce MCP
-│   ├── RAG/                 # Pipeline RAG (ingest, chunking, embedding, search)
-│   └── Resilience/          # Retry, circuit breaker
-├── Agora.AgentFramework/    # Implementazioni concrete con Microsoft.Extensions.AI
-│   ├── ChatProviders/       # OpenAI, Ollama, custom OpenAI-compatibili
-│   └── Mcp/                 # Client MCP stdio/HTTP
-├── Agora.Api/               # Server REST API ASP.NET
-└── Agora.Cli/               # Eseguibile CLI
+├── Agora/                   # Core library (no external dependencies)
+│   ├── Orchestration/       # Graph engine (GraphExecutor, nodes, edges)
+│   ├── Agents/              # Agent models (base Agent)
+│   ├── Cli/                 # Internal CLI commands
+│   ├── Configuration/       # YAML parsing and configuration models
+│   ├── Communication/       # H2C and natural protocols
+│   ├── Providers/           # Chat provider interfaces
+│   ├── HumanInTheLoop/      # Approval / conflict-resolution interfaces
+│   ├── Rag/                 # RAG pipeline (ingest, chunking, embedding, search)
+│   └── Resilience/          # Retry, timeout
+├── Agora.AgentFramework/    # Concrete implementations with Microsoft.Extensions.AI
+├── Agora.Api/               # ASP.NET REST API server
+└── Agora.Cli/               # CLI executable
 tests/
-├── Agora.Tests/             # Test unitari core
-└── Agora.Api.Tests/         # Test integrazione API
+├── Agora.Tests/             # Core unit tests
+└── Agora.Api.Tests/         # API integration tests
 examples/
-├── agora.yaml               # Config minimale
-├── agora-h2c.yaml           # H2C con grafo condizionale
+├── agora.yaml               # Minimal config
+├── agora-h2c.yaml           # H2C with a conditional graph
 ├── agora-tools.yaml         # Skills + MCP
 ├── agora-rag.yaml           # RAG pipeline
 ├── agora-hitl.yaml          # Human-in-the-loop
-├── agora-llama.yaml         # Modello locale via llama studio
-└── agora-generate-api.yaml  # Generazione codice con MCP + ciclo di revisione
+├── agora-handoff.yaml       # Minimal handoff context
+├── agora-memory.yaml        # RAG-backed context memory
+├── agora-parallel.yaml      # Parallel fork/join
+└── agora-llama.yaml         # Local model via LLM studio
 docs/
-└── (wiki documentazione)
+└── (documentation)
 ```
 
-## Avvio rapido
+## Quick start
 
 ```bash
 # Build
 dotnet build
 
-# Esecuzione agente singolo
-dotnet run --project src/Agora.Cli -- run --config examples/agora.yaml --agent planner --input "Scrivi una nota"
+# Generate a config interactively
+dotnet run --project src/Agora.Cli -- init
 
-# Esecuzione grafo
-dotnet run --project src/Agora.Cli -- run --config examples/agora-h2c.yaml --input "Crea una todo app" --graph
+# Run a single agent
+dotnet run --project src/Agora.Cli -- run --config examples/agora.yaml --agent planner --input "Write a note"
 
-# Validazione config
+# Run a graph
+dotnet run --project src/Agora.Cli -- run --config examples/agora-h2c.yaml --input "Build a todo app" --graph
+
+# Validate a config
 dotnet run --project src/Agora.Cli -- validate --config examples/agora.yaml
 
-# Ingest RAG
+# Ingest RAG knowledge
 dotnet run --project src/Agora.Cli -- ingest --config examples/agora-rag.yaml
 
-# Test
+# Tests
 dotnet test tests/Agora.Tests
 dotnet test tests/Agora.Api.Tests
 ```
 
-## Componenti principali
+## Main components
 
-| Componente | Descrizione |
+| Component | Description |
 |---|---|
-| **GraphExecutor** | Esegue un grafo diretto di agenti, gestendo stati, messaggi e transizioni |
-| **Agent** | Agente base: prompt + configurazione + eventuali tools/skills |
-| **ChatProvider** | Interfaccia per provider chat (OpenAI, Ollama, custom) |
-| **H2cParser** | Interpreta il protocollo H2C (blocchi strutturati tra `[H2C]...[/H2C]`) |
-| **McpClient** | Connessione a server MCP via stdio o HTTP |
+| **GraphExecutor** | Runs a directed graph of agents, managing state, messages and transitions |
+| **Agent** | Base agent: prompt + configuration + optional tools/skills |
+| **ChatProvider** | Interface for chat providers (OpenAI, Ollama, custom) |
+| **H2cParser** | Parses the H2C protocol (structured `[TYPE:SUBTYPE]` blocks) |
+| **McpToolSession** | Connection to MCP servers via stdio or HTTP |
 | **RagPipeline** | Ingest, chunking, embedding, vector search |
-| **ResiliencePolicy** | Retry, circuit breaker per chiamate API |
+| **RetryPolicy** | Retry and timeout for API calls |

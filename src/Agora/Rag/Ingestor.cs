@@ -10,6 +10,7 @@ public sealed class Ingestor
     private readonly int _chunkSize;
     private readonly int _overlap;
 
+    /// <summary>Creates the ingestor with its embedder, target store, and chunking parameters.</summary>
     public Ingestor(IEmbedder embedder, IVectorStore store, int chunkSize = 800, int overlap = 120)
     {
         _embedder = embedder;
@@ -18,6 +19,8 @@ public sealed class Ingestor
         _overlap = overlap;
     }
 
+    /// <summary>Reads every text file under the given paths, chunks and embeds them, upserts the
+    /// result, and returns the number of chunks ingested.</summary>
     public async Task<int> IngestPathsAsync(
         IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
     {
@@ -39,6 +42,7 @@ public sealed class Ingestor
         return chunks.Count;
     }
 
+    /// <summary>Yields supported text files (<c>.txt</c>/<c>.md</c>) for a file or directory path.</summary>
     private static IEnumerable<string> EnumerateTextFiles(string path)
     {
         if (File.Exists(path))

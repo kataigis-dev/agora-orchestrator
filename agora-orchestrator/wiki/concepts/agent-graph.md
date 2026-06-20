@@ -2,16 +2,17 @@
 type: concept
 title: Agent Graph
 tags: [graph, orchestration, multi-agent, routing]
-related: [edge-types, signal, h2c-protocol, handoff-context, agora-orchestrator]
+related: [edge-types, signal, h2c-protocol, handoff-context, parallel-execution, agora-orchestrator]
 created: 2026-06-17
-updated: 2026-06-19
+updated: 2026-06-20
 ---
 
 # Agent Graph
 
-Il grafo diretto è il modello di orchestrazione centrale di Agora. Ogni **nodo** è un agente LLM; gli **edge** definiscono il flusso di esecuzione.
+The directed graph is Agora's central orchestration model. Each **node** is an LLM agent; the
+**edges** define the execution flow.
 
-## Struttura
+## Structure
 
 ```csharp
 public sealed class Graph
@@ -23,39 +24,38 @@ public sealed class Graph
 }
 ```
 
-- `Entry` — ID del nodo di partenza
-- `END` — nodo sentinella che termina l'esecuzione
-- `Nodes` — mappa `id → Node`
-- `Edges` — lista di edge tipizzati
+- `Entry` — id of the start node
+- `END` — sentinel node that terminates execution
+- `Nodes` — `id → Node` map
+- `Edges` — list of typed edges
 
-## Esecuzione
+## Execution
 
-`GraphExecutor` esegue il grafo in loop:
-1. Entra nel nodo corrente → esegue l'agente
-2. Raccoglie output e segnali
-3. Naviga il prossimo nodo tramite `NextNode(current, state)`
-4. Ripete fino a `END` o superamento di `max_steps` (default 100)
+`GraphExecutor` runs the graph in a loop:
+1. Enter the current node → run the agent
+2. Collect output and signals
+3. Resolve the next node via `NextNode(current, state)` (or the LLM router for `route` edges)
+4. Repeat until `END` or `max_steps` (default 100) is exceeded
 
-## Stato condiviso (`State`)
+## Shared state (`State`)
 
-- `UserInput` — input originale dell'utente (immutabile)
-- `Outputs` — dizionario `agentId → output` accumulato
-- `Signals` — segnali emessi dall'ultimo agente
-- `Messages` — lista di messaggi (inclusi seed RAG)
-- `Artifacts` — artifact condivisi accumulati (`<<artifact key=value>>`)
-- `LoopCounters` — contatori `source→target` per `max_loops` sugli edge `conditional`
-- `LastAgent` — ultimo agente eseguito
-- `Inbox(agentId)` — restituisce tutti i messaggi indirizzati all'agente specificato
-- `ArtifactSummary()` — restituisce una stringa formattata con tutti gli artifact correnti
+- `UserInput` — the original user input (immutable)
+- `Outputs` — accumulated `agentId → output` dictionary
+- `Signals` — signals emitted by the last agent
+- `Messages` — list of messages (including the RAG seed)
+- `Artifacts` — accumulated shared artifacts (`<<artifact key=value>>`)
+- `LoopCounters` — `source→target` counters for `max_loops` on `conditional` edges
+- `LastAgent` — the last executed agent
+- `Inbox(agentId)` — all messages addressed to the given agent
+- `ArtifactSummary()` — a formatted string of all current artifacts
 
-Su ogni hop l'output del nodo corrente viene inoltrato al successivo come messaggio
-in `Messages`. Con `handoff: true` viene inoltrato **solo** il payload di handoff
-dichiarato (o niente) invece dell'output completo — vedi [[handoff-context]]. Con
-`memory: { enabled: true }` il contesto condiviso non è più il dump di tutti gli
-artifact ma le **top-K voci più rilevanti** recuperate dalla memoria — vedi
-[[context-memory]].
+On each hop the current node's output is forwarded to the next as a message in `Messages`. With
+`handoff: true` only the declared handoff payload (or nothing) is forwarded instead of the full
+output — see [[handoff-context]]. With `memory: { enabled: true }` the shared context is no longer
+the dump of all artifacts but the **top-K most relevant entries** recalled from memory — see
+[[context-memory]]. `parallel` edges fork concurrent branches — see [[parallel-execution]].
 
-## Configurazione YAML
+## YAML configuration
 
 ```yaml
 graph:
@@ -66,7 +66,7 @@ graph:
     - { from: reviewer, to: END, type: conditional, when: done }
 ```
 
-## Vincoli
+## Constraints
 
-- `max_steps` globale (default 100) protegge da loop infiniti
-- `max_loops` per edge condizionale limita la ripetizione di uno specifico ciclo
+- A global `max_steps` (default 100) guards against infinite loops
+- `max_loops` per conditional edge limits the repetition of a specific cycle

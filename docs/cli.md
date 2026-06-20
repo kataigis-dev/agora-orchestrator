@@ -1,68 +1,93 @@
 # CLI
 
-## Uso
+## Usage
 
 ```bash
-dotnet run --project src/Agora.Cli -- <comando> [options]
+dotnet run --project src/Agora.Cli -- <command> [options]
 ```
 
-## Comandi
+## Commands
+
+### init
+
+Builds a config interactively (guided wizard):
+
+```bash
+dotnet run --project src/Agora.Cli -- init [--output agora.yaml]
+```
 
 ### run
 
-Esegue un agente singolo o un grafo:
+Runs a single agent or a graph:
 
 ```bash
-# Agente singolo
-dotnet run --project src/Agora.Cli -- run --config examples/agora.yaml --agent planner --input "Scrivi una nota"
+# Single agent
+dotnet run --project src/Agora.Cli -- run --config examples/agora.yaml --agent planner --input "Write a note"
 
-# Grafo
-dotnet run --project src/Agora.Cli -- run --config examples/agora-h2c.yaml --input "Crea una todo app" --graph
+# Graph
+dotnet run --project src/Agora.Cli -- run --config examples/agora-h2c.yaml --input "Build a todo app" --graph
 ```
 
 #### Options
 
-| Opzione | Descrizione |
+| Option | Description |
 |---|---|
-| `--config <file>` | Path del file YAML (obbligatorio) |
-| `--input <text>` | Input utente / descrizione task (obbligatorio) |
-| `--agent <id>` | Agente da eseguire (obbligatorio per modalità singola) |
-| `--graph` | Esegue in modalità grafo (usa il graph definito nel config) |
+| `--config <file>` | Path of the YAML file (required) |
+| `--input <text>` | User input / task description (required) |
+| `--agent <id>` | Agent to run (required for single-agent mode) |
+| `--graph` | Run in graph mode (uses the graph defined in the config) |
+| `--stream` | Stream tokens to stdout as they are generated |
+| `--checkpoint <dir>` | Persist a per-step checkpoint (enables `resume`) |
+| `--run-id <id>` | Run id for checkpoints (default: generated) |
+
+### resume
+
+Resumes a graph run from its checkpoint:
+
+```bash
+dotnet run --project src/Agora.Cli -- resume --config examples/agora.yaml --checkpoint ./cp --run-id <id>
+```
 
 ### validate
 
-Valida un file di configurazione senza eseguire:
+Validates a configuration file without running it:
 
 ```bash
 dotnet run --project src/Agora.Cli -- validate --config examples/agora.yaml
 ```
 
-Restituisce la struttura parsata o errori di validazione.
+Returns `OK` or the validation error.
 
 ### ingest
 
-Esegue la pipeline RAG per indicizzare knowledge:
+Runs the RAG pipeline to index knowledge:
 
 ```bash
 dotnet run --project src/Agora.Cli -- ingest --config examples/agora-rag.yaml
 ```
 
-Processa le fonti configurate (file, directory, web) e popola il vector store.
+Processes the configured sources (files, directories) and populates the vector store.
+
+### eval
+
+Runs a deterministic eval scenario (scripted replay, no real model calls):
+
+```bash
+dotnet run --project src/Agora.Cli -- eval --config examples/agora.yaml --scenario scenario.json
+```
+
+Prints `PASS` or `FAIL` with the failed expectations.
 
 ## Exit codes
 
-| Codice | Significato |
+| Code | Meaning |
 |---|---|
-| 0 | Successo |
-| 1 | Errore generico |
-| 2 | Config non valido |
-| 3 | Agente non trovato |
-| 4 | Errore durante esecuzione |
+| 0 | Success |
+| 1 | Error (invalid config, unknown agent, execution error) |
 
-## Parsing opzioni
+## Option parsing
 
-`CliRunner.ParseOptions` gestisce la linea di comando con supporto per:
-- Flag booleani (`--graph`, `--verbose`)
-- Valori con spazio (`--input "testo lungo"`)
-- Path con spazi
-- Default values
+`CliRunner.ParseOptions` handles the command line with support for:
+- Boolean flags (`--graph`, `--stream`)
+- Values with spaces (`--input "long text"`)
+- Paths with spaces

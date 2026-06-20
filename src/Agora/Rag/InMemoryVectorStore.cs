@@ -5,6 +5,7 @@ public sealed class InMemoryVectorStore : IVectorStore
 {
     private readonly List<(Chunk Chunk, float[] Vector)> _items = new();
 
+    /// <inheritdoc />
     public Task UpsertAsync(
         IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken = default)
     {
@@ -19,6 +20,7 @@ public sealed class InMemoryVectorStore : IVectorStore
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
     public Task<IReadOnlyList<Chunk>> QueryAsync(
         IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0, CancellationToken cancellationToken = default)
     {
@@ -31,6 +33,7 @@ public sealed class InMemoryVectorStore : IVectorStore
         return Task.FromResult(hits);
     }
 
+    /// <inheritdoc />
     public Task DeleteAsync(IReadOnlyList<string> ids, CancellationToken cancellationToken = default)
     {
         _items.RemoveAll(item => ids.Contains(item.Chunk.Id));

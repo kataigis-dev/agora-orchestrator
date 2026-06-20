@@ -10,6 +10,8 @@ public sealed class Agent : IAgent
     private readonly ModelSpec _spec;
     private readonly IOutputInterpreter _interpreter;
 
+    /// <summary>Creates an agent bound to a chat provider, model spec, and output interpreter
+    /// (defaults to natural-language signal parsing when none is supplied).</summary>
     public Agent(AgentCard card, IChatProvider provider, ModelSpec spec, IOutputInterpreter? interpreter = null)
     {
         _card = card;
@@ -18,6 +20,9 @@ public sealed class Agent : IAgent
         _interpreter = interpreter ?? new SignalInterpreter();
     }
 
+    /// <summary>Builds the prompt (system + optional context + user input), completes it (streaming
+    /// when <paramref name="onChunk"/> and a streaming provider are available), and interprets the
+    /// reply into output text, signals, and artifacts.</summary>
     public async Task<AgentResult> RunAsync(string userInput, string context = "", Action<string>? onChunk = null)
     {
         var messages = new List<ChatMessage>();
@@ -41,6 +46,7 @@ public sealed class Agent : IAgent
         };
     }
 
+    /// <summary>Concatenates the card's role and system prompt into a single system message.</summary>
     private string BuildSystemPrompt()
     {
         var parts = new[] { _card.Role, _card.SystemPrompt }.Where(p => !string.IsNullOrEmpty(p));

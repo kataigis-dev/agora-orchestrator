@@ -7,6 +7,8 @@ namespace Agora.Providers;
 /// </summary>
 public interface IStreamingChatProvider : IChatProvider
 {
+    /// <summary>Completes the messages while delivering each response chunk to
+    /// <paramref name="onChunk"/>; still returns the full result at the end.</summary>
     Task<CompletionResult> StreamAsync(
         IReadOnlyList<ChatMessage> messages, ModelSpec spec, Action<string> onChunk,
         CancellationToken cancellationToken = default);

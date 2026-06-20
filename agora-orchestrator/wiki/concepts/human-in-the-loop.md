@@ -4,14 +4,15 @@ title: Human-in-the-Loop (HITL)
 tags: [hitl, approval, human, safety]
 related: [agora-orchestrator, agora-cli, agora-api, shared-knowledge-base]
 created: 2026-06-17
-updated: 2026-06-19
+updated: 2026-06-20
 ---
 
 # Human-in-the-Loop (HITL)
 
-Meccanismo di approvazione umana per azioni critiche. Permette di mettere in pausa l'esecuzione di un agente e attendere conferma prima di procedere.
+Human-approval mechanism for critical actions. It pauses an agent's execution and waits for
+confirmation before proceeding.
 
-## Configurazione
+## Configuration
 
 ```yaml
 agents:
@@ -19,9 +20,10 @@ agents:
     approvals: [deploy_to_production, delete_database]
 ```
 
-L'elenco `approvals` definisce i nomi di tool (function-calling) che richiedono approvazione umana esplicita prima di essere eseguiti.
+The `approvals` list names the (function-calling) tools that require explicit human approval before
+they run (it must be a subset of the agent's `tools`).
 
-## Interfaccia
+## Interface
 
 ```csharp
 // Agora/HumanInTheLoop/IApprovalHandler.cs
@@ -38,34 +40,33 @@ public interface IApprovalHandler
 }
 ```
 
-## Implementazioni
+## Implementations
 
-| Classe | Contesto | Comportamento |
-|--------|----------|---------------|
-| `ConsoleApprovalHandler` | CLI | Stampa la richiesta e attende `y/n` da tastiera |
-| `FakeApprovalHandler` | Test | Approva o rifiuta automaticamente (configurabile) |
-| `PendingApprovalHandler` | API | Accumula richieste in attesa di risposta tramite `ApprovalGate` |
+| Class | Context | Behaviour |
+|-------|---------|-----------|
+| `ConsoleApprovalHandler` | CLI | Prints the request and waits for `y/N` from the keyboard |
+| `FakeApprovalHandler` | Tests | Auto-approves or auto-denies (configurable) |
+| `PendingApprovalHandler` | API | Accumulates requests answered via `ApprovalGate` |
 
-## Flusso
+## Flow
 
-1. L'agente (tramite `IToolAgentFactory`) sta per eseguire un tool
-2. Se il tool name è nella lista `approvals` dell'agente, viene chiamato `IApprovalHandler.RequestAsync(ApprovalRequest)`
-3. Se l'handler restituisce `true` → il tool viene eseguito
-4. Se restituisce `false` → il tool non viene eseguito (nessuna eccezione, la chiamata viene saltata)
+1. The agent (via `IToolAgentFactory`) is about to run a tool.
+2. If the tool name is in the agent's `approvals` list, `IApprovalHandler.RequestAsync` is called.
+3. If the handler returns `true` → the tool runs.
+4. If it returns `false` → the tool is skipped (no exception).
 
-## Test
+## Tests
 
-`tests/Agora.Api.Tests/ApprovalFlowTests.cs` — test di integrazione del flusso HITL via API.
+`tests/Agora.Api.Tests/ApprovalFlowTests.cs` — integration test of the HITL flow via API.
 
-## Risoluzione conflitti (secondo canale HITL)
+## Conflict resolution (second HITL channel)
 
-Oltre all'approvazione sì/no dei tool, esiste un canale HITL dedicato ai conflitti
-della knowledge base scrivibile: `IConflictResolver` con esiti a tre vie
-(`KeepExisting` / `KeepNew` / `Merge`). Si attiva quando un agente non riesce a
-risolvere da solo un conflitto in scrittura sul RAG. Vedi [[shared-knowledge-base]].
+Besides the yes/no tool approval, there is a HITL channel dedicated to writable knowledge-base
+conflicts: `IConflictResolver` with three-way outcomes (`KeepExisting` / `KeepNew` / `Merge`). It
+fires when an agent cannot resolve a RAG write conflict on its own. See [[shared-knowledge-base]].
 
-## Note di sicurezza
+## Security notes
 
-- Il HITL è l'unico meccanismo built-in per prevenire azioni distruttive automatizzate
-- In produzione, implementare `IApprovalHandler` con notifica via webhook, Slack, o UI dedicata
-- Non dipendere esclusivamente da `FakeApprovalHandler` in ambienti non-test
+- HITL is the main built-in mechanism to prevent automated destructive actions.
+- In production, implement `IApprovalHandler` with a webhook, Slack, or dedicated UI notification.
+- Do not rely solely on `FakeApprovalHandler` outside tests.

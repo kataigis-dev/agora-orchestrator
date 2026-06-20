@@ -34,5 +34,6 @@ public sealed record AgentBuildContext
 /// </summary>
 public interface IToolAgentFactory
 {
+    /// <summary>Builds a tool-capable agent from the supplied build context.</summary>
     IAgent Create(AgentBuildContext context);
 }

@@ -9,6 +9,7 @@ namespace Agora.Configuration;
 /// </summary>
 public static class ConfigWriter
 {
+    /// <summary>Serializes the config to a YAML string, omitting null and empty sections.</summary>
     public static string ToYaml(AgoraConfig config)
     {
         var serializer = new SerializerBuilder()
@@ -19,6 +20,7 @@ public static class ConfigWriter
         return serializer.Serialize(config);
     }
 
+    /// <summary>Serializes the config and writes it to <paramref name="path"/>.</summary>
     public static void Save(AgoraConfig config, string path)
         => File.WriteAllText(path, ToYaml(config));
 }

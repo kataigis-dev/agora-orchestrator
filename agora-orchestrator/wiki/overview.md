@@ -9,9 +9,10 @@ updated: 2026-06-20
 
 # Agora Orchestrator — Overview
 
-**Agora Orchestrator** è un framework .NET 10 per l'orchestrazione di pipeline multi-agente LLM, indipendente da qualsiasi framework AI specifico.
+**Agora Orchestrator** is a .NET 10 framework for orchestrating multi-agent LLM pipelines,
+independent of any specific AI framework.
 
-## Architettura a colpo d'occhio
+## Architecture at a glance
 
 ```
 Agora.Cli / Agora.Api
@@ -22,48 +23,48 @@ Agora.Cli / Agora.Api
        │                      │
    Agent (IAgent) ◄───── AgentConfig (YAML)
        │
-    IChatProvider (OpenAI / Ollama / compatibile, streaming)
+    IChatProvider (OpenAI / Ollama / compatible, streaming)
        │
  [Skills] [RAG / Knowledge Base] [Context Memory] [MCP Tools] [HITL]
  [Parallel fork/join] [Router LLM] [Checkpoint/Resume]
 ```
 
-## Progetti nella solution
+## Projects in the solution
 
-| Progetto | Ruolo |
-|----------|-------|
-| `Agora` | Core library — nessuna dipendenza esterna |
-| `Agora.AgentFramework` | Integrazione OpenAI SDK, Ollama, MCP |
+| Project | Role |
+|---------|------|
+| `Agora` | Core library — no external dependencies |
+| `Agora.AgentFramework` | OpenAI SDK, Ollama, MCP, Qdrant integration |
 | `Agora.Api` | REST API (ASP.NET Core) |
-| `Agora.Cli` | Eseguibile CLI |
+| `Agora.Cli` | CLI executable |
 
-## Concetti chiave
+## Key concepts
 
-Orchestrazione:
-- **[[agent-graph]]** — Grafo diretto dove ogni nodo è un agente LLM
+Orchestration:
+- **[[agent-graph]]** — Directed graph where each node is an LLM agent
 - **[[edge-types]]** — `sequential`, `handoff`, `conditional`, `route` (LLM), `parallel` (fork/join)
-- **[[parallel-execution]]** — Branch concorrenti fork/join
-- **[[checkpointing]]** — Esecuzione durevole: checkpoint per step + `resume`
-- **[[streaming]]** — Streaming dei token (`run --stream`)
+- **[[parallel-execution]]** — Concurrent fork/join branches
+- **[[checkpointing]]** — Durable execution: per-step checkpoints + `resume`
+- **[[streaming]]** — Token streaming (`run --stream`)
 
-Comunicazione e contesto:
-- **[[h2c-protocol]]** — Protocollo strutturato `[TYPE:SUBTYPE]` agente→orchestratore
-- **[[signal]]** — Token `<<signal name>>` in modalità natural
+Communication and context:
+- **[[h2c-protocol]]** — Structured `[TYPE:SUBTYPE]` protocol, agent→orchestrator
+- **[[signal]]** — `<<signal name>>` tokens in natural mode
 - **[[communication-modes]]** — `h2c` (default) vs `natural`
-- **[[handoff-context]]** — Passaggio di contesto minimo tra agenti (`handoff: true`)
+- **[[handoff-context]]** — Minimal context passing between agents (`handoff: true`)
 
-Conoscenza e tool:
-- **[[rag-pipeline]]** — Pipeline RAG opzionale (ingest, embed, retrieve)
-- **[[shared-knowledge-base]]** — RAG scrivibile con rilevamento/risoluzione conflitti
-- **[[context-memory]]** — Compressione del contesto via RAG (top-K)
-- **[[skills]]** — Prompt file riutilizzabili come strumenti degli agenti
-- **[[mcp-tools]]** — Integrazione tool esterni tramite MCP
-- **[[human-in-the-loop]]** — Sistema di approvazione per azioni critiche
+Knowledge and tools:
+- **[[rag-pipeline]]** — Optional RAG pipeline (ingest, embed, retrieve)
+- **[[shared-knowledge-base]]** — Writable RAG with conflict detection/resolution
+- **[[context-memory]]** — Context compression via RAG (top-K)
+- **[[skills]]** — Reusable prompt files as agent tools
+- **[[mcp-tools]]** — External tool integration via MCP
+- **[[human-in-the-loop]]** — Approval system for critical actions
 
-## Configurazione YAML
+## YAML configuration
 
-Un singolo file YAML definisce tutto. Per generarlo senza scriverlo a mano c'è
-il wizard guidato `agora init` — vedi [[guided-config]].
+A single YAML file defines everything. To generate one without writing it by hand, use the
+guided `agora init` wizard — see [[guided-config]].
 ```yaml
 version: "1"
 communication: natural
@@ -75,7 +76,7 @@ models:
 agents:
   planner:
     model: fast
-    role: "Sei un planner esperto."
+    role: "You are an expert planner."
 graph:
   entry: planner
   edges:
@@ -84,9 +85,9 @@ graph:
     - { from: reviewer, to: END, type: conditional, when: done }
 ```
 
-## Stato attuale
+## Current status
 
-Core execution funzionante. Operativi: RAG (lettura + knowledge base scrivibile), context
-memory, HITL, MCP, esecuzione parallela (fork/join), routing LLM, checkpointing/resume,
-token streaming, embedder/vector store da config (incl. Qdrant), eval harness, REST API e CLI.
-Vedi [[log]] per l'attività recente.
+Core execution working. Operational: RAG (read + writable knowledge base), context memory, HITL,
+MCP, parallel execution (fork/join), LLM routing, checkpointing/resume, token streaming,
+config-driven embedder/vector store (incl. Qdrant), eval harness, REST API and CLI.
+See [[log]] for recent activity.

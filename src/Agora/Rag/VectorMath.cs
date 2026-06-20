@@ -1,7 +1,10 @@
 namespace Agora.Rag;
 
+/// <summary>Vector similarity helpers used by in-process stores.</summary>
 public static class VectorMath
 {
+    /// <summary>Cosine similarity of two vectors; returns 0 if either has zero magnitude. Compares over
+    /// the shorter length when dimensions differ.</summary>
     public static double CosineSimilarity(IReadOnlyList<float> a, IReadOnlyList<float> b)
     {
         double dot = 0.0;

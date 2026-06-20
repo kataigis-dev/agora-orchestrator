@@ -8,7 +8,10 @@ namespace Agora.Orchestration;
 /// </summary>
 public sealed class StateSnapshot
 {
+    /// <summary>Id of the node about to execute when the snapshot was taken.</summary>
     public string Current { get; set; } = Graph.End;
+
+    /// <summary>Number of steps already executed.</summary>
     public int Steps { get; set; }
     public string UserInput { get; set; } = "";
     public List<Message> Messages { get; set; } = new();
@@ -18,6 +21,7 @@ public sealed class StateSnapshot
     public Dictionary<string, object> Signals { get; set; } = new();
     public string? LastAgent { get; set; }
 
+    /// <summary>Captures a snapshot from live state, the next node, and the step count.</summary>
     public static StateSnapshot From(State state, string current, int steps) => new()
     {
         Current = current,
@@ -31,6 +35,7 @@ public sealed class StateSnapshot
         LastAgent = state.LastAgent,
     };
 
+    /// <summary>Rebuilds live <see cref="State"/> from the snapshot, restoring signal value types.</summary>
     public State ToState()
     {
         var state = new State(UserInput) { LastAgent = LastAgent };
@@ -42,7 +47,8 @@ public sealed class StateSnapshot
         return state;
     }
 
-    // After JSON round-trip, object values arrive as JsonElement; restore the bool/string/number type.
+    /// <summary>After a JSON round-trip signal values arrive as <see cref="JsonElement"/>; this restores
+    /// the original bool/string/number type.</summary>
     private static object Normalize(object value) => value switch
     {
         JsonElement je => je.ValueKind switch

@@ -19,6 +19,7 @@ public sealed class H2cParser
         { "PLAN", "EXEC", "DONE", "FIX", "REVERT", "NACK", "RUN", "PASS", "FAIL", "PRIMITIVES",
           "UPDATE", "PRUNE", "COMPACT", "FREEZE", "NEGOTIATE", "FINDINGS", "ACK", "END", "PROMPT" };
 
+    /// <summary>Scans text for H2C headers and returns the parsed blocks; non-block prose is ignored.</summary>
     public IReadOnlyList<H2cBlock> Parse(string text)
     {
         var blocks = new List<H2cBlock>();
@@ -63,6 +64,7 @@ public sealed class H2cParser
         return blocks;
     }
 
+    /// <summary>Renders blocks back to H2C text (header line plus an optional fields line each).</summary>
     public string Serialize(IEnumerable<H2cBlock> blocks)
     {
         var sb = new StringBuilder();
@@ -75,5 +77,6 @@ public sealed class H2cParser
         return sb.ToString().TrimEnd('\n');
     }
 
+    /// <summary>True when the block's type and subtype are both part of the known H2C vocabulary.</summary>
     public bool IsValid(H2cBlock block) => Types.Contains(block.Type) && Subtypes.Contains(block.Subtype);
 }

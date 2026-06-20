@@ -198,6 +198,8 @@ public sealed class Runtime
             systemPrompt = HandoffPreamble.For(_h2c) + "\n\n" + systemPrompt;
         if (_h2c)
             systemPrompt = H2cPreamble.Text + "\n\n" + systemPrompt;
+        if (!string.IsNullOrWhiteSpace(_config.Language))
+            systemPrompt = LanguagePreamble.For(_config.Language) + "\n\n" + systemPrompt;
         var card = new AgentCard
         {
             Id = agentId,

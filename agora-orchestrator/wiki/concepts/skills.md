@@ -4,16 +4,17 @@ title: Skills
 tags: [skills, tools, prompt, reusable]
 related: [agora-orchestrator, agora-agent-framework, mcp-tools]
 created: 2026-06-17
-updated: 2026-06-17
+updated: 2026-06-20
 ---
 
 # Skills
 
-Le Skill sono **prompt file riutilizzabili** che vengono esposti come tool chiamabili dagli agenti. Permettono di incapsulare logica specializzata (es. summarizzazione, traduzione, formattazione) in file Markdown.
+Skills are **reusable prompt files** exposed as a tool the agent can call. They encapsulate
+specialized logic (e.g. summarization, translation, formatting) in Markdown files.
 
-## Struttura di una Skill
+## Skill structure
 
-Una skill è una cartella con un file `SKILL.md`:
+A skill is a folder containing a `SKILL.md` file:
 
 ```
 skills/
@@ -21,13 +22,13 @@ skills/
     SKILL.md
 ```
 
-Il `SKILL.md` contiene le istruzioni per la skill (prompt, formato atteso, ecc.).
+`SKILL.md` contains the skill's instructions (prompt, expected format, etc.).
 
-## Esempio
+## Example
 
-`examples/skills/summarize/SKILL.md` — skill di summarizzazione.
+`examples/skills/summarize/SKILL.md` — a summarization skill.
 
-## Configurazione YAML
+## YAML configuration
 
 ```yaml
 skills:
@@ -38,25 +39,25 @@ agents:
     skills: [summarize]
 ```
 
-## Componenti
+## Components
 
-| Classe | Ruolo |
-|--------|-------|
-| `SkillLoader` | Carica le skill dalla directory configurata |
-| `SkillRegistry` | Registro delle skill disponibili |
-| `Skill` | Record con nome, descrizione e prompt della skill |
-| `SkillTools` (AgentFramework) | Converte le skill in tool chiamabili tramite LLM function-calling |
+| Class | Role |
+|-------|------|
+| `SkillLoader` | Loads skills from the configured directories |
+| `SkillRegistry` | Registry of available skills |
+| `Skill` | Record with the skill's name, description and prompt |
+| `SkillTools` (AgentFramework) | Exposes skills as a `load_skill` tool via LLM function-calling |
 
-## Differenza con MCP Tools
+## Difference from MCP tools
 
-| Aspetto | Skills | MCP Tools |
-|---------|--------|-----------|
-| Implementazione | Prompt Markdown | Processo esterno (stdio) |
-| Deploy | File nella directory skills | Server MCP separato |
-| Complessità | Bassa | Alta |
-| Potenza | Limitata al testo | Accesso al filesystem, rete, ecc. |
+| Aspect | Skills | MCP Tools |
+|--------|--------|-----------|
+| Implementation | Markdown prompt | External process (stdio) |
+| Deploy | File in the skills directory | Separate MCP server |
+| Complexity | Low | High |
+| Power | Limited to text | Filesystem, network, etc. |
 
-## Note
+## Notes
 
-- Le skill vengono passate all'agente come tool nel contesto di function calling
-- Un agente può avere sia skill che MCP tool contemporaneamente (`tools` + `skills` in `AgentConfig`)
+- Skills are exposed to the agent as a tool (`load_skill`, progressive disclosure).
+- An agent can have both skills and MCP tools at once (`tools` + `skills` in `AgentConfig`).

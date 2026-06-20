@@ -1,5 +1,7 @@
 namespace Agora.Rag;
 
+/// <summary>Storage abstraction for embedded chunks: upsert, similarity query, and delete. The sole
+/// seam through which the system reads/writes vectors (local store or remote DB).</summary>
 public interface IVectorStore
 {
     /// <summary>
@@ -10,6 +12,8 @@ public interface IVectorStore
     Task UpsertAsync(
         IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns the <paramref name="topK"/> most similar chunks to the query vector that meet
+    /// <paramref name="scoreThreshold"/>, ordered by descending similarity.</summary>
     Task<IReadOnlyList<Chunk>> QueryAsync(
         IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0, CancellationToken cancellationToken = default);
 

@@ -1,19 +1,29 @@
-# Provider Chat
+# Chat providers
 
-## Interfaccia IChatProvider
+## IChatProvider
 
-Definita in `src/Agora/Providers/IChatProvider.cs`:
+Defined in `src/Agora/Providers/IChatProvider.cs`:
 
 ```csharp
 public interface IChatProvider
 {
-    IAsyncEnumerable<ChatMessage> GetResponseAsync(
-        ChatRequest request,
-        CancellationToken ct = default);
+    Task<CompletionResult> CompleteAsync(
+        IReadOnlyList<ChatMessage> messages, ModelSpec spec, CancellationToken cancellationToken = default);
 }
 ```
 
-## Provider supportati
+Streaming is an optional capability:
+
+```csharp
+public interface IStreamingChatProvider : IChatProvider
+{
+    Task<CompletionResult> StreamAsync(
+        IReadOnlyList<ChatMessage> messages, ModelSpec spec, Action<string> onChunk,
+        CancellationToken cancellationToken = default);
+}
+```
+
+## Supported providers
 
 ### OpenAI
 
@@ -21,13 +31,10 @@ public interface IChatProvider
 providers:
   openai:
     api_key_env: OPENAI_API_KEY
-    base_url: https://api.openai.com/v1   # opzionale, default
+    base_url: https://api.openai.com/v1   # optional
 ```
 
-Usa `Microsoft.Extensions.AI.OpenAI` con `OpenAIClient`. Supporta:
-- `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `o1`, `o3-mini`
-- Streaming delle risposte
-- Tool calls nativi
+Uses `Microsoft.Extensions.AI` over the OpenAI client. Supports streaming and tool calls.
 
 ### Ollama
 
@@ -35,13 +42,9 @@ Usa `Microsoft.Extensions.AI.OpenAI` con `OpenAIClient`. Supporta:
 providers:
   ollama:
     base_url: http://localhost:11434
-    api_key_env: ~
 ```
 
-Usa `Microsoft.Extensions.AI.Ollama`. Supporta:
-- Modelli locali (llama3.1, mistral, phi4, qwen2.5)
-- API compatibile OpenAI
-- Nessuna API key necessaria
+Local models (llama3.1, mistral, qwen2.5, …); no API key needed.
 
 ### Custom / OpenAI-compatible
 
@@ -49,51 +52,37 @@ Usa `Microsoft.Extensions.AI.Ollama`. Supporta:
 providers:
   llamastudio:
     base_url: http://127.0.0.1:1234/v1
-    api_key_env: ~
 ```
 
-Usa `OpenAIClient` con `ApiKeyCredential` e `OpenAIClientOptions.Endpoint` custom.
+Any OpenAI-compatible endpoint (LM Studio, vLLM, TGI, LocalAI, Azure OpenAI with an Azure base_url),
+via the OpenAI client with a custom `Endpoint`.
 
-Compatibile con:
-- **llama studio** / LM Studio
-- **vLLM**
-- **TGI** (Text Generation Inference)
-- **LocalAI**
-- **Azure OpenAI** (con base_url Azure)
+## Models
 
-## Configurazione modello
+A model alias maps to a provider + concrete model:
 
 ```yaml
 models:
-  fast:
-    provider: openai
-    model: gpt-4o-mini
-    temperature: 0.3
-    max_tokens: 4096
-    top_p: 0.9
-    frequency_penalty: 0
-    presence_penalty: 0
-    stop: ["```"]              # Token di stop opzionali
+  fast:     { provider: openai, model: gpt-4o-mini }
+  balanced: { provider: openai, model: gpt-4o }
 ```
 
-## Meccanismo di risoluzione
+Generation parameters (temperature, max_tokens, timeout, retries) come from `defaults` (and the
+per-agent `timeout` override), resolved into a `ModelSpec`.
 
-`ChatClientFactory` in `src/Agora.AgentFramework/`:
+## Resolution
 
-1. Riceve `ModelSpec` (model id + optional overrides)
-2. Cerca il modello in `models:` del config
-3. Risolve il provider referenziato
-4. Crea il `ChatProvider` appropriato
-5. Applica parametri (temperature, max_tokens, etc.)
-6. Applica resilience (retry, circuit breaker)
-7. Restituisce `IChatProvider` pronto all'uso
+`ModelResolver.Resolve(config)` builds a `ModelSpec` per alias: provider, model, the `defaults`
+parameters, the API key (read from the provider's `api_key_env`) and base URL.
+`Agora.AgentFramework.ChatClients.Build(spec)` then creates the concrete client. The provider is
+wrapped in `ResilientChatProvider`.
 
 ## Resilience
 
-| Parametro | Default | Descrizione |
+`RetryPolicy` wraps each call:
+
+| Parameter (`defaults`) | Default | Description |
 |---|---|---|
-| `max_retries` | 3 | Tentativi massimi |
-| `retry_delay_ms` | 1000 | Ritardo base tra tentativi |
-| `circuit_breaker_threshold` | 5 | Fallimenti prima di aprire il circuito |
-| `circuit_breaker_duration_s` | 30 | Durata apertura circuito |
-| `timeout_s` | 120 | Timeout richiesta |
+| `retries` | 2 | Max retries |
+| `retry_base_delay` | 0.5 | Base delay (s) for exponential backoff |
+| `timeout` | 120 | Per-call timeout (s) |

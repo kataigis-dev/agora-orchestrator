@@ -13,12 +13,14 @@ public sealed class LlmRouter : IRouter
     private readonly IChatProvider _provider;
     private readonly ModelSpec _spec;
 
+    /// <summary>Creates the router backed by the given chat provider and model.</summary>
     public LlmRouter(IChatProvider provider, ModelSpec spec)
     {
         _provider = provider;
         _spec = spec;
     }
 
+    /// <inheritdoc />
     public async Task<string> ChooseAsync(
         string context, IReadOnlyList<RouteOption> options, CancellationToken cancellationToken = default)
     {

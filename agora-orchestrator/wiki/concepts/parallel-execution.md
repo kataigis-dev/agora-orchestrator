@@ -9,14 +9,14 @@ updated: 2026-06-20
 
 # Parallel Execution (fork/join)
 
-Esecuzione **concorrente** di più agenti indipendenti tramite un pattern fork→join:
-un nodo *fork* dirama su N branch che girano in parallelo, e i loro output confluiscono
-in un unico nodo *join* (es. un sintetizzatore). Riduce la latenza quando i branch non
-dipendono l'uno dall'altro. Vedi [[agent-graph]] e [[edge-types]].
+**Concurrent** execution of independent agents via a fork→join pattern: a *fork* node branches into
+N branches that run in parallel, and their outputs converge on a single *join* node (e.g. a
+synthesizer). Reduces latency when the branches are independent. See [[agent-graph]] and
+[[edge-types]].
 
-## Configurazione
+## Configuration
 
-Gli edge in uscita dal fork hanno `type: parallel`; i branch convergono su un solo join:
+The fork's outgoing edges are `type: parallel`; the branches converge on one join:
 
 ```yaml
 graph:
@@ -29,33 +29,31 @@ graph:
     - { from: synthesizer, to: END, type: sequential }
 ```
 
-## Semantica
+## Semantics
 
-1. Il **fork** esegue normalmente; il suo output viene consegnato all'inbox di **ogni** branch.
-2. I **branch** vengono eseguiti **concorrentemente** (`Task.WhenAll`): la concorrenza è
-   nelle chiamate al modello (la parte costosa); lo `State` viene mutato **serialmente**
-   dopo che tutti hanno finito → nessuna race.
-3. Il **join** è l'unico nodo su cui convergono i branch; riceve nell'inbox gli output di
-   **tutti** i branch e prosegue il flusso normale. Se i branch convergono su nodi diversi
-   è un errore (`GraphError`).
-4. Branch che vanno a `END` → nessun join (la pipeline termina dopo i branch).
+1. The **fork** runs normally; its output is delivered to **every** branch's inbox.
+2. The **branches** run **concurrently** (`Task.WhenAll`): the concurrency is in the model calls
+   (the expensive part); `State` is mutated **serially** after they all finish → no races.
+3. The **join** is the single node the branches converge on; it receives **all** branch outputs in
+   its inbox and continues the normal flow. Diverging joins are an error (`GraphError`).
+4. Branches that go to `END` → no join (the pipeline ends after the branches).
 
-## Vincoli (v1)
+## Constraints (v1)
 
-- I branch sono **singoli agenti** (nessun fan-out annidato dentro un branch).
-- Tutti i branch di un fork devono convergere su **un solo** nodo join.
+- Branches are **single agents** (no nested fan-out inside a branch).
+- All branches of a fork must converge on **one** join node.
 
-## Implementazione
+## Implementation
 
-`GraphExecutor.FanOutAsync`: aggiunge i messaggi fork→branch, esegue i branch con
-`Task.WhenAll`, calcola il join (target comune dei branch), poi registra gli output e i
-messaggi branch→join in modo seriale. I percorsi non-parallel restano invariati.
+`GraphExecutor.FanOutAsync`: adds the fork→branch messages, runs the branches with `Task.WhenAll`,
+computes the join (the branches' common target), then records outputs and branch→join messages
+serially. Non-parallel paths are unchanged.
 
-## Esempio
+## Example
 
 `examples/agora-parallel.yaml`.
 
-## Note
+## Notes
 
-- Ogni agente usa il proprio chat client/provider, quindi le chiamate concorrenti sono
-  indipendenti; lo store/memory durante il fan-out è solo letto (concorrenza sicura).
+- Each agent uses its own chat client/provider, so concurrent calls are independent; the
+  store/memory is only read during fan-out (safe concurrency).

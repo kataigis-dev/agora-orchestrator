@@ -1,72 +1,74 @@
-# Esempi
+# Examples
 
-## Configurazioni
+## Configurations
 
-### agora.yaml — Configurazione minimale
+### agora.yaml — Minimal configuration
 
-Due agenti (planner, executor) con provider OpenAI, comunicazione H2C, senza grafo.
+Two agents (planner, executor) with the OpenAI provider, H2C communication, no graph.
 
 ```bash
-dotnet run --project src/Agora.Cli -- run --config examples/agora.yaml --agent planner --input "Pianifica un progetto"
+dotnet run --project src/Agora.Cli -- run --config examples/agora.yaml --agent planner --input "Plan a project"
 ```
 
-### agora-h2c.yaml — Grafo condizionale con H2C
+### agora-h2c.yaml — Conditional graph with H2C
 
-Grafo: planner → coder → reviewer → (fix loop o done). Usa H2C `[STATE:DONE/FIX]`.
+Graph: planner → coder → reviewer → (fix loop or done). Uses H2C `[STATE:DONE/FIX]`.
 
 ```bash
-dotnet run --project src/Agora.Cli -- run --config examples/agora-h2c.yaml --input "Crea una todo list API" --graph
+dotnet run --project src/Agora.Cli -- run --config examples/agora-h2c.yaml --input "Create a todo list API" --graph
 ```
 
-### agora-llama.yaml — Modello locale
+### agora-llama.yaml — Local model
 
-Usa llama studio / LM Studio con `google/gemma-4-e4b`.
+Uses llama studio / LM Studio with `google/gemma-4-e4b`.
 
 ```bash
-dotnet run --project src/Agora.Cli -- run --config examples/agora-llama.yaml --agent assistant --input "Ciao"
+dotnet run --project src/Agora.Cli -- run --config examples/agora-llama.yaml --agent assistant --input "Hello"
 ```
 
-### agora-generate-api.yaml — Generazione codice con revisione
+### agora-generate-api.yaml — Code generation with review
 
-Grafo: generator → reviewer (conditional: fix/done). Usa MCP filesystem per leggere/scrivere file, comunicazione natural con segnali `<<signal done/fix>>`.
+Graph: generator → reviewer (conditional: fix/done). Uses MCP filesystem to read/write files,
+natural communication with `<<signal done/fix>>` signals.
 
 ```bash
-dotnet run --project src/Agora.Cli -- run --config examples/agora-generate-api.yaml --input "Crea una Web API per gestione libri" --graph
+dotnet run --project src/Agora.Cli -- run --config examples/agora-generate-api.yaml --input "Create a Web API for managing books" --graph
 ```
 
 ### agora-tools.yaml — Skills + MCP tools
 
-Agente con skill `summarize` e accesso a MCP filesystem.
+Agent with the `summarize` skill and access to MCP filesystem.
 
 ```bash
-dotnet run --project src/Agora.Cli -- run --config examples/agora-tools.yaml --agent summarizer --input "Leggi e riassumi questo file"
+dotnet run --project src/Agora.Cli -- run --config examples/agora-tools.yaml --agent summarizer --input "Read and summarize this file"
 ```
 
 ### agora-rag.yaml — RAG pipeline
 
-Pipeline di ingest e query con knowledge da file.
+Ingest and query pipeline with knowledge from files.
 
 ```bash
 # Ingest
 dotnet run --project src/Agora.Cli -- ingest --config examples/agora-rag.yaml
 
 # Query
-dotnet run --project src/Agora.Cli -- run --config examples/agora-rag.yaml --agent assistant --input "Cosa sa il progetto su X?"
+dotnet run --project src/Agora.Cli -- run --config examples/agora-rag.yaml --agent assistant --input "What does the project know about X?"
 ```
 
 ### agora-hitl.yaml — Human-in-the-loop
 
-Agente che richiede approvazione prima di eseguire azioni.
+Agent that requires approval before performing actions.
 
 ```bash
-dotnet run --project src/Agora.Cli -- run --config examples/agora-hitl.yaml --agent reviewer --input "Approva questa modifica"
+dotnet run --project src/Agora.Cli -- run --config examples/agora-hitl.yaml --agent reviewer --input "Approve this change"
 ```
 
-## Progetti generati
+## Generated projects
 
 ### generated-api/
 
-Progetto .NET Web API generato autonomamente dall'agente tramite `examples/agora-generate-api.yaml`. Contiene:
+A .NET Web API project generated autonomously by the agent via `examples/agora-generate-api.yaml`.
+Contains:
 
-- `Api.csproj` — progetto .NET 10
-- `Program.cs` — Web API con 7 endpoint (CRUD libri), middleware, in-memory store
+- `Api.csproj` — .NET 10 project
+- `Program.cs` — Web API with 7 endpoints (book CRUD), middleware, in-memory store

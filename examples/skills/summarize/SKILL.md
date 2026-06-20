@@ -1,13 +1,13 @@
 ---
 name: summarize
-description: Condensa un testo lungo in un riassunto fedele e strutturato.
-when_to_use: Quando l'utente chiede un riassunto, o quando l'input supera ~500 parole e va sintetizzato prima di rispondere.
+description: Condenses a long text into a faithful, structured summary.
+when_to_use: When the user asks for a summary, or when the input exceeds ~500 words and must be condensed before answering.
 ---
 # Summarize
 
-Produci un riassunto fedele del testo fornito.
+Produce a faithful summary of the provided text.
 
-1. Identifica la tesi principale e i 3-5 punti di supporto più importanti.
-2. Scrivi un riassunto di 4-6 frasi in italiano, in prosa scorrevole.
-3. Non introdurre fatti non presenti nel testo originale.
-4. Chiudi con una riga `Punti chiave:` seguita da un elenco puntato di massimo 5 voci.
+1. Identify the main thesis and the 3-5 most important supporting points.
+2. Write a 4-6 sentence summary in flowing prose.
+3. Do not introduce facts not present in the original text.
+4. End with a `Key points:` line followed by a bullet list of at most 5 items.

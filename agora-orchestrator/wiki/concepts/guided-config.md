@@ -4,87 +4,76 @@ title: Guided Config (init wizard)
 tags: [cli, configuration, yaml, wizard, dx]
 related: [agora-cli, agent-graph, edge-types, communication-modes, handoff-context, rag-pipeline, shared-knowledge-base, skills, mcp-tools, human-in-the-loop, agora-orchestrator]
 created: 2026-06-19
-updated: 2026-06-19
+updated: 2026-06-20
 ---
 
 # Guided Config (`init` wizard)
 
-Il comando `agora init` costruisce un file di configurazione YAML in modo
-**interattivo e guidato**, evitando di scrivere a mano provider, modelli, agenti,
-grafo e le sezioni opzionali. È pensato per ridurre l'attrito iniziale: l'utente
-risponde a una serie di domande e ottiene un file già validato e pronto per `run`.
+The `agora init` command builds a YAML configuration file **interactively**, avoiding hand-writing
+providers, models, agents, graph and the optional sections. It reduces the initial friction: the
+user answers a series of questions and gets a file that is already validated and ready for `run`.
 
-## Flusso
+## Flow
 
-Il wizard procede a step, ognuno con un `[default]` accettabile con Invio:
+The wizard proceeds step by step, each with a `[default]` accepted with Enter:
 
-1. **Communication mode** — `h2c` (default) o `natural`. Vedi [[communication-modes]].
-2. **Handoff mode** — sì/no (default no): passa al successivo solo l'handoff esplicito.
-   Vedi [[handoff-context]].
-3. **Providers** — uno o più (es. `openai`, `anthropic`, `ollama`); per ciascuno
-   `api_key_env` e `base_url` opzionali. Almeno uno è obbligatorio.
-4. **Models** — alias → `provider` + nome modello concreto (es. `balanced` →
-   `openai`/`gpt-4o`). Almeno uno.
-5. **Default model** — alias usato dagli agenti che non specificano un modello
-   proprio (popola `defaults.model`).
-6. **Skills** (opzionale) — directory dei file `SKILL.md`. Vedi [[skills]].
-7. **MCP** (opzionale) — server di tool esterni, via `stdio` (`command` + `args`)
-   o `http` (`url`). Vedi [[mcp-tools]].
-8. **RAG** (opzionale) — abilita la pipeline retrieval: tipo di vector store
-   (`memory` o `file` + path), sorgenti di ingest, `chunk_size`/`chunk_overlap`,
-   `top_k` e strategia di refine (`none`/`llm`). Usa l'embedder `fake` built-in.
-   Vedi [[rag-pipeline]] e [[shared-knowledge-base]].
-9. **Agents** — `id`, alias modello e `role` (system prompt). Almeno uno. Se sono
-   state configurate skill/MCP/RAG o l'handoff, per ogni agente si possono elencare
-   `skills`, `tools` (inclusi i built-in `rag_search`/`rag_write`/`ask_agent`) e gli
-   `approvals` (sottoinsieme dei tool che richiede approvazione umana —
-   [[human-in-the-loop]]).
-10. **Graph** — proposto solo con **2+ agenti**. Si sceglie l'`entry` e si
-    aggiungono gli edge (`from` → `to`, con `END` per terminare); per gli edge
-    `conditional` vengono chiesti `when` e `max_loops`. Vedi [[agent-graph]] e
-    [[edge-types]].
-11. **Output** — path del file (default `./agora.yaml`), con conferma di
-    sovrascrittura se esiste già.
+1. **Communication mode** — `h2c` (default) or `natural`. See [[communication-modes]].
+2. **Handoff mode** — yes/no (default no): pass only the explicit handoff to the next agent.
+   See [[handoff-context]].
+3. **Providers** — one or more (e.g. `openai`, `anthropic`, `ollama`); for each, optional
+   `api_key_env` and `base_url`. At least one is required.
+4. **Models** — alias → `provider` + concrete model name (e.g. `balanced` → `openai`/`gpt-4o`).
+   At least one.
+5. **Default model** — alias used by agents that don't specify their own (populates `defaults.model`).
+6. **Skills** (optional) — directories of `SKILL.md` files. See [[skills]].
+7. **MCP** (optional) — external tool servers, via `stdio` (`command` + `args`) or `http` (`url`).
+   See [[mcp-tools]].
+8. **RAG** (optional) — enables the retrieval pipeline: vector store type (`memory`/`file` + path),
+   ingest sources, `chunk_size`/`chunk_overlap`, `top_k`, and refine strategy (`none`/`llm`). Uses
+   the built-in `fake` embedder. See [[rag-pipeline]] and [[shared-knowledge-base]].
+9. **Agents** — `id`, model alias and `role` (system prompt). At least one. If skills/MCP/RAG or
+   handoff were configured, each agent can list `skills`, `tools` (including the built-in
+   `rag_search`/`rag_write`/`ask_agent`) and `approvals` (subset of tools requiring human approval
+   — [[human-in-the-loop]]).
+10. **Graph** — offered only with **2+ agents**. Pick the `entry` and add edges (`from` → `to`, with
+    `END` to terminate); for `conditional` edges it asks `when` and `max_loops`. See [[agent-graph]]
+    and [[edge-types]].
+11. **Output** — file path (default `./agora.yaml`), with overwrite confirmation if it exists.
 
-Le sezioni opzionali (skills, MCP, RAG) sono gate dietro un sì/no con default
-**no**: chi vuole una config minimale le salta con un Invio. Con un solo agente
-il grafo viene saltato e la config si esegue in single-agent mode
-(`run --agent <id>`).
+The optional sections (skills, MCP, RAG) are gated behind a yes/no defaulting to **no**: a minimal
+config skips them with one Enter. With a single agent the graph is skipped and the config runs in
+single-agent mode (`run --agent <id>`).
 
-## Garanzie
+## Guarantees
 
-- Le scelte vincolate (communication mode, alias provider/modello, `entry`,
-  target degli edge) sono validate **durante** il wizard: non è possibile
-  digitare un riferimento inesistente.
-- Al termine il file viene **riletto con `ConfigLoader`**: se la validazione
-  fallisce il comando esce con errore, quindi un `init` riuscito produce sempre
-  una config caricabile.
-- A fine flusso stampa i comandi `validate` e `run` pronti da copiare.
+- Constrained choices (communication mode, provider/model aliases, `entry`, edge targets) are
+  validated **during** the wizard: you cannot type a non-existent reference.
+- At the end the file is **re-read with `ConfigLoader`**: if validation fails the command exits with
+  an error, so a successful `init` always produces a loadable config.
+- It prints ready-to-copy `validate` and `run` commands at the end.
 
-## Implementazione
+## Implementation
 
-| Componente | Ruolo |
-|------------|-------|
-| `Cli/ConfigWizard.cs` | Driver delle domande; costruisce un `AgoraConfig` |
-| `Configuration/ConfigWriter.cs` | Serializza `AgoraConfig` → YAML (controparte di `ConfigLoader`) |
-| `Cli/CliRunner.cs` | Dispatch del comando `init`; opzione `--output` |
+| Component | Role |
+|-----------|------|
+| `Cli/ConfigWizard.cs` | Drives the questions; builds an `AgoraConfig` |
+| `Configuration/ConfigWriter.cs` | Serializes `AgoraConfig` → YAML (counterpart of `ConfigLoader`) |
+| `Cli/CliRunner.cs` | Dispatches the `init` command; `--output` option |
 
-`ConfigWizard.Run(TextReader, TextWriter, TextWriter, string?)` riceve input e
-output iniettati, perciò il flusso è interamente **unit-testabile** pilotando
-uno stdin scriptato (vedi `ConfigWizardTests`). `ConfigWriter` usa il
-`SerializerBuilder` di YamlDotNet con `OmitNull | OmitEmptyCollections`, così il
-file generato contiene solo le sezioni effettivamente popolate.
+`ConfigWizard.Run(TextReader, TextWriter, TextWriter, string?)` takes injected input/output, so the
+flow is fully **unit-testable** by driving a scripted stdin (see `ConfigWizardTests`). `ConfigWriter`
+uses YamlDotNet's `SerializerBuilder` with `OmitNull | OmitEmptyCollections`, so the generated file
+contains only the populated sections.
 
-## Esempio
+## Example
 
 ```bash
-agora init                       # scrive ./agora.yaml in modo guidato
-agora init --output team.yaml    # pre-imposta il path di destinazione
+agora init                       # writes ./agora.yaml interactively
+agora init --output team.yaml    # pre-set the destination path
 ```
 
-## Note
+## Notes
 
-- Per RAG il wizard imposta l'embedder `fake` (unico built-in nel core via
-  `RagFactory`); un embedder reale va iniettato in codice (es.
-  `AgentFrameworkEmbedder`). Il vector store è scegliibile tra `memory` e `file`.
-- Quando la config include RAG, il footer suggerisce anche `agora ingest`.
+- For RAG the wizard sets the `fake` embedder (the only core built-in via `RagFactory`); a real
+  embedder is selectable via config (`type: openai`/`ollama`). The vector store is `memory` or `file`.
+- When the config includes RAG, the footer also suggests `agora ingest`.

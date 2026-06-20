@@ -1,64 +1,51 @@
-# H2C — Human-to-Computer Protocol
+# H2C — agent↔orchestrator protocol
 
-## Cos'è
+## What it is
 
-H2C è un protocollo di comunicazione strutturata tra umani e agenti AI, basato su blocchi delimitati. Permette agli agenti di esprimere intenti, stati e dati in modo formalmente parsabile.
+H2C is a token-compressed, structured communication protocol. Agents express state and data as
+parsable blocks, robust even with less capable models. Enabled with `communication: h2c` (default).
 
-## Sintassi
+## Syntax
+
+A header line `[TYPE:SUBTYPE]` optionally followed by ONE fields line `key:value|key:value`.
+Surrounding prose is ignored; malformed blocks are skipped. Lists use `[a,b,c]`; file revisions
+use `file~N`.
+
+### Example
 
 ```
-[H2C:TIPO:SOTTOTIPO]
-... contenuto ...
-[/H2C]
+[ARCH:PLAN]
+id:api-meteo|fw:net10|lib:[fastapi,httpx]
+
+[STATE:DONE]
 ```
 
-### Esempio
+## Types
 
-```
-[H2C:ACTION:CODE_GENERATE]
-namespace MyApp;
-class Program { ... }
-[/H2C]
+`ARCH`, `BUILD`, `TEST`, `CTX`, `STATE`, `ORCH`, `SKILL`.
 
-[H2C:STATE:DONE]
-Task completato.
-[/H2C]
-```
+## Subtypes
 
-## Tipi
+`PLAN`, `EXEC`, `DONE`, `FIX`, `REVERT`, `NACK`, `RUN`, `PASS`, `FAIL`, `PRIMITIVES`, `UPDATE`,
+`PRUNE`, `COMPACT`, `FREEZE`, `NEGOTIATE`, `FINDINGS`, `ACK`, `END`, `PROMPT`.
 
-| Tipo | Descrizione |
-|---|---|
-| `STATE` | Stato dell'agente (DONE, FIX, APPROVE, DENY, ESCALATE) |
-| `ACTION` | Azione richiesta (CODE_GENERATE, FILE_WRITE, FILE_READ, API_CALL) |
-| `INFO` | Informazione strutturata (RESULT, ERROR, PROGRESS) |
-| `QUERY` | Richiesta all'utente (CLARIFY, CONFIRM, APPROVAL) |
+Completion/verdicts are signalled by the subtype, e.g. `[STATE:DONE]`, `[TEST:PASS]`, `[STATE:FIX]`.
 
-## Sottotipi STATE
+## How signals are derived
 
-| Sottotipo | Significato | Routing |
+`H2cInterpreter` (`src/Agora/Communication/`) parses every block and:
+- maps each block's subtype to a `true` signal (lowercased, e.g. `[STATE:DONE]` → signal `done`);
+- maps each field to a signal (`key:value`);
+- recognizes a `handoff` field as the handoff artifact (used in handoff mode).
+
+`H2cParser` extracts the blocks; surrounding prose is ignored and malformed blocks are skipped.
+A system-prompt preamble (`H2cPreamble`) instructs the agent to reply in H2C.
+
+## H2C vs Natural
+
+| Aspect | H2C | Natural |
 |---|---|---|
-| `DONE` | Task completato con successo | Edge: done → END |
-| `FIX` | Richiesta modifica | Edge: fix → loop |
-| `APPROVE` | Approvato | Edge: approve → next |
-| `DENY` | Rifiutato | Edge: deny → loop o END |
-| `ESCALATE` | Richiede intervento umano | Pausa per approvazione |
-
-## Interprete H2C
-
-`H2cParser` in `src/Agora/Communication/H2cParser.cs`:
-
-1. Riceve il testo della risposta dell'agente
-2. Cerca pattern `[H2C:...]...[/H2C]` tramite regex
-3. Estrae tipo, sottotipo e contenuto
-4. Per blocchi STATE, converte in segnali di routing
-5. Restituisce lista di `H2cBlock` parsati
-
-## Modalità H2C vs Natural
-
-| Aspetto | H2C | Natural |
-|---|---|---|
-| Formato | Blocchi strutturati | Linguaggio naturale |
+| Format | `[TYPE:SUBTYPE]` blocks + `key:value` fields | natural language |
 | Routing | `[STATE:DONE]` | `<<signal done>>` |
-| Parsing | Regex formale | Regex su segnali |
-| Quando usare | Sistemi che richiedono parsing preciso | Interazioni più fluide |
+| Artifacts | `handoff` field | `<<artifact key=value>>` |
+| When to use | weaker/local models, strict structure | capable models, readable output |

@@ -4,6 +4,7 @@ namespace Agora.Configuration;
 /// into each agent, save declared artifacts and recall only the top-K relevant ones.</summary>
 public sealed class MemoryConfig
 {
+    /// <summary>Whether context memory is enabled.</summary>
     public bool Enabled { get; set; } = true;
 
     /// <summary>How many relevant memory entries to recall into an agent's context.</summary>

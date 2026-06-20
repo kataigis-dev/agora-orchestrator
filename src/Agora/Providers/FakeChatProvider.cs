@@ -6,14 +6,17 @@ public sealed class FakeChatProvider : IStreamingChatProvider
     private readonly Queue<string> _responses;
     private readonly string _default;
 
+    /// <summary>Records every call's messages and spec for test assertions.</summary>
     public List<(IReadOnlyList<ChatMessage> Messages, ModelSpec Spec)> Calls { get; } = new();
 
+    /// <summary>Creates the provider with a queue of scripted responses and a fallback default.</summary>
     public FakeChatProvider(IEnumerable<string>? responses = null, string @default = "OK")
     {
         _responses = new Queue<string>(responses ?? Enumerable.Empty<string>());
         _default = @default;
     }
 
+    /// <summary>Returns the next scripted response (or the default), recording the call.</summary>
     public Task<CompletionResult> CompleteAsync(
         IReadOnlyList<ChatMessage> messages, ModelSpec spec, CancellationToken cancellationToken = default)
     {
@@ -25,6 +28,7 @@ public sealed class FakeChatProvider : IStreamingChatProvider
         });
     }
 
+    /// <summary>Completes, then replays the response word-by-word through <paramref name="onChunk"/>.</summary>
     public async Task<CompletionResult> StreamAsync(
         IReadOnlyList<ChatMessage> messages, ModelSpec spec, Action<string> onChunk,
         CancellationToken cancellationToken = default)

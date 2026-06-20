@@ -9,46 +9,45 @@ updated: 2026-06-20
 
 # Checkpointing & Resume
 
-Esecuzione **durevole**: lo `State` del grafo viene salvato a ogni step in uno store di
-checkpoint pluggable, così un run interrotto (crash, kill) può essere **ripreso** da dove
-si era fermato, senza rieseguire i nodi già completati. Vedi [[agent-graph]].
+**Durable** execution: the graph `State` is saved at every step to a pluggable checkpoint store, so
+an interrupted run (crash, kill) can be **resumed** from where it stopped, without re-running
+already-completed nodes. See [[agent-graph]].
 
-## Modello
+## Model
 
-- **`StateSnapshot`** — snapshot JSON-serializzabile dello `State` (nodo corrente, step,
-  input, messaggi, output, artifact, signals, loop counter, last agent). I `signals`
-  (mappa `string|bool`) fanno round-trip via JSON e vengono normalizzati al ricaricamento.
-- **`ICheckpointStore`** — `Save(runId, snapshot)` / `Load(runId)`. Implementazioni:
-  `InMemoryCheckpointStore` (test) e `FileCheckpointStore` (un JSON per run id).
+- **`StateSnapshot`** — a JSON-serializable snapshot of `State` (current node, step, input,
+  messages, outputs, artifacts, signals, loop counters, last agent). The `signals` (a `string|bool`
+  map) round-trip through JSON and are normalized on load.
+- **`ICheckpointStore`** — `Save(runId, snapshot)` / `Load(runId)`. Implementations:
+  `InMemoryCheckpointStore` (tests) and `FileCheckpointStore` (one JSON per run id).
 
-## Semantica
+## Semantics
 
-Il checkpoint viene salvato **dopo** il completamento di ogni nodo (con `Current` = nodo
-successivo). Quindi:
+A checkpoint is saved **after** each node completes (with `Current` = the next node). Therefore:
 
-- I nodi completati vengono preservati (eseguiti **una volta**).
-- Solo il nodo che stava per partire viene rieseguito al resume (at-least-once).
-- Per il fan-out ([[parallel-execution]]) il checkpoint avviene dopo il join.
+- Completed nodes are preserved (executed **once**).
+- Only the node that was about to start is re-run on resume (at-least-once).
+- For fan-out ([[parallel-execution]]) the checkpoint happens after the join.
 
-Al resume, `GraphExecutor.RunAsync(resumeFrom: snapshot)` ricostruisce lo `State`, riparte
-dal nodo `Current` e **salta** il seed RAG (già presente nei messaggi salvati).
+On resume, `GraphExecutor.RunAsync(resumeFrom: snapshot)` rebuilds `State`, restarts from the
+`Current` node and **skips** the RAG seed (already present in the saved messages).
 
 ## CLI
 
 ```bash
-# esegue salvando i checkpoint; stampa il run-id su stderr
+# run while saving checkpoints; prints the run-id on stderr
 agora run --config app.yaml --input "..." --graph --checkpoint ./checkpoints
 
-# riprende il run interrotto
+# resume the interrupted run
 agora resume --config app.yaml --checkpoint ./checkpoints --run-id <id>
 ```
 
-`Runtime.RunAsync(input, runId?)` genera un run id quando il checkpointing è attivo;
-`Runtime.ResumeAsync(runId)` carica lo snapshot e continua.
+`Runtime.RunAsync(input, runId?)` generates a run id when checkpointing is on;
+`Runtime.ResumeAsync(runId)` loads the snapshot and continues.
 
-## Limiti / note
+## Limits / notes
 
-- Se il crash avviene **durante** una chiamata al modello, quel nodo riparte da capo
-  (la sua chiamata LLM viene rifatta) — l'esecuzione dei nodi non è transazionale.
-- È la base per un **HITL durevole** (pausa per approvazione che sopravvive ai riavvii):
-  estensione futura sopra a questo meccanismo. Vedi [[human-in-the-loop]].
+- If the crash happens **during** a model call, that node restarts from scratch (its LLM call is
+  redone) — node execution is not transactional.
+- It is the foundation for **durable HITL** (an approval pause that survives restarts): a future
+  extension on top of this mechanism. See [[human-in-the-loop]].

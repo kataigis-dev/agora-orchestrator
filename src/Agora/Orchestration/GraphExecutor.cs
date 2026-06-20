@@ -3,6 +3,11 @@ using Agora.Observability;
 
 namespace Agora.Orchestration;
 
+/// <summary>
+/// Drives a graph run: executes each node's agent, threads shared <see cref="State"/>, resolves the
+/// next node (sequential/handoff/conditional/route edges), fans out parallel branches, and
+/// checkpoints after every step. Supports handoff mode and RAG-backed context memory.
+/// </summary>
 public sealed class GraphExecutor
 {
     private const string HandoffKey = "handoff";
@@ -19,6 +24,8 @@ public sealed class GraphExecutor
     private readonly Action<string>? _onChunk;
     private const int OutputMemoryCap = 2000;
 
+    /// <summary>Creates an executor for a graph, with optional handoff mode, context memory, LLM
+    /// router, checkpoint store, run id, and a streaming token sink.</summary>
     public GraphExecutor(
         Graph graph, Func<string, IAgent> agentFactory, int maxSteps = 100, bool handoff = false,
         Agora.Rag.ContextMemory? memory = null, Agora.Rag.MemoryOptions? memoryOptions = null,
@@ -37,6 +44,11 @@ public sealed class GraphExecutor
         _onChunk = onChunk;
     }
 
+    /// <summary>Runs the graph from the entry node (or resumes from <paramref name="resumeFrom"/>) until
+    /// it reaches END or exceeds the step limit, returning the final shared state.</summary>
+    /// <param name="userInput">The task/input for the run.</param>
+    /// <param name="seedContext">Optional context (e.g. RAG results) delivered to the entry node's inbox.</param>
+    /// <param name="resumeFrom">Optional snapshot to resume a previously checkpointed run.</param>
     public async Task<State> RunAsync(string userInput, string seedContext = "", StateSnapshot? resumeFrom = null)
     {
         var state = resumeFrom?.ToState() ?? new State(userInput);
@@ -167,9 +179,12 @@ public sealed class GraphExecutor
         return state;
     }
 
+    /// <summary>Saves a snapshot of the run after a step, if a checkpoint store is configured.</summary>
     private void Checkpoint(State state, string current, int steps)
         => _checkpoints?.Save(_runId, StateSnapshot.From(state, current, steps));
 
+    /// <summary>Builds a node's context from its inbox plus shared background — recalled memory in
+    /// memory mode, otherwise the full artifact summary.</summary>
     private async Task<string> BuildContextAsync(string nodeId, State state)
     {
         var inbox = state.Inbox(nodeId);
@@ -183,6 +198,7 @@ public sealed class GraphExecutor
             : $"{shared}\n\n{inbox}";
     }
 
+    /// <summary>Builds and runs a single node's agent with its assembled context.</summary>
     private async Task<AgentResult> RunOnceAsync(string nodeId, State state, Action<string>? onChunk = null)
     {
         var agent = _agentFactory(nodeId);
@@ -190,6 +206,7 @@ public sealed class GraphExecutor
         return await agent.RunAsync(state.UserInput, context, onChunk);
     }
 
+    /// <summary>Writes a node's artifacts (and, when enabled, its truncated output) to context memory.</summary>
     private async Task RememberAsync(string nodeId, AgentResult result, State state)
     {
         if (_memory is null)
@@ -244,6 +261,8 @@ public sealed class GraphExecutor
         return join;
     }
 
+    /// <summary>Builds a human-readable label for the edge taken (including loop counts for
+    /// conditional edges), used for console rendering.</summary>
     private string EdgeLabel(string source, string target, State state)
     {
         foreach (var edge in _graph.Edges)
@@ -277,6 +296,8 @@ public sealed class GraphExecutor
         return await _router.ChooseAsync(state.Outputs.GetValueOrDefault(source, ""), options);
     }
 
+    /// <summary>Picks the next node by signals: takes the first matching conditional edge (honoring
+    /// <c>max_loops</c>) or the first unconditional edge; returns END if none apply.</summary>
     private string NextNode(string source, State state)
     {
         foreach (var edge in _graph.Edges)
@@ -299,6 +320,7 @@ public sealed class GraphExecutor
         return Graph.End;
     }
 
+    /// <summary>True when the named signal is present and truthy (non-false bool, non-empty string).</summary>
     private static bool IsTruthy(IReadOnlyDictionary<string, object> signals, string? key)
     {
         if (key is null || !signals.TryGetValue(key, out var value))
@@ -311,6 +333,7 @@ public sealed class GraphExecutor
         };
     }
 
+    /// <summary>Shortens a string to at most <paramref name="max"/> characters, appending an ellipsis.</summary>
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..max] + "...";
 }

@@ -1,120 +1,133 @@
-# Configurazione YAML
+# YAML configuration
 
-## Struttura generale
+A single YAML file describes everything. Generate one interactively with `agora init`.
+
+## Top-level structure
 
 ```yaml
-version: "1"                          # Versione schema (obbligatorio)
-communication: natural                # "h2c" (default) o "natural"
-defaults:                             # Default applicati a tutti gli agenti
-  model: fast
+version: "1"                 # schema version
+communication: h2c           # "h2c" (default) or "natural"
+handoff: true                # pass only the declared handoff to the next agent (default false)
+language: English            # language agents must use in generated documents (optional)
+
+defaults:                    # defaults applied to every agent
+  model: balanced
   temperature: 0.2
   max_tokens: 4096
   timeout: 120
-providers:                            # Provider chat disponibili (obbligatorio)
+  retries: 2
+  retry_base_delay: 0.5
+
+providers:                   # available chat providers
   openai:
     api_key_env: OPENAI_API_KEY
-    base_url: https://api.openai.com/v1
+    base_url: https://api.openai.com/v1   # optional (OpenAI-compatible endpoints)
   ollama:
     base_url: http://localhost:11434
-    api_key_env: ~
-  llamastudio:
-    base_url: http://127.0.0.1:1234/v1
-    api_key_env: ~
-models:                               # Modelli referenziabili dagli agenti (obbligatorio)
-  fast:
-    provider: openai
-    model: gpt-4o-mini
-    temperature: 0.3
-  local:
-    provider: ollama
-    model: llama3.1
-agents:                               # Definizione agenti (obbligatorio)
+
+models:                      # model aliases referenced by agents
+  fast:     { provider: openai, model: gpt-4o-mini }
+  balanced: { provider: openai, model: gpt-4o }
+
+agents:                      # at least one
   planner:
-    model: fast
-    role: Sei un planner esperto.
-    system_prompt: ...                # Opzionale, sovrascrive role
-    tools: [read_file, write_file]    # Tools MCP da abilitare
-    skills: [summarize]               # Skills da caricare
-    max_retries: 3
-    require_approval: true            # Human-in-the-loop
-    temperature: 0.5                  # Sovrascrive default/modello
-    max_tokens: 2048
+    model: balanced          # model alias (falls back to defaults.model)
+    role: "You decompose the task."
+    system_prompt: "..."     # optional, used instead of role
+    system_prompt_file: ./prompts/planner.md  # optional, read from file
+    timeout: 120             # optional per-agent override
+    skills: [summarize]      # skill names (see skills section)
+    tools: [rag_search, rag_write, ask_agent, read_file, write_file]
+    approvals: [write_file]   # subset of tools requiring human approval (HITL)
 ```
 
-## Sezioni opzionali
+## Optional sections
 
-### Graph
+### graph
 
 ```yaml
 graph:
-  entry: generator
+  entry: planner
   edges:
-    - { from: generator, to: reviewer, type: handoff }
-    - { from: reviewer, to: generator, type: conditional, when: fix, max_loops: 5 }
-    - { from: reviewer, to: END, type: conditional, when: done }
+    - { from: planner, to: writer,  type: handoff }
+    - { from: writer,  to: critic,  type: sequential }
+    - { from: critic,  to: writer,  type: conditional, when: fix, max_loops: 5 }
+    - { from: critic,  to: END,     type: conditional, when: done }
 ```
 
-### MCP
+Edge `type`: `sequential`, `handoff`, `conditional` (with `when` signal + optional `max_loops`),
+`route` (LLM picks the branch from each edge's `when` description), `parallel` (fork branches that
+converge on one join node). See the graph and edge-types pages.
 
-```yaml
-mcp:
-  approval: none                       # "none" (default), "always", "auto"
-  servers:
-    filesystem:
-      command: npx
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
-    github:
-      command: npx
-      args: ["-y", "@modelcontextprotocol/server-github"]
-    custom:
-      type: http                       # "stdio" (default) o "http"
-      url: http://localhost:3000/mcp
-```
-
-### RAG
+### rag
 
 ```yaml
 rag:
-  chunk_size: 1000
-  chunk_overlap: 200
-  embeddings:
-    provider: openai
-    model: text-embedding-3-small
-  vector_store:
-    type: memory                        # "memory" o "chroma"
-  knowledge:
-    - source: files                     # "files", "web", "directory"
-      path: examples/knowledge/
-    - source: web
-      url: https://example.com/docs
+  enabled: true
+  refine:
+    strategy: none           # "none" | "llm"
+    model: balanced          # model alias for the "llm" refiner
+  retrieval:
+    embedder:
+      type: fake             # "fake" | "openai" | "ollama"
+      provider: openai       # provider for key/base when not "fake"
+      model: text-embedding-3-small
+    vector_store:
+      type: file             # "memory" | "file" | "qdrant"
+      path: ./kb.json        # for "file"
+      url: http://localhost:6334   # for "qdrant"
+      collection: agora      # for "qdrant"
+    top_k: 6
+    score_threshold: 0.0
+  ingest:
+    sources: [ ./docs ]
+    chunk_size: 800
+    chunk_overlap: 120
 ```
 
-### Skills
+### memory
+
+```yaml
+memory:
+  enabled: true
+  top_k: 5                   # relevant entries recalled per agent
+  max_chars: 0               # cap on recalled context (0 = unlimited)
+  remember_outputs: false    # also remember (truncated) outputs, not only declared artifacts
+```
+
+### skills
 
 ```yaml
 skills:
-  summarize:
-    location: examples/skills/summarize/SKILL.md
+  directories: [./skills]    # folders scanned for SKILL.md files
 ```
 
-### Approvazione
+### mcp
 
 ```yaml
-approval:
-  provider: console                    # "console" (default) o "api"
-  timeout: 300                         # secondi prima di timeout
+mcp:
+  servers:
+    filesystem:
+      command: npx           # stdio transport
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    remote:
+      url: http://localhost:3000/mcp   # HTTP transport
 ```
 
-## Comunicazione Natural
+## Built-in tools
 
-Con `communication: natural`, gli agenti parlano in linguaggio naturale. I segnali di routing si scrivono come:
+Available to agents that list them in `tools` (no MCP server needed):
+`read_file`, `write_file`, `search_files`, `list_directory` (filesystem); `rag_search`, `rag_write`
+(shared knowledge base); `ask_agent` (ask another agent). Tools named in `approvals` are gated
+through a human (HITL).
 
-- `<<signal done>>` — task completato
-- `<<signal fix>>` — richiedi revisione
-- `<<signal approve>>` — approvato
-- `<<signal deny>>` — rifiutato
-- `<<signal escalate>>` — escalation umana
+## Natural communication
 
-## Esempio completo
+With `communication: natural`, agents use natural language and emit routing tokens:
 
-Vedi `examples/agora-generate-api.yaml` per un esempio completo con grafo, MCP, e revisione.
+- `<<signal done>>` / `<<signal fix>>` / `<<signal approved>>` — routing signals (any name)
+- `<<artifact key=value>>` — shared artifact (the `handoff` key is the handoff payload)
+
+## Full example
+
+See `agora.yaml` (an 8-agent SDLC pipeline) and the `examples/` folder.

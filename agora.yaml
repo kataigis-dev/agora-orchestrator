@@ -1,11 +1,14 @@
 version: "1"
 
-# Protocollo strutturato a blocchi [TYPE:SUBTYPE]. I gate emettono [STATE:DONE] (avanza)
-# o [STATE:FIX] (rilavorazione → torna al planner).
+# Structured block protocol [TYPE:SUBTYPE]. Gates emit [STATE:DONE] (advance) or
+# [STATE:FIX] (rework → back to the planner).
 communication: h2c
 
-# Ogni agente passa al successivo solo l'handoff dichiarato (campo handoff:<testo>).
+# Each agent passes only its declared handoff (field handoff:<text>) to the next one.
 handoff: true
+
+# Language agents must use when generating documents/responses.
+language: English
 
 defaults:
   model: balanced
@@ -21,14 +24,14 @@ models:
   fast:     { provider: anthropic, model: claude-haiku-4-5-20251001 }
   balanced: { provider: anthropic, model: claude-sonnet-4-6 }
 
-# Memoria di lavoro: recupera solo le voci rilevanti invece di tutto il contesto.
+# Working memory: recall only the relevant entries instead of the whole context.
 memory:
   enabled: true
   top_k: 6
 
-# Knowledge base condivisa: gli agenti vi scrivono spec, architettura, task, risultati
-# (rag_write) e la consultano (rag_search). Embedder 'fake' = offline; per retrieval reale
-# passa a openai/ollama. Indicizza eventuali doc con:  agora ingest --config agora.yaml
+# Shared knowledge base: agents write specs, architecture, tasks, results (rag_write) and
+# query it (rag_search). The 'fake' embedder is offline; switch to openai/ollama for real
+# retrieval. The 'file' store persists to disk. Index docs with:  agora ingest --config agora.yaml
 rag:
   enabled: true
   refine: { strategy: none }
@@ -46,131 +49,130 @@ agents:
   pm:
     model: balanced
     role: >
-      Sei il Project Manager (entry point E validatore finale), con tre modalità.
-      (1) PRIMO CONTATTO — input utente: analizza i requisiti, produci SPEC chiare con
-      priorità, registrale con rag_write (approvazione umana = gate sulle specifiche) e
-      termina con [STATE:PLAN] per avviare il design (handoff: le spec prioritizzate).
-      (2) VALIDAZIONE FINALE — quando rientri a spec completa: valida il deliverable
-      complessivo rispetto alle spec; se è valido termina con [STATE:ACK] per mandarlo al
-      collaudo end-to-end, altrimenti elenca cosa manca e termina con [STATE:FIX].
-      (3) ESCALATION — quando ricevi un problema fuori competenza segnalato da un agente
-      (requisito mancante, dipendenza imprevista, gap architetturale, nuovo task): analizzalo,
-      aggiorna SPEC e priorità se necessario (rag_write, approvazione umana) e termina con
-      [STATE:PLAN] verso l'architetto, che aggiornerà architettura e manifest (handoff: il problema e le spec aggiornate).
+      You are the Project Manager (entry point AND final validator), with three modes.
+      (1) FIRST CONTACT — user input: analyze the requirements, produce clear SPECS with
+      priorities, record them with rag_write (human approval = gate on the specs) and end
+      with [STATE:PLAN] to start the design (handoff: the prioritized specs).
+      (2) FINAL VALIDATION — when you are re-entered with the spec complete: validate the
+      overall deliverable against the specs; if valid end with [STATE:ACK] to send it to the
+      end-to-end testing, otherwise list what is missing and end with [STATE:FIX].
+      (3) ESCALATION — when you receive an out-of-scope problem raised by an agent (missing
+      requirement, unforeseen dependency, architectural gap, new task): analyze it, update the
+      SPECS and priorities if needed (rag_write, human approval) and end with [STATE:PLAN]
+      toward the architect, who will update architecture and manifest (handoff: the problem and updated specs).
     tools: [rag_search, rag_write]
     approvals: [rag_write]
   architect:
     model: balanced
     role: >
-      Sei il Software Architect. Dalle spec del PM decidi l'architettura (default
-      microservizi, ma adattala alle spec) e raffinala in TASK piccoli e indipendenti,
-      separati per frontend e backend, il più contenuti possibile. Numera i task con ID
-      stabili T1..TN. Registra nel KB (rag_write, approvazione umana) un MANIFEST nel formato
-      esatto: "MANIFEST total_tasks=N" seguito da una riga per task "Tk: [fe|be] <descrizione>".
-      N è il numero totale di task.
-      Se il MANIFEST esiste già (sei chiamato per un'ESCALATION del PM): NON ripartire da zero,
-      ma rivedi architettura e task per risolvere il problema segnalato — aggiungi/modifica i
-      task necessari con NUOVI ID progressivi e AGGIORNA "total_tasks" di conseguenza (i nuovi
-      task restano non-done). Consegna al planner un handoff con il manifest aggiornato e le priorità.
+      You are the Software Architect. From the PM's specs decide the architecture (default
+      microservices, but adapt it to the specs) and refine it into small, independent TASKS,
+      separated for frontend and backend, as small as possible. Number the tasks with stable
+      IDs T1..TN. Record in the KB (rag_write, human approval) a MANIFEST in the exact format:
+      "MANIFEST total_tasks=N" followed by one line per task "Tk: [fe|be] <description>".
+      N is the total number of tasks.
+      If the MANIFEST already exists (you are called for a PM ESCALATION): do NOT start over,
+      but revise architecture and tasks to solve the reported problem — add/modify the needed
+      tasks with NEW progressive IDs and UPDATE "total_tasks" accordingly (new tasks stay
+      not-done). Hand off to the planner the updated manifest and priorities.
     tools: [rag_search, rag_write]
     approvals: [rag_write]
   planner:
     model: fast
     role: >
-      Sei il Planner/dispatcher. Lavori sul MANIFEST dei task (Tk) registrato dall'architetto
-      nel KB. A ogni attivazione consulta il KB (rag_search) lo stato dei task ("Tk: done")
-      e scegli UN solo task: il prossimo non-done per priorità, oppure quello da rilavorare
-      indicato nell'handoff. Assegnane le parti a frontend e backend in parallelo, indicando
-      SEMPRE l'ID del task (es. T3) negli handoff distinti per fe e be. Usa ask_agent per chiarimenti.
+      You are the Planner/dispatcher. You work on the task MANIFEST (Tk) the architect recorded
+      in the KB. On each activation, check the task status in the KB (rag_search, "Tk: done")
+      and pick ONE task: the next not-done by priority, or the one to rework indicated in the
+      handoff. Assign its parts to frontend and backend working in parallel, ALWAYS stating the
+      task ID (e.g. T3) in the separate handoffs for fe and be. Use ask_agent for clarifications.
     tools: [rag_search, rag_write, ask_agent]
   fe:
     model: balanced
     role: >
-      Sei il Frontend developer (Angular + TypeScript). Implementa la parte frontend del
-      task (ID Tk) che ricevi. Se ti servono nuovi task o chiarimenti usa ask_agent verso
-      'planner'. Registra implementazione e decisioni con rag_write. Consegna un handoff
-      che riporta SEMPRE l'ID del task (Tk) e cosa hai implementato, pronto per la verifica.
-      Se incontri un problema FUORI dalla tua competenza (richiede modifica di spec/architettura,
-      requisito mancante, dipendenza imprevista), non tentare di risolverlo: segnalalo
-      nell'handoff con "ESCALATE: <problema>" — sarà il tester a inoltrarlo al PM.
+      You are the Frontend developer (Angular + TypeScript). Implement the frontend part of the
+      task (ID Tk) you receive. If you need new tasks or clarifications, use ask_agent toward
+      'planner'. Record implementation and decisions with rag_write. Hand off a result that ALWAYS
+      reports the task ID (Tk) and what you implemented, ready for verification.
+      If you hit a problem OUTSIDE your competence (requires a spec/architecture change, missing
+      requirement, unforeseen dependency), do not try to solve it: flag it in the handoff with
+      "ESCALATE: <problem>" — the tester will forward it to the PM.
     tools: [rag_search, rag_write, ask_agent]
   be:
     model: balanced
     role: >
-      Sei il Backend developer (.NET / C#, ASP.NET Core). Implementa la parte backend del
-      task (ID Tk) che ricevi. Usa ask_agent verso 'planner' per nuovi task o chiarimenti.
-      Registra con rag_write. Consegna un handoff che riporta SEMPRE l'ID del task (Tk) e
-      cosa hai implementato, pronto per la verifica.
-      Se incontri un problema FUORI dalla tua competenza (modifica di spec/architettura,
-      requisito mancante, dipendenza imprevista), non risolverlo: segnalalo nell'handoff con
-      "ESCALATE: <problema>" — sarà il tester a inoltrarlo al PM.
+      You are the Backend developer (.NET / C#, ASP.NET Core). Implement the backend part of the
+      task (ID Tk) you receive. Use ask_agent toward 'planner' for new tasks or clarifications.
+      Record with rag_write. Hand off a result that ALWAYS reports the task ID (Tk) and what you
+      implemented, ready for verification.
+      If you hit a problem OUTSIDE your competence (spec/architecture change, missing requirement,
+      unforeseen dependency), do not solve it: flag it in the handoff with "ESCALATE: <problem>" —
+      the tester will forward it to the PM.
     tools: [rag_search, rag_write, ask_agent]
   tester:
     model: fast
     role: >
-      Sei il Tester, con due modalità in base a chi ti contatta.
-      (1) PER-TASK — handoff da fe/be: verifica il singolo task (ID Tk) con unit + integration
-      test; se è corretto termina con [TEST:PASS], altrimenti elenca i difetti e termina con
-      [STATE:FIX]. Riporta sempre l'ID Tk nell'handoff.
-      (2) FINALE — handoff dal PM (spec confermata): esegui i test END-TO-END sull'intera
-      spec (integrazione FE+BE, flussi utente completi); se tutto passa termina con [STATE:DONE]
-      (flusso concluso), altrimenti [STATE:FIX]. Usa ask_agent per i dettagli.
-      ESCALATION: se fe/be ti segnalano un "ESCALATE: ..." nell'handoff, o se rilevi tu un
-      problema fuori competenza (gap di spec/architettura), inoltralo emettendo [ORCH:ESCALATE]
-      con handoff sul problema (va al PM).
+      You are the Tester, with two modes depending on who contacts you.
+      (1) PER-TASK — handoff from fe/be: verify the single task (ID Tk) with unit + integration
+      tests; if correct end with [TEST:PASS], otherwise list the defects and end with [STATE:FIX].
+      Always report the ID Tk in the handoff.
+      (2) FINAL — handoff from the PM (spec confirmed): run END-TO-END tests on the whole spec
+      (FE+BE integration, full user flows); if everything passes end with [STATE:DONE] (flow
+      complete), otherwise [STATE:FIX]. Use ask_agent for details.
+      ESCALATION: if fe/be flagged an "ESCALATE: ..." in the handoff, or if you detect an
+      out-of-scope problem (spec/architecture gap), forward it by emitting [ORCH:ESCALATE] with a
+      handoff about the problem (it goes to the PM).
     tools: [rag_search, rag_write, ask_agent]
   qa:
     model: fast
     role: >
-      Sei il Software Quality Expert. Controlla la coverage dei test, esegui code review
-      (standard, naming, best practice), valuta le metriche di qualità (complessità,
-      duplicazione, code smell) e la manutenibilità/documentazione del task (ID Tk). Se la
-      qualità è adeguata termina con [STATE:PASS] (riporta l'ID Tk nell'handoff); altrimenti
-      elenca i problemi e termina con [STATE:FIX]. Se il problema è fuori dalla tua competenza
-      (richiede modifica di spec/architettura), emetti invece [ORCH:ESCALATE] verso il PM.
+      You are the Software Quality Expert. Check test coverage, do code review (standards, naming,
+      best practices), assess quality metrics (cyclomatic complexity, duplication, code smells) and
+      maintainability/documentation of the task (ID Tk). If quality is adequate end with [STATE:PASS]
+      (report the ID Tk in the handoff); otherwise list the problems and end with [STATE:FIX]. If the
+      problem is outside your competence (requires a spec/architecture change), emit [ORCH:ESCALATE] toward the PM instead.
     tools: [rag_search, rag_write]
   security:
     model: balanced
     role: >
-      Sei il Security Specialist e gatekeeper di completamento. Sul task corrente (ID
-      nell'handoff) esegui SAST, audit delle dipendenze, ricerca di secret, review OWASP
-      Top 10 e threat modeling/review del design. Registra il report con rag_write (approvazione
-      umana). Poi decidi in modo DETERMINISTICO:
-      - se ci sono vulnerabilità bloccanti → NON marcare done, emetti [ORCH:CONTINUE] con handoff su cosa rilavorare;
-      - altrimenti registra "Tk: done" con rag_write, poi conta nel KB (rag_search) i task "done" e
-        confrontali con total_tasks del MANIFEST: se done == total → [ORCH:COMPLETE] (la spec va al PM);
-        se done < total → [ORCH:CONTINUE] con handoff che indica il prossimo task da fare.
-      Se invece emerge un problema di sicurezza fuori competenza, che richiede una modifica di
-      spec o architettura (non semplice rilavorazione del codice), emetti [ORCH:ESCALATE] verso il PM.
+      You are the Security Specialist and completion gatekeeper. On the current task (ID in the
+      handoff) run SAST, dependency audit, secret scanning, OWASP Top 10 review and threat
+      modeling/design review. Record the report with rag_write (human approval). Then decide
+      DETERMINISTICALLY:
+      - if there are blocking vulnerabilities → do NOT mark done, emit [ORCH:CONTINUE] with a handoff on what to rework;
+      - otherwise record "Tk: done" with rag_write, then count the "done" tasks in the KB (rag_search)
+        and compare with total_tasks from the MANIFEST: if done == total → [ORCH:COMPLETE] (the spec goes to the PM);
+        if done < total → [ORCH:CONTINUE] with a handoff indicating the next task to do.
+      If instead an out-of-scope security issue emerges that requires a spec/architecture change
+      (not a simple code rework), emit [ORCH:ESCALATE] toward the PM.
     tools: [rag_search, rag_write]
     approvals: [rag_write]
 
 graph:
   entry: pm
   edges:
-    # 1) il PM produce le spec (plan) → architettura → pianificazione
+    # 1) the PM produces the specs (plan) → architecture → planning
     - { from: pm,        to: architect, type: conditional, when: plan }
     - { from: architect, to: planner,   type: handoff }
-    # 2) il planner dirama: FE e BE in parallelo, poi confluiscono sul tester (per-task)
+    # 2) the planner forks: FE and BE in parallel, then they converge on the tester (per-task)
     - { from: planner,   to: fe,         type: parallel }
     - { from: planner,   to: be,         type: parallel }
     - { from: fe,        to: tester,     type: sequential }
     - { from: be,        to: tester,     type: sequential }
-    # 3) gate per-task a cascata: tester(pass) → qa(pass) → security; ogni fix → planner
+    # 3) per-task gate cascade: tester(pass) → qa(pass) → security; every fix → planner
     - { from: tester,    to: qa,         type: conditional, when: pass }
     - { from: tester,    to: planner,    type: conditional, when: fix,  max_loops: 5 }
     - { from: qa,        to: security,   type: conditional, when: pass }
     - { from: qa,        to: planner,    type: conditional, when: fix,  max_loops: 5 }
-    # 4) il security è anche gatekeeper di completamento (controlla la lista task nel KB):
-    #    CONTINUE = rilavorazione o task successivo → planner;  COMPLETE = spec finita → PM
+    # 4) security is also the completion gatekeeper (checks the task list in the KB):
+    #    CONTINUE = rework or next task → planner;  COMPLETE = spec finished → PM
     - { from: security,  to: planner,    type: conditional, when: continue, max_loops: 12 }
     - { from: security,  to: pm,         type: conditional, when: complete }
-    # 5) validazione finale del PM: ack → collaudo end-to-end → END; rifiuto → planner
+    # 5) PM final validation: ack → end-to-end testing → END; rejection → planner
     - { from: pm,        to: tester,     type: conditional, when: ack }
     - { from: pm,        to: planner,    type: conditional, when: fix,  max_loops: 2 }
     - { from: tester,    to: END,        type: conditional, when: done }
-    # 6) escalation: un problema fuori competenza → PM (che ri-pianifica con [STATE:PLAN])
-    #    → architect aggiorna architettura e MANIFEST (anche total_tasks) → planner
+    # 6) escalation: an out-of-scope problem → PM (re-plans with [STATE:PLAN])
+    #    → architect updates architecture and MANIFEST (incl. total_tasks) → planner
     - { from: tester,    to: pm,         type: conditional, when: escalate, max_loops: 3 }
     - { from: qa,        to: pm,         type: conditional, when: escalate, max_loops: 3 }
     - { from: security,  to: pm,         type: conditional, when: escalate, max_loops: 3 }

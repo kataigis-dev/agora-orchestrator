@@ -1,43 +1,50 @@
-# Agenti
+# Agents
 
-## Tipi di agente
+## Agent types
 
 ### Agent (core)
 
-Definito in `src/Agora/Agents/Agent.cs`. Agente base con:
-- `Id` — identificatore unico
-- `Model` — riferimento al modello configurato
-- `Role` / `SystemPrompt` — istruzioni di sistema
-- `Tools` — lista di nomi di tools MCP abilitati
-- `Skills` — skills da caricare
-- `MaxRetries` — tentativi massimi in caso di errore
-- `RequireApproval` — se true, richiede conferma umana prima di eseguire
+Defined in `src/Agora/Agents/Agent.cs`. A tool-less agent built from an `AgentCard`:
+- `Id` — unique identifier (the node id)
+- `Model` — referenced model alias
+- `Role` / `SystemPrompt` — system instructions
+- `Skills` — skill names to load
+- `Tools` — enabled tool names
+- `Approvals` — subset of `Tools` requiring human approval (must be ⊆ tools)
+
+Retry/timeout come from the resolved `ModelSpec` (`defaults.retries`, `retry_base_delay`, `timeout`).
 
 ### AgentFrameworkAgent
 
-Definito in `src/Agora.AgentFramework/AgentFrameworkAgent.cs`. Estende Agent con:
-- Integrazione `Microsoft.Extensions.AI.IChatClient` per chiamate ai modelli
-- Gestione tool calls (built-in filesystem + MCP)
-- Supporto `StreamingChatClient` per risposte in streaming
-- Memorizzazione cronologia conversazione
+Defined in `src/Agora.AgentFramework/AgentFrameworkAgent.cs`. Used when an agent declares
+skills/tools. Adds:
+- `Microsoft.Extensions.AI.IChatClient` integration for model calls
+- Tool-call handling (built-in tools + MCP)
+- Approval-gated tools via `IApprovalHandler` (HITL)
 
 ## Tools
 
-Gli agenti possono usare strumenti built-in (filesystem) o esterni tramite MCP (Model Context Protocol).
+Agents can use built-in tools or external ones via MCP. Both are enabled with the same `tools:`
+list on the agent; built-in tools are registered before MCP tools.
 
-### Built-in filesystem tools
+### Built-in tools (no MCP server needed)
 
-I tool `read_file`, `write_file`, `search_files`, `list_directory` sono implementati nativamente via `System.IO` e non richiedono server MCP:
+| Tool | Purpose |
+|---|---|
+| `read_file`, `write_file`, `search_files`, `list_directory` | Filesystem (`System.IO`) |
+| `rag_search`, `rag_write` | Read/write the shared knowledge base |
+| `ask_agent` | Ask another agent and get its answer (after `rag_search`) |
 
 ```yaml
 agents:
   builder:
-    tools: [read_file, write_file, search_files, list_directory]
+    tools: [read_file, write_file, rag_search, rag_write]
 ```
 
 ### MCP tools
 
-Per tool non filesystem (GitHub, Brave Search, puppeteer, server custom), serve un server MCP:
+For external tools (GitHub, search, custom servers), configure an MCP server; tools are discovered
+and filtered against the agent's `tools:` list.
 
 ```yaml
 mcp:
@@ -47,65 +54,42 @@ mcp:
       args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
 agents:
   builder:
-    tools: [write_file, read_file, search_files]
+    tools: [read_file, write_file]
 ```
-
-Entrambi i tipi di tool si abilitano con la stessa lista `tools:` nell'agente. I built-in vengono caricati prima degli MCP.
-
-### Discovery automatico (MCP)
-
-All'avvio, il sistema:
-1. Avvia i server MCP configurati
-2. Scopre i tools disponibili tramite `tools/list`
-3. Filtra in base alla lista `tools:` dell'agente
-4. Espone i tools filtrati al modello
 
 ## Skills
 
-Le skills sono prompt specializzati caricati da file `.md`:
+Skills are reusable prompt files (`SKILL.md`) discovered from configured directories and exposed
+to the agent as a `load_skill` tool (progressive disclosure):
 
 ```yaml
 skills:
-  summarize:
-    location: examples/skills/summarize/SKILL.md
+  directories: [./skills]
 agents:
   summarizer:
     skills: [summarize]
 ```
 
-Il contenuto dello SKILL.md viene preposto al system prompt dell'agente.
+## Human approval (HITL)
 
-## Approvazione umana (HITL)
+List a tool in an agent's `approvals` to require human confirmation before that tool call runs:
 
-Quando `require_approval: true`, l'agente:
-
-1. Genera una risposta
-2. La mette in pausa in attesa di approvazione
-3. Può essere approvata (`approve`) o rifiutata (`deny`) tramite CLI o API
-4. Se rifiutata, l'agente riceve feedback e rielabora
-
-### Console approval
-
-In CLI, l'approvazione avviene interattivamente:
-
-```
-? Azione proposta: scrivere file output.txt
-  Approvare? (y/n): y
+```yaml
+agents:
+  editor:
+    tools: [read_file, write_file]
+    approvals: [write_file]   # write_file pauses for approval; read_file runs freely
 ```
 
-### API approval
+- **CLI** — `ConsoleApprovalHandler` prompts on the console (`approve? [y/N]`).
+- **API** — pending approvals are returned by `GET /runs/{id}` and resolved with
+  `POST /runs/{id}/approvals`.
 
-Tramite REST API:
+A second HITL channel, `IConflictResolver`, resolves knowledge-base write conflicts
+(keep existing / keep new / merge).
 
-```
-POST /runs/{runId}/approve
-{"approved": true, "feedback": "Ok"}
-```
+## Context passing
 
-## Passaggio di contesto
-
-Gli agenti in un grafo condividono il contesto tramite `AgentContext`:
-- `Messages` — cronologia della conversazione
-- `State` — stato corrente (running, waiting_approval, completed, failed)
-- `Output` — output dell'ultima esecuzione
-- `Metadata` — dizionario chiave-valore per dati arbitrari
+Agents in a graph share context through the `State` blackboard: `Messages` (inbox), `Outputs`,
+`Signals`, `Artifacts`, `LoopCounters`, `LastAgent`. What reaches each agent depends on the mode
+(full output, handoff-only, or top-K recalled memory).

@@ -9,12 +9,12 @@ updated: 2026-06-20
 
 # Token Streaming
 
-Gli output del modello possono essere **trasmessi token-per-token** mentre vengono
-generati, invece di attendere la risposta completa — utile per la reattività in CLI/API.
+Model output can be **streamed token-by-token** as it is generated, instead of waiting for the full
+response — useful for responsiveness in CLI/API.
 
-## Architettura
+## Architecture
 
-Lo streaming è una **capacità opzionale** che non cambia `IChatProvider`:
+Streaming is an **optional capability** that does not change `IChatProvider`:
 
 ```csharp
 public interface IStreamingChatProvider : IChatProvider
@@ -25,21 +25,21 @@ public interface IStreamingChatProvider : IChatProvider
 }
 ```
 
-Ogni chunk arriva a `onChunk`; alla fine si ottiene comunque il `CompletionResult`
-completo, quindi il parsing di signal/artifact resta invariato.
+Each chunk is delivered to `onChunk`; the full `CompletionResult` is still returned at the end, so
+signal/artifact parsing is unchanged.
 
-| Componente | Streaming |
-|------------|-----------|
-| `FakeChatProvider` | emette la risposta parola-per-parola (test deterministici) |
-| `AgentFrameworkChatProvider` | usa `IChatClient.GetStreamingResponseAsync` (OpenAI/compatibili) |
-| `ResilientChatProvider` | delega allo `_inner` se è streaming-capable (retry attorno allo stream) |
+| Component | Streaming |
+|-----------|-----------|
+| `FakeChatProvider` | emits the response word-by-word (deterministic tests) |
+| `AgentFrameworkChatProvider` | uses `IChatClient.GetStreamingResponseAsync` (OpenAI/compatible) |
+| `ResilientChatProvider` | delegates to `_inner` if streaming-capable (retry around the stream) |
 
-## Propagazione
+## Propagation
 
-Un sink `Action<string>? onChunk` viene passato lungo lo stack:
-`Runtime.RunAsync/RunAgentAsync` → `GraphExecutor` → `IAgent.RunAsync` → provider.
-L'`Agent` core usa lo streaming quando il sink è presente **e** il provider è
-`IStreamingChatProvider`; altrimenti usa `CompleteAsync`.
+An `Action<string>? onChunk` sink is threaded down the stack:
+`Runtime.RunAsync/RunAgentAsync` → `GraphExecutor` → `IAgent.RunAsync` → provider. The core `Agent`
+uses streaming when the sink is present **and** the provider is `IStreamingChatProvider`; otherwise
+it uses `CompleteAsync`.
 
 ## CLI
 
@@ -48,12 +48,11 @@ agora run --config app.yaml --input "..." --agent writer --stream
 agora run --config app.yaml --input "..." --graph --stream
 ```
 
-Con `--stream` i token vengono scritti su stdout man mano che arrivano (l'output finale
-non viene ristampato).
+With `--stream` tokens are written to stdout as they arrive (the final output is not reprinted).
 
-## Limiti (v1)
+## Limits (v1)
 
-- I **tool agent** (`AgentFrameworkAgent`, con loop tool/approval) non fanno ancora
-  streaming: ignorano il sink.
-- Nei **branch paralleli** ([[parallel-execution]]) lo streaming è disattivato (evita
-  l'interleaving); fa streaming solo il percorso principale del grafo.
+- **Tool agents** (`AgentFrameworkAgent`, with the tool/approval loop) do not stream yet: they
+  ignore the sink.
+- In **parallel branches** ([[parallel-execution]]) streaming is disabled (to avoid interleaving);
+  only the main graph path streams.

@@ -27,12 +27,14 @@ public sealed partial class LlmConflictJudge : IConflictJudge
     private readonly IChatProvider _provider;
     private readonly ModelSpec _spec;
 
+    /// <summary>Creates the judge backed by the given chat provider and model.</summary>
     public LlmConflictJudge(IChatProvider provider, ModelSpec spec)
     {
         _provider = provider;
         _spec = spec;
     }
 
+    /// <inheritdoc />
     public async Task<ConflictAssessment> AssessAsync(
         string newEntry, IReadOnlyList<Chunk> existing, CancellationToken cancellationToken = default)
     {
@@ -50,6 +52,8 @@ public sealed partial class LlmConflictJudge : IConflictJudge
         return Parse(result.Text, existing);
     }
 
+    /// <summary>Parses the model's marker-protocol reply into a <see cref="ConflictAssessment"/>;
+    /// anything unclassifiable is treated as no conflict.</summary>
     private static ConflictAssessment Parse(string text, IReadOnlyList<Chunk> existing)
     {
         var verdict = (Section(text, "VERDICT") ?? "").ToUpperInvariant();
@@ -109,6 +113,7 @@ public sealed partial class LlmConflictJudge : IConflictJudge
         return value.Length == 0 ? null : value;
     }
 
+    /// <summary>Matches a line that begins a new ALL-CAPS marker (e.g. <c>EXPLANATION:</c>).</summary>
     [GeneratedRegex(@"^\s*[A-Z_]{3,}:")]
     private static partial Regex MarkerLine();
 }

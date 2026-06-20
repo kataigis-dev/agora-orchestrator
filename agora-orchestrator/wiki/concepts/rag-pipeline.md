@@ -2,86 +2,84 @@
 type: concept
 title: RAG Pipeline
 tags: [rag, retrieval, embedding, vector-store, knowledge]
-related: [agora-orchestrator, agora-agent-framework, skills, shared-knowledge-base]
+related: [agora-orchestrator, agora-agent-framework, skills, shared-knowledge-base, context-memory]
 created: 2026-06-17
-updated: 2026-06-19
+updated: 2026-06-20
 ---
 
 # RAG Pipeline
 
-Pipeline di **Retrieval-Augmented Generation** integrata in Agora. Permette agli agenti di accedere a conoscenza esterna senza modificarne il codice.
+The **Retrieval-Augmented Generation** pipeline built into Agora. It lets agents access external
+knowledge without changing their code.
 
-## Architettura
+## Architecture
 
 ```
-Ingest:    Sorgenti → TextChunker → IEmbedder → IVectorStore
-Retrieve:  UserInput → IRefiner → query → IVectorStore.Search → EnrichedInput
-Execution: EnrichedInput iniettato come seed context nel grafo
+Ingest:    Sources → TextChunker → IEmbedder → IVectorStore
+Retrieve:  UserInput → IRefiner → query → IVectorStore.Query → EnrichedInput
+Execution: EnrichedInput injected as seed context into the graph
 ```
 
-## Componenti
+## Components
 
-| Classe | Interfaccia | Ruolo |
-|--------|-------------|-------|
-| `Ingestor` | — | Legge sorgenti, chunka, embedding, indicizza |
-| `TextChunker` | — | Divide testo in chunk sovrapposti |
-| `IEmbedder` | → `AgentFrameworkEmbedder` | Genera vettori embedding |
-| `IVectorStore` | → `InMemoryVectorStore`, `FileVectorStore`, `QdrantVectorStore` | Ricerca coseno; `Upsert`/`Query`/`Delete` per Id |
-| `IRefiner` | → `LlmRefiner` / `NoOpRefiner` | Raffina la query prima del retrieval |
-| `RagPipeline` | — | Orchestra retrieve + refine |
-| `RagFactory` | — | Istanzia la pipeline dalla config |
+| Class | Interface | Role |
+|-------|-----------|------|
+| `Ingestor` | — | Reads sources, chunks, embeds, indexes |
+| `TextChunker` | — | Splits text into overlapping chunks |
+| `IEmbedder` | → `FakeEmbedder`, `AgentFrameworkEmbedder` | Generates embedding vectors |
+| `IVectorStore` | → `InMemoryVectorStore`, `FileVectorStore`, `QdrantVectorStore` | Cosine search; async `Upsert`/`Query`/`Delete` by id |
+| `IRefiner` | → `LlmRefiner` / `NoOpRefiner` | Refines the query before retrieval |
+| `RagPipeline` | — | Orchestrates retrieve + refine |
+| `RagFactory` | — | Instantiates the pipeline from config |
 
-## Configurazione YAML
+## YAML configuration
 
 ```yaml
 rag:
   enabled: true
   refine:
     strategy: none        # "none" | "llm"
-    model: ""             # modello per il refine LLM
+    model: balanced       # model alias for the "llm" refiner
   retrieval:
     embedder:
       type: fake          # "fake" | "openai" | "ollama"
-      provider: openai    # quale provider per chiave/base (per type non-fake)
+      provider: openai    # provider for key/base (for non-fake types)
       model: text-embedding-3-small
     vector_store:
       type: memory        # "memory" | "file" | "qdrant"
-      path: ""            # per "file"
-      url: ""             # per "qdrant" (gRPC, es. http://localhost:6334)
-      collection: ""      # per "qdrant"
+      path: ./kb.json     # for "file"
+      url: http://localhost:6334   # for "qdrant" (gRPC)
+      collection: agora   # for "qdrant"
     top_k: 6
     score_threshold: 0.0
   ingest:
-    sources:
-      - path: knowledge/agora.md
-      - path: docs/
+    sources: [ ./docs ]
     chunk_size: 800
     chunk_overlap: 120
 ```
 
-## Integrazione con il grafo
+## Graph integration
 
-Il seed RAG viene aggiunto come messaggio `"rag"` all'inizio della coda messaggi del nodo `entry` del grafo (`state.Messages`). L'agente lo riceve come contesto aggiuntivo nel proprio inbox.
+The RAG seed is added as a `"rag"` message at the front of the entry node's message queue
+(`state.Messages`). The agent receives it as extra context in its inbox.
 
-## Percorso di scrittura
+## Write path
 
-Oltre alla lettura (retrieve), il RAG può essere **scritto** dagli agenti tramite
-`KnowledgeBase`, con rilevamento conflitti e risoluzione (agente o umano). Vedi
-[[shared-knowledge-base]].
+Beyond reading (retrieve), the RAG can be **written** by agents via `KnowledgeBase`, with conflict
+detection and resolution (agent or human). See [[shared-knowledge-base]].
 
-## Esempio
+## Example
 
-`examples/agora-rag.yaml` — configurazione completa con RAG abilitato.
+`examples/agora-rag.yaml` — full configuration with RAG enabled.
 
-## Note
+## Notes
 
-- `InMemoryVectorStore` è in-memory: lo store viene perso al riavvio (progettato per semplicità, non per produzione)
-- `FileVectorStore` (`type: file`) persiste su disco come JSON, sopravvive ai riavvii
-- `QdrantVectorStore` (`type: qdrant`) usa un server Qdrant via gRPC (client ufficiale
-  `Qdrant.Client`); vive in `Agora.AgentFramework` ed è iniettato dal bordo — vedi
-  [[shared-knowledge-base]]
-- `LlmRefiner` chiama il provider LLM per riformulare la query prima del retrieval
-- `FakeEmbedder` è usato nei test per evitare chiamate reali ai provider
-- Embedder reali (`type: openai`/`ollama`) sono selezionabili **da config**: il core risolve
-  chiave/base dal provider e li passa a un resolver iniettato dal bordo
-  (`AgentFrameworkEmbedders.TryCreate`), come per il vector store
+- `InMemoryVectorStore` is in-memory: lost on restart (simple, not for production)
+- `FileVectorStore` (`type: file`) persists to disk as JSON, surviving restarts
+- `QdrantVectorStore` (`type: qdrant`) uses a Qdrant server over gRPC (official `Qdrant.Client`);
+  it lives in `Agora.AgentFramework` and is injected from the edge — see [[shared-knowledge-base]]
+- `LlmRefiner` calls the LLM provider to rewrite the query before retrieval
+- `FakeEmbedder` is used in tests to avoid real provider calls
+- Real embedders (`type: openai`/`ollama`) are selectable **from config**: the core resolves
+  key/base from the provider and passes them to an edge-injected resolver
+  (`AgentFrameworkEmbedders.TryCreate`), like the vector store

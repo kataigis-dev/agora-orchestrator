@@ -2,112 +2,108 @@
 type: concept
 title: Shared Knowledge Base (writable RAG)
 tags: [rag, knowledge, vector-store, conflict, hitl, write]
-related: [rag-pipeline, human-in-the-loop, agent-graph, agora-orchestrator]
+related: [rag-pipeline, human-in-the-loop, agent-graph, handoff-context, agora-orchestrator]
 created: 2026-06-19
-updated: 2026-06-19
+updated: 2026-06-20
 ---
 
 # Shared Knowledge Base (writable RAG)
 
-Evoluzione del [[rag-pipeline]] da store di sola lettura a **knowledge base
-condivisa e scrivibile**: gli agenti vi scrivono quando producono modifiche, e
-ogni scrittura viene confrontata con ciò che già esiste per individuare conflitti.
+Evolution of the [[rag-pipeline]] from a read-only store into a **shared, writable knowledge base**:
+agents write to it when they produce changes, and every write is compared against what already
+exists to detect conflicts.
 
-> **Stato:** implementata fino alla Fase 3. Gli agenti leggono/scrivono la KB via tool
-> (`rag_search`/`rag_write`) e possono interpellare un altro agente (`ask_agent`) dopo
-> aver cercato nel RAG. Vedi anche [[agent-graph]] e [[handoff-context]].
+> Agents read/write the KB via tools (`rag_search`/`rag_write`) and can ask another agent
+> (`ask_agent`) after searching the RAG. See also [[agent-graph]] and [[handoff-context]].
 
-## Accesso al RAG: `IVectorStore`
+## RAG access: `IVectorStore`
 
-L'accesso passa **sempre** dall'interfaccia `IVectorStore`. L'implementazione può
-essere locale o remota; il core resta framework-free e un eventuale adapter verso
-un DB su container viene iniettato dal bordo (come l'embedder/provider reale).
+Access **always** goes through the `IVectorStore` interface. The implementation can be local or
+remote; the core stays framework-free and any adapter toward a containerized DB is injected from the
+edge (like the real embedder/provider).
 
 ```csharp
-public interface IVectorStore // async: nessun sync-over-async coi DB remoti
+public interface IVectorStore // async: no sync-over-async with remote DBs
 {
     Task UpsertAsync(IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors, CancellationToken ct = default);
     Task<IReadOnlyList<Chunk>> QueryAsync(IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0, CancellationToken ct = default);
-    Task DeleteAsync(IReadOnlyList<string> ids, CancellationToken ct = default); // necessario per sostituire voci
+    Task DeleteAsync(IReadOnlyList<string> ids, CancellationToken ct = default); // needed to replace entries
 }
 ```
 
-| Implementazione | Dove | Persistenza |
-|-----------------|------|-------------|
-| `InMemoryVectorStore` | core | in-process (persa al riavvio) |
-| `FileVectorStore` | core | JSON su disco (`vector_store: { type: file, path: … }`) |
-| `QdrantVectorStore` | `Agora.AgentFramework` | server Qdrant via **gRPC** (`vector_store: { type: qdrant, url, collection }`) |
+| Implementation | Where | Persistence |
+|----------------|-------|-------------|
+| `InMemoryVectorStore` | core | in-process (lost on restart) |
+| `FileVectorStore` | core | JSON on disk (`vector_store: { type: file, path: … }`) |
+| `QdrantVectorStore` | `Agora.AgentFramework` | Qdrant server over **gRPC** (`vector_store: { type: qdrant, url, collection }`) |
 
-I tipi non-core (es. `qdrant`) non sono noti al core: vengono risolti da un **resolver
-iniettato dal bordo** (`AgentFrameworkVectorStores.TryCreate`, passato a `RagFactory`/`Runtime`
-come `storeResolver`), così il core resta framework-free.
+Non-core types (e.g. `qdrant`) are unknown to the core: they are resolved by an **edge-injected
+resolver** (`AgentFrameworkVectorStores.TryCreate`, passed to `RagFactory`/`Runtime` as
+`storeResolver`), keeping the core framework-free.
 
-`Chunk` porta un `Id` stabile assegnato dallo store; `Score` è la similarità
-transitoria dell'ultima query. `Id` + `Delete` permettono di **sostituire** una
-voce superata invece di accodarla.
+`Chunk` carries a stable `Id` assigned by the store; `Score` is the transient similarity of the last
+query. `Id` + `Delete` allow **replacing** a superseded entry instead of appending.
 
-## Scrittura: `KnowledgeBase`
+## Writing: `KnowledgeBase`
 
-`KnowledgeBase.WriteAsync(text, source, agentId)` è il percorso di scrittura
-agent-driven:
+`KnowledgeBase.WriteAsync(text, source, agentId)` is the agent-driven write path:
 
-1. **embed** del nuovo testo → query dei vicini nello store;
-2. nessun vicino → scrive direttamente (`Added`);
-3. vicini presenti → `IConflictJudge` valuta il conflitto;
-4. `NoConflict` → scrive (`NoConflict`);
-5. `Resolved` → **sostituisce** le voci in conflitto con quella riconciliata (`AutoResolved`);
-6. `Unresolved` → escala a `IConflictResolver` (umano).
+1. **embed** the new text → query the store for neighbors;
+2. no neighbors → write directly (`Added`);
+3. neighbors present → `IConflictJudge` assesses the conflict;
+4. `NoConflict` → write (`NoConflict`);
+5. `Resolved` → **replace** the conflicting entries with the reconciled one (`AutoResolved`);
+6. `Unresolved` → escalate to `IConflictResolver` (human).
 
-**Efficienza**: il judge LLM scatta solo se il vicino più simile supera `conflictThreshold`
-(default 0.8) — i vicini poco simili vengono aggiunti senza giudizio; inoltre gli esiti del
-judge sono in **cache** per `(testo, vicini)`, così scritture identiche non ri-chiamano l'LLM.
+**Efficiency**: the LLM judge only fires if the closest neighbor exceeds `conflictThreshold`
+(default 0.8) — loosely related entries are added without judging; the judge outcomes are also
+**cached** per `(text, neighbors)`, so identical writes do not re-invoke the LLM.
 
-## Rilevamento conflitti: `IConflictJudge`
+## Conflict detection: `IConflictJudge`
 
-`LlmConflictJudge` chiede a un LLM di rispondere con un protocollo a marker:
+`LlmConflictJudge` asks an LLM to reply with a marker protocol:
 
 ```
 VERDICT: <NO_CONFLICT|RESOLVED|UNRESOLVED>
-CONFLICTS_WITH: <indici delle voci esistenti in conflitto, o NONE>
-RESOLUTION: <se RESOLVED: un'unica frase vera per vecchio e nuovo>
-EXPLANATION: <una riga>
+CONFLICTS_WITH: <indices of the conflicting existing entries, or NONE>
+RESOLUTION: <if RESOLVED: a single statement true to both old and new>
+EXPLANATION: <one line>
 ```
 
-`CONFLICTS_WITH` consente di **sostituire solo le voci effettivamente in
-conflitto**, non tutti i vicini. `NoOpConflictJudge` non segnala mai conflitti
-(usato quando manca un provider).
+`CONFLICTS_WITH` lets it **replace only the actually-conflicting entries**, not all neighbors.
+`NoOpConflictJudge` never reports a conflict (used when no provider is available).
 
-## Risoluzione umana: `IConflictResolver`
+## Human resolution: `IConflictResolver`
 
-Quando l'agente non può risolvere, il conflitto sale all'utente. È un secondo
-canale HITL, distinto dal `IApprovalHandler` sì/no di [[human-in-the-loop]],
-perché serve una scelta a tre esiti:
+When the agent cannot resolve it, the conflict escalates to the user. It is a second HITL channel,
+distinct from the yes/no `IApprovalHandler` of [[human-in-the-loop]], because it needs a three-way
+choice:
 
 ```csharp
 public enum ConflictResolution { KeepExisting, KeepNew, Merge }
 ```
 
-| Implementazione | Contesto |
-|-----------------|----------|
-| `ConsoleConflictResolver` | CLI — chiede `[e]xisting / [n]ew / [m]erge` |
-| `FakeConflictResolver` | Test — decisione preimpostata |
+| Implementation | Context |
+|----------------|---------|
+| `ConsoleConflictResolver` | CLI — prompts `[e]xisting / [n]ew / [m]erge` |
+| `FakeConflictResolver` | Tests — preset decision |
 
-- `KeepExisting` → scarta il nuovo (`Rejected`, nessuna scrittura)
-- `KeepNew` → sostituisce le voci in conflitto con il nuovo (`UserResolved`)
-- `Merge` → scrive il testo riconciliato dall'utente (`UserResolved`)
+- `KeepExisting` → discard the new entry (`Rejected`, no write)
+- `KeepNew` → replace the conflicting entries with the new one (`UserResolved`)
+- `Merge` → write the user-reconciled text (`UserResolved`)
 
-Se non c'è resolver disponibile, un conflitto irrisolto produce `Rejected`.
+With no resolver available, an unresolved conflict yields `Rejected`.
 
-## Tool per gli agenti (Fase 3)
+## Agent tools
 
-Gli agenti accedono alla KB tramite tool built-in, abilitati elencandoli in `tools`
-(stesso meccanismo dei tool filesystem). Vivono in `Agora.AgentFramework`:
+Agents access the KB via built-in tools, enabled by listing them in `tools` (same mechanism as the
+filesystem tools). They live in `Agora.AgentFramework`:
 
-| Tool | Azione |
+| Tool | Action |
 |------|--------|
-| `rag_search(query)` | Recupera contesto rilevante dalla KB (lettura via `RagPipeline`) |
-| `rag_write(text)` | Registra una voce (scrittura via `KnowledgeBase`, con conflict-check) |
-| `ask_agent(target, question)` | Interpella un altro agente e ne ottiene la risposta |
+| `rag_search(query)` | Retrieve relevant context from the KB (read via `RagPipeline`) |
+| `rag_write(text)` | Record an entry (write via `KnowledgeBase`, with conflict-check) |
+| `ask_agent(target, question)` | Ask another agent and get its answer |
 
 ```yaml
 agents:
@@ -115,29 +111,28 @@ agents:
     tools: [rag_search, rag_write, ask_agent]
 ```
 
-**Flusso "RAG-first, poi chiedi"** (vedi [[handoff-context]]): in modalità handoff il
-ricevente parte con poco contesto; la descrizione dei tool lo istruisce a usare prima
-`rag_search` e solo dopo `ask_agent`. `ask_agent` riesegue **sincronicamente** l'agente
-target e ne restituisce la risposta nel turno corrente; il target viene costruito in
-"answer-mode" **senza** `ask_agent`, per evitare ricorsioni A↔B.
+**"RAG-first, then ask" flow** (see [[handoff-context]]): in handoff mode the receiver starts with
+little context; the tool descriptions instruct it to use `rag_search` first and only then
+`ask_agent`. `ask_agent` re-runs the target agent **synchronously** and returns its answer in the
+current turn; the target is built in "answer-mode" **without** `ask_agent`, preventing A↔B recursion.
 
-`Runtime` costruisce la `KnowledgeBase` riusando l'`Embedder`/`Store` del `RagPipeline`,
-quindi lettura e scrittura insistono sulla **stessa** istanza di `IVectorStore`.
+`Runtime` builds the `KnowledgeBase` reusing the `RagPipeline`'s `Embedder`/`Store`, so read and
+write use the **same** `IVectorStore` instance.
 
-## Componenti
+## Components
 
-| Classe / interfaccia | Ruolo |
-|----------------------|-------|
-| `Rag/KnowledgeBase` | Orchestrazione embed → vicini → judge → write/escalate |
-| `Rag/IConflictJudge`, `LlmConflictJudge`, `NoOpConflictJudge` | Rilevamento conflitti |
-| `Rag/FileVectorStore` | Store persistente su disco |
-| `HumanInTheLoop/IConflictResolver` | Risoluzione conflitti via umano |
-| `AgentFramework/RagTools`, `AskAgentTool` | Tool agente `rag_search`/`rag_write`/`ask_agent` |
+| Class / interface | Role |
+|-------------------|------|
+| `Rag/KnowledgeBase` | Orchestrates embed → neighbors → judge → write/escalate |
+| `Rag/IConflictJudge`, `LlmConflictJudge`, `NoOpConflictJudge` | Conflict detection |
+| `Rag/FileVectorStore` | Disk-persistent store |
+| `HumanInTheLoop/IConflictResolver` | Human conflict resolution |
+| `AgentFramework/RagTools`, `AskAgentTool` | Agent tools `rag_search`/`rag_write`/`ask_agent` |
 
-## Note
+## Notes
 
-- Lettura (`RagPipeline`) e scrittura (`KnowledgeBase`) condividono **la stessa istanza**
-  di `IVectorStore` (cruciale con `FileVectorStore`/DB).
-- La soglia di similarità per considerare due voci "vicine" è configurabile sulla
+- Reading (`RagPipeline`) and writing (`KnowledgeBase`) share the **same** `IVectorStore` instance
+  (crucial with `FileVectorStore`/DB).
+- The similarity threshold for considering two entries "neighbors" is configurable on the
   `KnowledgeBase` (`scoreThreshold`, default 0.5).
-- Il judge usa `defaults.model`; senza provider/modello si ricade su `NoOpConflictJudge`.
+- The judge uses `defaults.model`; with no provider/model it falls back to `NoOpConflictJudge`.

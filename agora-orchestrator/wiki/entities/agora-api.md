@@ -2,34 +2,41 @@
 type: entity
 title: Agora API
 tags: [api, rest, aspnetcore, dotnet]
-related: [agora-orchestrator, agora-cli]
+related: [agora-orchestrator, agora-cli, human-in-the-loop]
 created: 2026-06-17
-updated: 2026-06-17
+updated: 2026-06-20
 ---
 
 # Agora API
 
-Server REST (`Agora.Api`) basato su ASP.NET Core Minimal API che espone l'esecuzione di agenti e grafi tramite HTTP.
+REST server (`Agora.Api`) built on ASP.NET Core Minimal APIs, exposing agent and graph execution
+over HTTP. The config is loaded server-side (`--config` / `AGORA_CONFIG`); runs execute
+asynchronously over a queue, with state in an in-memory run store.
 
-## Componenti principali
+## Main components
 
-| File | Ruolo |
-|------|-------|
-| `Program.cs` | Bootstrap del server, registrazione endpoint |
-| `RunEndpoints.cs` | Definizione endpoint HTTP |
-| `RunExecutor.cs` | Esecuzione asincrona di un run |
-| `RunQueue.cs` | Coda interna per l'elaborazione dei run |
-| `AgoraRuntimeFactory.cs` | Istanzia il `Runtime` dalla configurazione ricevuta |
-| `Dtos.cs` | DTO per request/response HTTP |
+| File | Role |
+|------|------|
+| `Program.cs` | Server bootstrap, endpoint registration (`/health`, `/agents`) |
+| `RunEndpoints.cs` | HTTP endpoints (`/runs`, `/runs/{id}`, `/runs/{id}/approvals`, `/ingest`) |
+| `RunExecutor.cs` | Hosted service that executes queued runs |
+| `RunQueue.cs` | Internal queue for run processing |
+| `AgoraRuntimeFactory.cs` | Builds a fresh `Runtime` per run from the shared config |
+| `Dtos.cs` | DTOs for HTTP requests/responses |
 
-## Endpoint principali
+## Endpoints
 
-Vedi `examples/agora-api.http` per esempi di chiamate.
+- `GET /health`, `GET /agents`
+- `POST /runs` (mode `agent`/`graph` + input → 202 with run id), `GET /runs/{id}`
+- `POST /runs/{id}/approvals` (resolve pending HITL approvals)
+- `POST /ingest` (run the configured RAG ingest)
 
-## Test
+See `examples/agora-api.http` for example calls.
 
-I test di integrazione si trovano in `tests/Agora.Api.Tests/`:
-- `HealthAndAgentsTests.cs` — health check e listing agenti
-- `RunLifecycleTests.cs` — ciclo di vita di un run
-- `ApprovalFlowTests.cs` — test del flusso HITL
-- `IngestTests.cs` — ingest RAG via API
+## Tests
+
+Integration tests live in `tests/Agora.Api.Tests/`:
+- `HealthAndAgentsTests.cs` — health check and agent listing
+- `RunLifecycleTests.cs` — run lifecycle
+- `ApprovalFlowTests.cs` — HITL flow
+- `IngestTests.cs` — RAG ingest via API

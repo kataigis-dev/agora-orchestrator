@@ -9,70 +9,68 @@ updated: 2026-06-20
 
 # Context Memory
 
-Memoria di lavoro basata sul vector store per **comprimere il contesto e risparmiare
-token** senza perdere troppa accuratezza. Invece di iniettare in ogni agente *tutti*
-gli artifact accumulati (`State.ArtifactSummary`), il sistema **salva** gli artifact
-dichiarati e ne **recupera solo i top-K più rilevanti** per il task dell'agente.
+Vector-store-backed working memory to **compress context and save tokens** without losing too much
+accuracy. Instead of injecting *all* accumulated artifacts (`State.ArtifactSummary`) into every
+agent, the system **saves** declared artifacts and **recalls only the top-K most relevant** ones for
+the agent's task.
 
-## Attivazione
+## Activation
 
-Opt-in; di default disattivata.
+Opt-in; disabled by default.
 
 ```yaml
 memory:
   enabled: true
-  top_k: 5             # quante voci rilevanti recuperare per agente
-  max_chars: 0         # budget sul contesto recuperato (0 = illimitato)
-  remember_outputs: false  # salva anche l'output (troncato), non solo gli artifact dichiarati
+  top_k: 5             # relevant entries recalled per agent
+  max_chars: 0         # budget on recalled context (0 = unlimited)
+  remember_outputs: false  # also save the (truncated) output, not just declared artifacts
 ```
 
-## Come funziona
+## How it works
 
-A ogni step del grafo ([[agent-graph]]):
+At each graph step ([[agent-graph]]):
 
-1. **Save** — gli **artifact dichiarati** dall'agente (`<<artifact key=value>>`, incluso
-   l'`handoff`) vengono scritti nella memoria: embed + upsert append-only, **senza**
-   conflict-check (è contesto transitorio, non una "verità" della KB).
-2. **Recall** — per costruire il contesto del prossimo agente, si embedda il suo task
-   (`UserInput` + inbox) e si recuperano le **top-K voci più rilevanti**, iniettate al
-   posto del dump completo degli artifact.
+1. **Save** — the agent's **declared artifacts** (`<<artifact key=value>>`, including `handoff`) are
+   written to memory: embed + append-only upsert, **without** conflict-check (it is transient
+   context, not a KB "truth").
+2. **Recall** — to build the next agent's context, its task (`UserInput` + inbox) is embedded and
+   the **top-K most relevant entries** are recalled, injected instead of the full artifact dump.
 
-Il risultato: il contesto condiviso resta **limitato a K voci** anche su grafi lunghi,
-mantenendo ciò che è pertinente al passo corrente.
+The result: the shared context stays **capped at K entries** even on long graphs, keeping what is
+relevant to the current step.
 
-## Separazione dalla knowledge base
+## Separation from the knowledge base
 
-Le voci di memoria sono taggate con `source` prefisso `memory:` e condividono lo stesso
-`IVectorStore` della [[shared-knowledge-base]]. Il recall **filtra** sulle sole voci
-`memory:`, così i fatti curati della KB e il contesto transitorio non si mescolano.
-La memoria riusa l'`Embedder`/`Store` del RAG quando abilitato; altrimenti ricade su un
-embedder/store offline.
+Memory entries are tagged with a `source` prefix `memory:` and share the same `IVectorStore` as the
+[[shared-knowledge-base]]. Recall **filters** to `memory:` entries only, so curated KB facts and
+transient context do not mix. Memory reuses the RAG's `Embedder`/`Store` when enabled; otherwise it
+falls back to an offline embedder/store.
 
-## Rapporto con le altre modalità
+## Relationship to the other modes
 
-- **[[handoff-context]]**: l'handoff passa il payload *mirato* al prossimo; la memoria
-  fornisce il *background* rilevante recuperato. Si compongono.
-- **[[shared-knowledge-base]]**: stessa tecnologia di store, ma scopo diverso — memoria =
-  contesto transitorio comprimibile; KB = fatti durevoli con conflict-resolution.
+- **[[handoff-context]]**: the handoff passes the *targeted* payload to the next agent; memory
+  provides the relevant recalled *background*. They compose.
+- **[[shared-knowledge-base]]**: same store technology, different purpose — memory = compressible
+  transient context; KB = durable facts with conflict resolution.
 
-## Implementazione
+## Implementation
 
-| Componente | Ruolo |
-|------------|-------|
-| `Configuration/MemoryConfig` | Flag `enabled` + `top_k` |
-| `Rag/ContextMemory` | `RememberAsync` (append-only) / `RecallAsync` (top-K filtrati) |
-| `Orchestration/GraphExecutor` | In memory-mode: recall al posto di `ArtifactSummary`, remember degli artifact |
-| `Runtime` | Costruisce `ContextMemory` (riusa embedder/store del RAG) |
+| Component | Role |
+|-----------|------|
+| `Configuration/MemoryConfig` | `enabled` + `top_k` + `max_chars` + `remember_outputs` |
+| `Rag/ContextMemory` | `RememberAsync` (append-only) / `RecallAsync` (filtered top-K) |
+| `Orchestration/GraphExecutor` | In memory-mode: recall instead of `ArtifactSummary`, remember artifacts |
+| `Runtime` | Builds `ContextMemory` (reuses the RAG embedder/store) |
 
-## Esempio
+## Example
 
-`examples/agora-memory.yaml` — pipeline natural con memoria di contesto attiva.
+`examples/agora-memory.yaml` — natural pipeline with context memory enabled.
 
-## Note
+## Notes
 
-- Di default vengono salvati **solo gli artifact dichiarati**: se gli agenti non dichiarano
-  nulla, la memoria resta vuota. Con `remember_outputs: true` si salva anche l'output (troncato),
-  così la memoria non dipende dalla disciplina del prompt.
-- `max_chars` limita la dimensione del contesto recuperato (mantiene comunque la voce più
-  rilevante), per garantire un tetto sui token.
-- La compressione è **per rilevanza** (recupero vettoriale), senza chiamate LLM aggiuntive.
+- By default **only declared artifacts** are saved: if agents declare nothing, memory stays empty.
+  With `remember_outputs: true` the (truncated) output is also saved, so memory does not depend on
+  prompt discipline.
+- `max_chars` caps the recalled context size (always keeps the most relevant entry), to guarantee a
+  token ceiling.
+- Compression is **by relevance** (vector retrieval), with no extra LLM calls.

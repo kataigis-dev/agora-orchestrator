@@ -2,6 +2,8 @@ using Agora.Providers;
 
 namespace Agora.Rag;
 
+/// <summary>Refiner that asks an LLM to rewrite the input into a clearer search query plus optional
+/// sub-queries (one per line).</summary>
 public sealed class LlmRefiner : IRefiner
 {
     private const string SystemPrompt =
@@ -12,12 +14,14 @@ public sealed class LlmRefiner : IRefiner
     private readonly IChatProvider _provider;
     private readonly ModelSpec _spec;
 
+    /// <summary>Creates the refiner backed by the given chat provider and model.</summary>
     public LlmRefiner(IChatProvider provider, ModelSpec spec)
     {
         _provider = provider;
         _spec = spec;
     }
 
+    /// <inheritdoc />
     public async Task<RefinedQuery> RefineAsync(string text, CancellationToken cancellationToken = default)
     {
         var messages = new[]

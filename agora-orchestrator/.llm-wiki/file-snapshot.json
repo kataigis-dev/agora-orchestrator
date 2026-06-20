@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "updatedAt": 1781965116635,
+  "updatedAt": 1781979998335,
   "files": {
     "purpose.md": {
-      "hash": "9134da4e208cd2cf9165e14f448ad14b",
-      "size": 3263,
-      "mtimeMs": 1781724246215
+      "hash": "d53027abf382683799e3bbfc1d14c40a",
+      "size": 3460,
+      "mtimeMs": 1781979278030
     },
     "schema.md": {
       "hash": "ec14ae1b9b74f6e10d81af4d810386aa",
@@ -13,119 +13,119 @@
       "mtimeMs": 1781724056133
     },
     "wiki/concepts/agent-graph.md": {
-      "hash": "30cf48d028b0c44a402c12258dc320fc",
-      "size": 2589,
-      "mtimeMs": 1781915486667
+      "hash": "f2c1211d839d24004444c8b563af9058",
+      "size": 2610,
+      "mtimeMs": 1781979507183
     },
     "wiki/concepts/checkpointing.md": {
-      "hash": "8733cfde5e3d76a3b58776f50f6b26e3",
-      "size": 2245,
-      "mtimeMs": 1781954484792
+      "hash": "038645226e7b5ac19860da745d44f3d8",
+      "size": 2162,
+      "mtimeMs": 1781979700024
     },
     "wiki/concepts/communication-modes.md": {
-      "hash": "d273d5c8af09f0f9f209eee9222da189",
-      "size": 1597,
-      "mtimeMs": 1781814729813
+      "hash": "6cd4c02b38aabbb68305ee5fe2a47f4d",
+      "size": 1534,
+      "mtimeMs": 1781979619434
     },
     "wiki/concepts/context-memory.md": {
-      "hash": "f572dc52de5f7590cd5c3b192c3280ab",
-      "size": 3381,
-      "mtimeMs": 1781917047414
+      "hash": "8bd2a3c2ce08c24743b2719530b0a8aa",
+      "size": 3192,
+      "mtimeMs": 1781979786538
     },
     "wiki/concepts/edge-types.md": {
-      "hash": "7004945adce7359b65b2a471a5104f26",
-      "size": 2674,
-      "mtimeMs": 1781953967762
+      "hash": "7701d59a3733e6971d8481ed5db4a8cb",
+      "size": 2613,
+      "mtimeMs": 1781979606289
     },
     "wiki/concepts/guided-config.md": {
-      "hash": "df86904977c2fbaf3c978eb7e3a04e88",
-      "size": 4459,
-      "mtimeMs": 1781876418330
+      "hash": "6435df8e68dfc4d16c353adf3c1811a9",
+      "size": 4219,
+      "mtimeMs": 1781979856486
     },
     "wiki/concepts/h2c-protocol.md": {
-      "hash": "c31f9af5110cf944a5a79aad032e2fb0",
-      "size": 1349,
-      "mtimeMs": 1781814729813
+      "hash": "1a0f0090931bb03211e5a6f78cf94b25",
+      "size": 1569,
+      "mtimeMs": 1781979633225
     },
     "wiki/concepts/handoff-context.md": {
-      "hash": "891adaa631995ebcf7a00536ab489202",
-      "size": 2868,
-      "mtimeMs": 1781875880990
+      "hash": "1dfd1962563513cc09bd1752f8a93709",
+      "size": 2671,
+      "mtimeMs": 1781979667260
     },
     "wiki/concepts/human-in-the-loop.md": {
-      "hash": "87e1aa6cbb18c119a822bbdda6308f30",
-      "size": 2535,
-      "mtimeMs": 1781873552927
+      "hash": "3649ab0ab9486c4d05054a165f2af42b",
+      "size": 2366,
+      "mtimeMs": 1781979833092
     },
     "wiki/concepts/mcp-tools.md": {
-      "hash": "7cbfa01f7e4f9649d3c2812c2fdd1fe9",
-      "size": 3178,
-      "mtimeMs": 1781875914554
+      "hash": "94b18981e18642efa731f9a01ad804d2",
+      "size": 2826,
+      "mtimeMs": 1781979816433
     },
     "wiki/concepts/parallel-execution.md": {
-      "hash": "f6aeb962d8b41166cec100ef799a63a2",
-      "size": 2351,
-      "mtimeMs": 1781953961075
+      "hash": "20269f4bdc91df1b3e3bb1fa7419f884",
+      "size": 2187,
+      "mtimeMs": 1781979681732
     },
     "wiki/concepts/rag-pipeline.md": {
-      "hash": "8a4151ffc63b2fe45f9df8d904de1554",
-      "size": 3338,
-      "mtimeMs": 1781916458512
+      "hash": "ba765be4c67dc43216bf25294af7c2bc",
+      "size": 3163,
+      "mtimeMs": 1781979736745
     },
     "wiki/concepts/shared-knowledge-base.md": {
-      "hash": "00e4b393404886056a731185f3dfece7",
-      "size": 6479,
-      "mtimeMs": 1781958317568
+      "hash": "d3630b5273935fe7c0cb580d553d284e",
+      "size": 6212,
+      "mtimeMs": 1781979766673
     },
     "wiki/concepts/signal.md": {
-      "hash": "168785899c231a7164adfc337e5acc87",
-      "size": 1921,
-      "mtimeMs": 1781814729813
+      "hash": "5a1294d968b45f2db154e8219ab44811",
+      "size": 1929,
+      "mtimeMs": 1781979647015
     },
     "wiki/concepts/skills.md": {
-      "hash": "ab00803341e143f74c5a13e295f64264",
-      "size": 1667,
-      "mtimeMs": 1781814729813
+      "hash": "98dc50cd0119f1ea3e5e75909e2ad231",
+      "size": 1583,
+      "mtimeMs": 1781979800288
     },
     "wiki/concepts/streaming.md": {
-      "hash": "cece4a343010ded09f1b1cdd79731fa5",
-      "size": 2076,
-      "mtimeMs": 1781955418542
+      "hash": "6cc955728166fea575994b3070b13c8c",
+      "size": 1996,
+      "mtimeMs": 1781979716614
     },
     "wiki/entities/agora-agent-framework.md": {
-      "hash": "d1d02ffa0fff0c044e82873d3521e335",
-      "size": 1602,
-      "mtimeMs": 1781814729813
+      "hash": "c5bc1b4d44af5c1ffadcde0a1c019ab6",
+      "size": 2010,
+      "mtimeMs": 1781979423563
     },
     "wiki/entities/agora-api.md": {
-      "hash": "8d548a94c0a35774eff7d2db5b1f2b99",
-      "size": 1066,
-      "mtimeMs": 1781814729814
+      "hash": "e23064424e9acf26fd497b937dd31d75",
+      "size": 1471,
+      "mtimeMs": 1781979402554
     },
     "wiki/entities/agora-cli.md": {
-      "hash": "69addc1da772a9be914f1c3c37bf645f",
-      "size": 2140,
-      "mtimeMs": 1781965094096
+      "hash": "4137f54bc23837436f9932531f29e6df",
+      "size": 2117,
+      "mtimeMs": 1781979456927
     },
     "wiki/entities/agora-orchestrator.md": {
-      "hash": "18d95cb89ce3a54dec43cd661547ed4d",
-      "size": 1608,
-      "mtimeMs": 1781814729814
+      "hash": "2ac62d70c6fe9fec629f16187f601dcf",
+      "size": 1915,
+      "mtimeMs": 1781979385379
     },
     "wiki/index.md": {
-      "hash": "778eba1dca0a72ea6cf3f0173d5a712a",
-      "size": 1856,
-      "mtimeMs": 1781965077460
+      "hash": "6034e0ba350d544e121349d839c306e9",
+      "size": 1785,
+      "mtimeMs": 1781979352149
     },
     "wiki/log.md": {
-      "hash": "5a6038ffd9b48f5498334ba05cf891cf",
-      "size": 8465,
-      "mtimeMs": 1781965115920
+      "hash": "2d94f6fbb26dfce1cd73bc8901ec5b1f",
+      "size": 8359,
+      "mtimeMs": 1781979997616
     },
     "wiki/overview.md": {
-      "hash": "d647232ebf558ee2b8c91ae5ad02091f",
-      "size": 3520,
-      "mtimeMs": 1781965071135
+      "hash": "37ea092f4dbceb42ebb5488cb700d4c8",
+      "size": 3448,
+      "mtimeMs": 1781979337254
     }
   }
 }

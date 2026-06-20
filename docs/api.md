@@ -1,134 +1,90 @@
 # REST API
 
-## Avvio
+## Start
 
 ```bash
-dotnet run --project src/Agora.Api
+dotnet run --project src/Agora.Api -- --config examples/agora.yaml
 ```
 
-Il server si avvia su `http://localhost:5000` per default.
+The config is resolved server-side from `--config <path>` or the `AGORA_CONFIG` env var (it is
+**not** part of requests). Runs are executed asynchronously by a hosted `RunExecutor` over a queue;
+state is kept in an in-memory run store.
 
-## Endpoint
+## Endpoints
 
-### POST /runs
-
-Avvia una nuova esecuzione agente o grafo:
-
-```json
-// Request
-{
-  "config": "examples/agora.yaml",
-  "agent": "planner",
-  "input": "Scrivi una nota",
-  "graph": false
-}
-
-// Response
-{
-  "runId": "run_abc123",
-  "status": "running",
-  "output": "...",
-  "messages": [...]
-}
-```
-
-### GET /runs/{runId}
-
-Recupera lo stato e l'output di un'esecuzione:
+### GET /health
 
 ```json
-{
-  "runId": "run_abc123",
-  "status": "completed",
-  "agent": "planner",
-  "input": "Scrivi una nota",
-  "output": "Ecco la nota...",
-  "messages": [...],
-  "createdAt": "2026-06-18T12:00:00Z",
-  "completedAt": "2026-06-18T12:00:05Z"
-}
-```
-
-### GET /runs
-
-Lista tutte le esecuzioni:
-
-```json
-{
-  "runs": [
-    {
-      "runId": "run_abc123",
-      "status": "completed",
-      "agent": "planner",
-      "createdAt": "2026-06-18T12:00:00Z"
-    }
-  ]
-}
-```
-
-### POST /runs/{runId}/approve
-
-Approvazione umana per agenti con `require_approval: true`:
-
-```json
-{
-  "approved": true,
-  "feedback": "Procedi pure"
-}
+{ "status": "ok" }
 ```
 
 ### GET /agents
 
-Lista agenti configurati:
+Lists configured agents:
+
+```json
+[
+  { "id": "planner", "role": "You decompose the task.", "tools": ["rag_search"], "approvals": [] }
+]
+```
+
+### POST /runs
+
+Starts a run. `mode` is `"agent"` or `"graph"`; `agent` is required for agent mode:
+
+```json
+// Request (StartRunRequest)
+{ "mode": "graph", "agent": null, "input": "Build a todo app" }
+
+// Response — 202 Accepted, Location: /runs/{id}
+{ "id": "..." }
+```
+
+### GET /runs/{id}
+
+Run status and output, plus any pending approvals:
 
 ```json
 {
-  "agents": [
-    {
-      "id": "planner",
-      "model": "gpt-4o-mini",
-      "tools": ["read_file"],
-      "status": "idle"
-    }
+  "id": "...",
+  "status": "Running",
+  "mode": "graph",
+  "agentId": null,
+  "output": "...",
+  "error": null,
+  "pending": [
+    { "id": "...", "agentId": "ops", "functionName": "write_file", "arguments": "path=out.txt" }
   ]
 }
 ```
 
-### GET /health
+### POST /runs/{id}/approvals
 
-Health check:
-
-```json
-{
-  "status": "healthy",
-  "version": "0.0.1",
-  "uptime": "01:23:45"
-}
-```
-
-## Ciclo di vita di un run
-
-1. **pending** — ricevuta richiesta, in coda
-2. **running** — in esecuzione
-3. **waiting_approval** — in attesa di approvazione umana
-4. **completed** — eseguito con successo
-5. **failed** — errore durante esecuzione
-6. **cancelled** — cancellato dall'utente
-
-## Configurazione
-
-L'API cerca il file `appsettings.json` o `appsettings.{ENVIRONMENT}.json`:
+Resolves pending HITL approvals:
 
 ```json
-{
-  "Agora": {
-    "DefaultConfig": "examples/agora.yaml",
-    "DefaultAgent": "planner"
-  },
-  "Kestrel": {
-    "Endpoints": {
-      "Http": { "Url": "http://localhost:5000" }
-    }
-  }
-}
+// Request (ApprovalsRequest)
+{ "approvals": [ { "id": "...", "approved": true } ] }
+
+// Response
+{ "resolved": 1 }
 ```
+
+### POST /ingest
+
+Runs the configured RAG ingest (requires an enabled `rag` section):
+
+```json
+{ "count": 12 }
+```
+
+## Run lifecycle
+
+A run is queued, then executed: it may pause **waiting for approval** (HITL tool calls), then
+**complete** or **fail**. Poll `GET /runs/{id}` for status and to discover pending approvals.
+
+## Approvals (HITL)
+
+There is no per-agent `require_approval` flag — approvals are configured per tool via the agent's
+`approvals` list (see the agents/configuration pages). When such a tool is called, the run exposes
+a pending approval that the client resolves with `POST /runs/{id}/approvals`.

@@ -2,8 +2,12 @@ using Agora.Configuration;
 
 namespace Agora.Orchestration;
 
+/// <summary>Builds and validates a <see cref="Graph"/> from the config's <c>graph</c> section.</summary>
 public static class GraphBuilder
 {
+    /// <summary>Builds the graph, inferring agent nodes referenced by the entry or edges but not
+    /// explicitly declared.</summary>
+    /// <exception cref="GraphError">If the graph section is missing or malformed.</exception>
     public static Graph Build(AgoraConfig config)
     {
         var raw = config.Graph ?? throw new GraphError("config has no 'graph' section");
@@ -42,6 +46,9 @@ public static class GraphBuilder
         return new Graph { Entry = raw.Entry, Nodes = nodes, Edges = edges };
     }
 
+    /// <summary>Verifies the entry exists, every agent node maps to a configured agent, and all edge
+    /// endpoints (and conditional <c>when</c> fields) are valid.</summary>
+    /// <exception cref="GraphError">If any check fails.</exception>
     public static void Validate(Graph graph, IReadOnlySet<string> agentIds)
     {
         if (!graph.Nodes.ContainsKey(graph.Entry))

@@ -4,8 +4,11 @@ using YamlDotNet.Serialization.NamingConventions;
 
 namespace Agora.Configuration;
 
+/// <summary>Loads and validates an <see cref="AgoraConfig"/> from a YAML file.</summary>
 public static class ConfigLoader
 {
+    /// <summary>Reads, deserializes, and validates the config at <paramref name="path"/>.</summary>
+    /// <exception cref="ConfigException">If the file is missing, the YAML is invalid, or references don't resolve.</exception>
     public static AgoraConfig Load(string path)
     {
         if (!File.Exists(path))
@@ -29,6 +32,8 @@ public static class ConfigLoader
         return config;
     }
 
+    /// <summary>Checks the communication mode and that every agent resolves a valid model,
+    /// provider, and approvals subset.</summary>
     private static void ValidateReferences(AgoraConfig config)
     {
         if (config.Communication is not ("h2c" or "natural"))

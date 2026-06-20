@@ -1,121 +1,120 @@
 # Research Log
 
-## 2026-06-20 — Miglioramenti: embedder da config, conflict-judge efficiente, memory, eval
+## 2026-06-20 — Improvements: embedder from config, efficient conflict-judge, memory, eval
 
-Avviato il programma di miglioramenti (10 voci tracciate). Completate finora:
-- **Embedder da config**: `type: openai|ollama` selezionabile da YAML via resolver iniettato
-  dal bordo (`AgentFrameworkEmbedders`); chiavi risolte dal provider come per il chat client
-- **Conflict-judge efficiente**: prefiltro per similarità (`conflictThreshold`) + cache degli esiti
-- **Context memory evoluta**: `max_chars` (budget recall) + `remember_outputs` (salva anche gli output)
-- **Eval/replay harness**: `agora eval --config --scenario` con risposte scriptate (Fake provider),
-  run deterministico e check su output/segnali; `Eval/Scenario` + `ScenarioRunner`
-- **Routing intelligente**: edge `type: route` con `IRouter`/`LlmRouter` — un LLM sceglie il
-  branch in base alle descrizioni `when`, più robusto del routing a signal-token
-- **Esecuzione parallela** (fork/join): edge `type: parallel`, branch concorrenti via
-  `Task.WhenAll` (mutazione di `State` seriale, nessuna race), convergenza su un join.
-  `GraphExecutor.FanOutAsync`; concept `parallel-execution`, esempio `agora-parallel.yaml`
-- **Checkpointing & resume**: `StateSnapshot` (JSON, signals tipizzati) + `ICheckpointStore`
-  (`InMemory`/`File`); checkpoint dopo ogni nodo; `GraphExecutor.RunAsync(resumeFrom:)` +
-  `Runtime.ResumeAsync`; CLI `run --checkpoint`/`--run-id` e comando `resume`. Concept `checkpointing`
-- **Token streaming**: `IStreamingChatProvider` (capability, non rompe `IChatProvider`) su
-  Fake/AgentFramework/Resilient; sink `Action<string>` propagato Runtime→executor→agente;
-  CLI `run --stream`. Tool agent e branch paralleli esclusi in v1. Concept `streaming`
-- **`IVectorStore` async**: `UpsertAsync`/`QueryAsync`/`DeleteAsync`; tolto il sync-over-async
-  di `QdrantVectorStore`. Aggiornati InMemory/File/Qdrant + RagPipeline/Ingestor/KnowledgeBase/ContextMemory
-  e tutti i test. 209 core verdi
-- **Wiki sync**: allineati `overview` (concetti, architettura, stato) e `index` (entità CLI) alle
-  nuove capacità; aggiunte le opzioni `--stream`/`--checkpoint`/`--run-id` all'entità `agora-cli`
+Started the improvement program (10 tracked items). Completed so far:
+- **Embedder from config**: `type: openai|ollama` selectable from YAML via an edge-injected resolver
+  (`AgentFrameworkEmbedders`); keys resolved from the provider just like the chat client
+- **Efficient conflict-judge**: similarity prefilter (`conflictThreshold`) + outcome cache
+- **Evolved context memory**: `max_chars` (recall budget) + `remember_outputs` (also saves outputs)
+- **Eval/replay harness**: `agora eval --config --scenario` with scripted replies (Fake provider),
+  deterministic run and checks on output/signals; `Eval/Scenario` + `ScenarioRunner`
+- **Smarter routing**: `type: route` edge with `IRouter`/`LlmRouter` — an LLM picks the branch from
+  the `when` descriptions, more robust than signal-token routing
+- **Parallel execution** (fork/join): `type: parallel` edge, concurrent branches via `Task.WhenAll`
+  (`State` mutation serialized, no race), converging on a join. `GraphExecutor.FanOutAsync`; concept
+  `parallel-execution`, example `agora-parallel.yaml`
+- **Checkpointing & resume**: `StateSnapshot` (JSON, typed signals) + `ICheckpointStore`
+  (`InMemory`/`File`); checkpoint after every node; `GraphExecutor.RunAsync(resumeFrom:)` +
+  `Runtime.ResumeAsync`; CLI `run --checkpoint`/`--run-id` and `resume` command. Concept `checkpointing`
+- **Token streaming**: `IStreamingChatProvider` (capability, doesn't break `IChatProvider`) on
+  Fake/AgentFramework/Resilient; `Action<string>` sink propagated Runtime→executor→agent;
+  CLI `run --stream`. Tool agents and parallel branches excluded in v1. Concept `streaming`
+- **Async `IVectorStore`**: `UpsertAsync`/`QueryAsync`/`DeleteAsync`; removed the sync-over-async
+  in `QdrantVectorStore`. Updated InMemory/File/Qdrant + RagPipeline/Ingestor/KnowledgeBase/ContextMemory
+  and all tests. 209 core green
+- **Wiki sync**: aligned `overview` (concepts, architecture, status) and `index` (CLI entity) with the
+  new capabilities; added the `--stream`/`--checkpoint`/`--run-id` options to the `agora-cli` entity
 
-## 2026-06-20 — Context memory (compressione contesto via RAG)
+## 2026-06-20 — Context memory (context compression via RAG)
 
-- Modalità opt-in `memory: { enabled, top_k }`: invece di iniettare tutti gli artifact,
-  si **salvano** gli artifact dichiarati e si **recuperano le top-K rilevanti** per agente
-- `ContextMemory` (append-only, no conflict-check; source `memory:` per distinguerle dalla KB;
-  recall filtrato). `GraphExecutor` usa recall al posto di `ArtifactSummary`; `Runtime` riusa
-  embedder/store del RAG
-- Nuova pagina concept `context-memory`, esempio `examples/agora-memory.yaml`; +5 test (182 core verdi)
-- Fix isolamento: `TracingTests` in collection non parallelizzabile (recorder globale)
+- Opt-in `memory: { enabled, top_k }` mode: instead of injecting all artifacts, **save** the declared
+  artifacts and **recall the top-K relevant** ones per agent
+- `ContextMemory` (append-only, no conflict-check; `memory:` source to distinguish from the KB;
+  filtered recall). `GraphExecutor` uses recall instead of `ArtifactSummary`; `Runtime` reuses the
+  RAG's embedder/store
+- New `context-memory` concept page, example `examples/agora-memory.yaml`; +5 tests (182 core green)
+- Isolation fix: `TracingTests` in a non-parallelizable collection (global recorder)
 
-## 2026-06-20 — Adapter Qdrant (DB vettoriale su container)
+## 2026-06-20 — Qdrant adapter (containerized vector DB)
 
-- `QdrantVectorStore` (`Agora.AgentFramework`): `IVectorStore` su server Qdrant via **gRPC**
-  (client ufficiale `Qdrant.Client` 1.18.1). Collezione creata lazy al primo upsert (cosine)
-- Seam di estensione: `RagFactory`/`Runtime` accettano uno `storeResolver` iniettato dal bordo;
-  `AgentFrameworkVectorStores.TryCreate` risolve `type: qdrant` (`url`/`collection`). Core resta framework-free
-- `VectorStoreConfig.Url` aggiunto; cablaggio fino a `Program.cs`
-- Test del seam + resolver (177 core, 8 API verdi). Integrazione contro un Qdrant reale rimandata (no container qui)
+- `QdrantVectorStore` (`Agora.AgentFramework`): `IVectorStore` over a Qdrant server via **gRPC**
+  (official `Qdrant.Client` 1.18.1 client). Collection created lazily on first upsert (cosine)
+- Extension seam: `RagFactory`/`Runtime` accept an edge-injected `storeResolver`;
+  `AgentFrameworkVectorStores.TryCreate` resolves `type: qdrant` (`url`/`collection`). Core stays framework-free
+- `VectorStoreConfig.Url` added; wired through to `Program.cs`
+- Seam + resolver tests (177 core, 8 API green). Integration against a real Qdrant deferred (no container here)
 
-## 2026-06-19 — Wizard `init`: handoff, vector store, tool RAG
+## 2026-06-19 — `init` wizard: handoff, vector store, RAG tools
 
-- `agora init` ora chiede la modalità `handoff`, il tipo di vector store
-  (`memory`/`file` + path) nella sezione RAG, e propone i tool per agente quando
-  RAG/handoff/skills/MCP sono configurati (inclusi `rag_search`/`rag_write`/`ask_agent`)
-- RAG riordinato prima degli agenti; aggiornata pagina `guided-config`; 172 core verdi
+- `agora init` now asks for the `handoff` mode, the vector store type (`memory`/`file` + path) in the
+  RAG section, and proposes per-agent tools when RAG/handoff/skills/MCP are configured (including
+  `rag_search`/`rag_write`/`ask_agent`)
+- RAG reordered before the agents; updated `guided-config` page; 172 core green
 
-- Gli agenti accedono alla KB condivisa via tool built-in (`Agora.AgentFramework`):
-  `rag_search` (lettura), `rag_write` (scrittura via `KnowledgeBase`), abilitati dalla
-  allow-list `tools` — `RagTools`
-- `ask_agent(target, question)`: il ricevente interpella un altro agente dopo `rag_search`.
-  Tool sincrono che riesegue il target in "answer-mode" (senza `ask_agent`, niente ricorsione) — `AskAgentTool`
-- `Runtime` costruisce la `KnowledgeBase` riusando `Embedder`/`Store` del `RagPipeline`
-  (un solo `IVectorStore` per lettura+scrittura); `IConflictResolver` cablato fino a `Program.cs`
-- `AgentBuildContext` porta `Rag`/`KnowledgeBase`/`AskAgent`; +12 test (171 core, 8 API)
-- Aggiornate `shared-knowledge-base`, `handoff-context`, `mcp-tools`
+- Agents access the shared KB via built-in tools (`Agora.AgentFramework`): `rag_search` (read),
+  `rag_write` (write via `KnowledgeBase`), enabled by the `tools` allow-list — `RagTools`
+- `ask_agent(target, question)`: the receiver queries another agent after `rag_search`. Synchronous
+  tool that re-runs the target in "answer-mode" (without `ask_agent`, no recursion) — `AskAgentTool`
+- `Runtime` builds the `KnowledgeBase` reusing the `RagPipeline`'s `Embedder`/`Store` (a single
+  `IVectorStore` for read+write); `IConflictResolver` wired through to `Program.cs`
+- `AgentBuildContext` carries `Rag`/`KnowledgeBase`/`AskAgent`; +12 tests (171 core, 8 API)
+- Updated `shared-knowledge-base`, `handoff-context`, `mcp-tools`
 
-## 2026-06-19 — Contesto handoff, Fase 2
+## 2026-06-19 — Handoff context, Phase 2
 
-- Modalità opt-in `handoff: true`: su un hop si passa al successivo **solo** l'artifact
-  `handoff` del mittente (o niente), non l'output completo. Default invariato
-- `GraphExecutor` param `handoff`; l'artifact `handoff` è canale mirato, escluso dal
-  sommario globale degli artifact; `H2cInterpreter` estrae il campo `handoff` in h2c
-- `HandoffPreamble` iniettato quando attivo; nuova pagina concept `handoff-context`,
-  aggiornato `agent-graph`, esempio `examples/agora-handoff.yaml`
-- +3 test (160 core verdi)
+- Opt-in `handoff: true` mode: on a hop, pass to the next agent **only** the sender's `handoff`
+  artifact (or nothing), not the full output. Default unchanged
+- `GraphExecutor` `handoff` param; the `handoff` artifact is a targeted channel, excluded from the
+  global artifact summary; `H2cInterpreter` extracts the `handoff` field in h2c
+- `HandoffPreamble` injected when active; new `handoff-context` concept page, updated `agent-graph`,
+  example `examples/agora-handoff.yaml`
+- +3 tests (160 core green)
 
-## 2026-06-19 — RAG scrivibile, Fase 1 (knowledge base condivisa)
+## 2026-06-19 — Writable RAG, Phase 1 (shared knowledge base)
 
-- Avviata l'evoluzione del RAG da sola-lettura a **knowledge base scrivibile** con
-  rilevamento e risoluzione conflitti. Creata pagina concept `shared-knowledge-base`
-- `IVectorStore` esteso: `Chunk.Id` stabile + `Delete(ids)` + upsert-by-id → la
-  risoluzione conflitti **sostituisce** la voce superata invece di accodarla
-- Nuovo `FileVectorStore` (persistente su disco, JSON); `vector_store: { type: file }`
-- `KnowledgeBase` (embed → vicini → judge → write/escalate); `IConflictJudge` +
-  `LlmConflictJudge` (protocollo a marker con `CONFLICTS_WITH`) + `NoOpConflictJudge`
+- Started evolving the RAG from read-only to a **writable knowledge base** with conflict detection
+  and resolution. Created the `shared-knowledge-base` concept page
+- `IVectorStore` extended: stable `Chunk.Id` + `Delete(ids)` + upsert-by-id → conflict resolution
+  **replaces** the superseded entry instead of appending
+- New `FileVectorStore` (disk-persistent, JSON); `vector_store: { type: file }`
+- `KnowledgeBase` (embed → neighbors → judge → write/escalate); `IConflictJudge` + `LlmConflictJudge`
+  (marker protocol with `CONFLICTS_WITH`) + `NoOpConflictJudge`
 - `IConflictResolver` (KeepExisting/KeepNew/Merge) + `ConsoleConflictResolver` / `FakeConflictResolver`
-- Accesso al RAG dietro interfaccia: disco ora, DB su container (Qdrant/pgvector) in futuro
-- +17 test (157 core, 8 API verdi). Non ancora collegata agli agenti (Fase 3)
-- Aggiornate `rag-pipeline`, `human-in-the-loop`, indice
+- RAG access behind an interface: disk now, containerized DB (Qdrant/pgvector) later
+- +17 tests (157 core, 8 API green). Not yet wired to the agents (Phase 3)
+- Updated `rag-pipeline`, `human-in-the-loop`, index
 
-## 2026-06-19 — Comando `init` (config guidata)
+## 2026-06-19 — `init` command (guided config)
 
-- Aggiunto comando CLI `agora init`: wizard interattivo che costruisce la config YAML
-  (communication, providers, models, agents e grafo multi-agente con edge condizionali)
-- Nuovo `ConfigWriter` (serializzazione YAML, controparte di `ConfigLoader`); prima
-  YamlDotNet era usato solo in lettura
-- `ConfigWizard` con I/O iniettabili → unit-testabile (`ConfigWizardTests`)
-- Creata pagina concept `guided-config`; aggiornata entity `agora-cli` e l'indice
-- **Estensione "completa"**: il wizard copre ora anche le sezioni opzionali — skills
-  (directory), MCP (server stdio/http), RAG (ingest/chunk/top_k/refine, embedder
-  `fake` + store `memory`) e HITL (`approvals` ⊆ `tools` per agente). Le sezioni
-  opzionali sono gate dietro sì/no con default no; test esteso a 4 casi
+- Added the `agora init` CLI command: an interactive wizard that builds the YAML config
+  (communication, providers, models, agents and the multi-agent graph with conditional edges)
+- New `ConfigWriter` (YAML serialization, counterpart of `ConfigLoader`); previously YamlDotNet was
+  only used for reading
+- `ConfigWizard` with injectable I/O → unit-testable (`ConfigWizardTests`)
+- Created the `guided-config` concept page; updated the `agora-cli` entity and the index
+- **"Complete" extension**: the wizard now also covers the optional sections — skills (directories),
+  MCP (stdio/http servers), RAG (ingest/chunk/top_k/refine, `fake` embedder + `memory` store) and
+  HITL (`approvals` ⊆ `tools` per agent). Optional sections are gated behind yes/no defaulting to no;
+  test extended to 4 cases
 
 ## 2026-06-17
 
 - Project created
-- Wiki inizializzata con conoscenza del progetto Agora Orchestrator
-- Creati 4 entity pages: `agora-orchestrator`, `agora-cli`, `agora-api`, `agora-agent-framework`
-- Creati 8 concept pages: `agent-graph`, `edge-types`, `h2c-protocol`, `signal`, `communication-modes`, `rag-pipeline`, `skills`, `mcp-tools`, `human-in-the-loop`
-- Aggiornati `purpose.md`, `wiki/overview.md`, `wiki/index.md`
+- Wiki initialized with knowledge of the Agora Orchestrator project
+- Created 4 entity pages: `agora-orchestrator`, `agora-cli`, `agora-api`, `agora-agent-framework`
+- Created 8 concept pages: `agent-graph`, `edge-types`, `h2c-protocol`, `signal`, `communication-modes`, `rag-pipeline`, `skills`, `mcp-tools`, `human-in-the-loop`
+- Updated `purpose.md`, `wiki/overview.md`, `wiki/index.md`
 
-## 2026-06-18 — Correzione pagine wiki
+## 2026-06-18 — Wiki page corrections
 
-- **signal.md**: aggiunta sintassi `<<artifact key=value>>`, firma `Extract` a 3-tuple, esempio artifact
-- **agent-graph.md**: aggiunti `Artifacts`, `LoopCounters`, `Inbox()`, `ArtifactSummary()` allo stato condiviso
-- **mcp-tools.md**: aggiunta sezione Built-in Filesystem Tools (read/write/search/list)
-- **communication-modes.md**: aggiunta colonna artifact nella tabella comparativa
-- **overview.md**: `IProvider` → `IChatProvider` nell'architettura
-- **agora-orchestrator.md**: corrette dipendenze esterne (Microsoft.Extensions.AI.OpenAI, ModelContextProtocol.Core, OllamaSharp)
-- **human-in-the-loop.md**: corretto `IApprovalHandler` (firma con `ApprovalRequest` + `CancellationToken`), flusso tool-based, `PendingApprovalHandler` API
-- **rag-pipeline.md**: corretta struttura YAML annidata (retrieval.embedder, ingest.sources, ecc.)
-- **skills.md**: `directory` → `directories` (lista)
-- **edge-types.md**: fallback a primo edge non-condizionale (non errore)
+- **signal.md**: added `<<artifact key=value>>` syntax, 3-tuple `Extract` signature, artifact example
+- **agent-graph.md**: added `Artifacts`, `LoopCounters`, `Inbox()`, `ArtifactSummary()` to the shared state
+- **mcp-tools.md**: added the Built-in Filesystem Tools section (read/write/search/list)
+- **communication-modes.md**: added the artifact column to the comparison table
+- **overview.md**: `IProvider` → `IChatProvider` in the architecture
+- **agora-orchestrator.md**: corrected external dependencies (Microsoft.Extensions.AI.OpenAI, ModelContextProtocol.Core, OllamaSharp)
+- **human-in-the-loop.md**: corrected `IApprovalHandler` (signature with `ApprovalRequest` + `CancellationToken`), tool-based flow, `PendingApprovalHandler` API
+- **rag-pipeline.md**: corrected the nested YAML structure (retrieval.embedder, ingest.sources, etc.)
+- **skills.md**: `directory` → `directories` (list)
+- **edge-types.md**: fallback to the first non-conditional edge (not an error)

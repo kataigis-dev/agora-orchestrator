@@ -11,8 +11,10 @@ public sealed class FakeEmbedder : IEmbedder
 {
     private readonly int _dim;
 
+    /// <summary>Creates the embedder producing vectors of the given dimensionality.</summary>
     public FakeEmbedder(int dim = 32) => _dim = dim;
 
+    /// <inheritdoc />
     public Task<IReadOnlyList<float[]>> EmbedAsync(
         IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
     {
@@ -20,6 +22,7 @@ public sealed class FakeEmbedder : IEmbedder
         return Task.FromResult(vectors);
     }
 
+    /// <summary>Hashes each token into a bucket and counts occurrences to form a stable vector.</summary>
     private float[] Vector(string text)
     {
         var vec = new float[_dim];

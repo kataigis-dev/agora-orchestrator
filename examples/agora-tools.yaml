@@ -9,12 +9,12 @@ models:
   fast:     { provider: openai, model: gpt-4o-mini }
   balanced: { provider: openai, model: gpt-4o }
 
-# Cartelle in cui cercare le skill (file SKILL.md, ricerca ricorsiva).
+# Folders to search for skills (SKILL.md files, recursive search).
 skills:
   directories: [./skills]
 
-# Server MCP disponibili. I tool vengono esposti agli agent che li elencano in `tools`.
-# Avvio via stdio (un processo figlio) o via HTTP (campo `url`).
+# Available MCP servers. Tools are exposed to agents that list them in `tools`.
+# Started via stdio (a child process) or via HTTP (the `url` field).
 mcp:
   servers:
     filesystem:
@@ -22,17 +22,17 @@ mcp:
       args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
 
 agents:
-  # Agente tool-capable: usa la skill `summarize` (progressive disclosure via load_skill)
-  # e il tool MCP `read_file` esposto dal server filesystem.
+  # Tool-capable agent: uses the `summarize` skill (progressive disclosure via load_skill)
+  # and the MCP tool `read_file` exposed by the filesystem server.
   researcher:
     model: balanced
-    role: "Rispondi alle domande dell'utente. Riassumi i testi lunghi e leggi i file quando serve."
+    role: "Answer the user's questions. Summarize long texts and read files when needed."
     skills: [summarize]
     tools: [read_file]
-  # Agente senza tool: resta sul core framework-free.
+  # Tool-less agent: stays on the framework-free core.
   editor:
     model: fast
-    role: "Rifinisci la risposta del researcher: chiarezza, tono, grammatica."
+    role: "Refine the researcher's answer: clarity, tone, grammar."
 
 graph:
   entry: researcher

@@ -3,8 +3,12 @@ using Agora.Providers;
 
 namespace Agora.Rag;
 
+/// <summary>Assembles a <see cref="RagPipeline"/> from config, wiring the embedder, vector store, and
+/// refiner. Non-core embedders/stores are produced by edge-injected resolvers so the core stays
+/// framework-free.</summary>
 public static class RagFactory
 {
+    /// <summary>Builds the pipeline, or null if RAG is absent/disabled in the config.</summary>
     public static RagPipeline? Build(
         AgoraConfig config, IChatProvider? provider = null, ModelSpec? refineSpec = null,
         Func<VectorStoreConfig?, IVectorStore?>? storeResolver = null,
@@ -22,6 +26,8 @@ public static class RagFactory
             scoreThreshold: rag.Retrieval?.ScoreThreshold ?? 0.0);
     }
 
+    /// <summary>Builds the embedder: the built-in <c>fake</c>, or a real one via the resolver after
+    /// resolving the provider's key/base URL.</summary>
     private static IEmbedder BuildEmbedder(
         EmbedderConfig? spec, AgoraConfig config, Func<EmbedderSpec, IEmbedder?>? embedderResolver)
     {
@@ -45,6 +51,8 @@ public static class RagFactory
                 $"embedder type '{type}' has no built-in implementation and no resolver provided");
     }
 
+    /// <summary>Builds the vector store: built-in <c>memory</c>/<c>file</c>, or a non-core store via
+    /// the resolver.</summary>
     private static IVectorStore BuildStore(
         VectorStoreConfig? spec, Func<VectorStoreConfig?, IVectorStore?>? storeResolver)
     {
@@ -60,6 +68,8 @@ public static class RagFactory
         };
     }
 
+    /// <summary>Builds the refiner: <see cref="LlmRefiner"/> when the <c>llm</c> strategy and a
+    /// provider/model are available, otherwise the no-op refiner.</summary>
     private static IRefiner BuildRefiner(RagConfig rag, IChatProvider? provider, ModelSpec? spec)
     {
         var strategy = rag.Refine?.Strategy ?? "none";

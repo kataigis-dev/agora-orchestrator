@@ -4,18 +4,20 @@ title: MCP Tools
 tags: [mcp, tools, model-context-protocol, external]
 related: [agora-agent-framework, skills, agora-orchestrator, shared-knowledge-base]
 created: 2026-06-17
-updated: 2026-06-19
+updated: 2026-06-20
 ---
 
 # MCP Tools (Model Context Protocol)
 
-Integrazione con server MCP esterni per esporre tool al sistema (filesystem, rete, database, ecc.).
+Integration with external MCP servers to expose tools to the system (filesystem, network,
+databases, etc.).
 
-## Cos'è MCP
+## What MCP is
 
-Il **Model Context Protocol** è uno standard aperto che permette agli LLM di invocare tool implementati in processi separati tramite un protocollo stdio/JSON-RPC.
+The **Model Context Protocol** is an open standard that lets LLMs invoke tools implemented in
+separate processes via a stdio/JSON-RPC protocol (or HTTP).
 
-## Configurazione YAML
+## YAML configuration
 
 ```yaml
 mcp:
@@ -32,64 +34,55 @@ agents:
     tools: [write_file, read_file, list_directory]
 ```
 
-## Funzionamento
+## How it works
 
-1. `McpToolSession` avvia il processo esterno tramite stdio
-2. Esegue l'handshake MCP (initialize / list_tools)
-3. I tool disponibili vengono esposti all'agente come function-calling tools
-4. Quando l'agente chiama un tool, `McpToolSession` serializza la chiamata e legge la risposta
+1. `McpToolSession` starts the external process via stdio (or connects via `url` for HTTP).
+2. Performs the MCP handshake (initialize / list tools).
+3. Available tools are exposed to the agent as function-calling tools, filtered by the agent's `tools:` list.
+4. When the agent calls a tool, `McpToolSession` forwards the call and returns the response.
 
-## Classe `McpToolSession`
+## `McpToolSession` class
 
 ```csharp
 // Agora.AgentFramework/McpToolSession.cs
-// Gestisce il ciclo di vita di una sessione MCP:
-// - Avvio del processo
-// - Inizializzazione protocollo
-// - Esposizione dei tool disponibili
-// - Chiamata sincrona ai tool
+// Manages an MCP session lifecycle: start the process, initialize the protocol,
+// expose the available tools, and forward tool calls.
 ```
 
-## Sicurezza
+## Security
 
-- I tool MCP girano in processi separati — l'accesso al filesystem è limitato al path configurato
-- Configurare `args` con attenzione: evitare path assoluti o permessi eccessivi
-- Non esporre all'agente tool che permettono esecuzione arbitraria di codice senza approvazione HITL
+- MCP tools run in separate processes — filesystem access is limited to the configured path.
+- Configure `args` carefully: avoid absolute paths or excessive permissions.
+- Gate consequential tools behind HITL approvals (the agent's `approvals` list).
 
-## Built-in Filesystem Tools
+## Built-in filesystem tools
 
-Agora include quattro tool filesystem **built-in** (nessun server MCP esterno necessario), implementati in `BuiltInFileTools.cs` con `System.IO`:
+Agora includes four **built-in** filesystem tools (no external MCP server needed), implemented in
+`BuiltInFileTools.cs` with `System.IO`:
 
-| Tool | Descrizione |
+| Tool | Description |
 |------|-------------|
-| `read_file` | Legge un file dal disco (`File.ReadAllTextAsync`) |
-| `write_file` | Scrive un file sul disco (`File.WriteAllTextAsync`) |
-| `search_files` | Cerca file per glob pattern (`Directory.EnumerateFiles`) |
-| `list_directory` | Elenca il contenuto di una directory (`Directory.EnumerateFileSystemEntries`) |
+| `read_file` | Read a file from disk |
+| `write_file` | Write a file to disk |
+| `search_files` | Find files by glob pattern |
+| `list_directory` | List a directory's contents |
 
-Vengono caricati nel `AgentFrameworkAgent` prima dei tool MCP. Usano gli stessi nomi dei tool MCP equivalenti per compatibilità drop-in.
+They are registered before MCP tools and use the same names as their MCP equivalents (drop-in).
 
-## Built-in Knowledge Base & Collaboration Tools
+## Built-in knowledge base & collaboration tools
 
-Altri tool built-in (stesso meccanismo di allow-list) per la knowledge base condivisa e
-la collaborazione tra agenti — vedi [[shared-knowledge-base]]:
+Other built-in tools (same allow-list mechanism) for the shared knowledge base and inter-agent
+collaboration — see [[shared-knowledge-base]]:
 
-| Tool | Descrizione |
+| Tool | Description |
 |------|-------------|
-| `rag_search` | Cerca contesto nella KB condivisa (`RagTools`) |
-| `rag_write` | Scrive una voce nella KB con conflict-check (`RagTools`) |
-| `ask_agent` | Interpella un altro agente e ne ottiene la risposta (`AskAgentTool`) |
+| `rag_search` | Search the shared KB (`RagTools`) |
+| `rag_write` | Write an entry to the KB with conflict-check (`RagTools`) |
+| `ask_agent` | Ask another agent and get its answer (`AskAgentTool`) |
 
-Configurazione YAML:
-```yaml
-agents:
-  builder:
-    tools: [read_file, write_file, search_files, list_directory]
-```
+No MCP server configuration required.
 
-Nessuna configurazione server MCP richiesta.
+## Examples
 
-## Esempi
-
-- `examples/agora-tools.yaml` — pipeline con skill + MCP tools
-- `examples/agora-generate-api.yaml` — generazione codice con MCP + review loop
+- `examples/agora-tools.yaml` — pipeline with skills + MCP tools
+- `examples/agora-generate-api.yaml` — code generation with MCP + a review loop

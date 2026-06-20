@@ -17,17 +17,20 @@ public sealed record MemoryOptions(int TopK = 5, int MaxChars = 0, bool Remember
 /// </summary>
 public sealed class ContextMemory
 {
+    /// <summary>Source prefix tagging memory entries so they stay distinct from knowledge-base facts.</summary>
     public const string SourcePrefix = "memory:";
 
     private readonly IEmbedder _embedder;
     private readonly IVectorStore _store;
 
+    /// <summary>Creates context memory over a shared embedder and vector store.</summary>
     public ContextMemory(IEmbedder embedder, IVectorStore store)
     {
         _embedder = embedder;
         _store = store;
     }
 
+    /// <summary>Stores a memory entry for an agent (append-only, no conflict check); no-ops on blank text.</summary>
     public async Task RememberAsync(string text, string agentId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))

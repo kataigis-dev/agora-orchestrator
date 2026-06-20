@@ -2,48 +2,48 @@
 type: concept
 title: Communication Modes
 tags: [communication, h2c, natural, protocol]
-related: [h2c-protocol, signal]
+related: [h2c-protocol, signal, handoff-context]
 created: 2026-06-17
-updated: 2026-06-17
+updated: 2026-06-20
 ---
 
 # Communication Modes
 
-Agora supporta due modalità di comunicazione tra agente e orchestratore, configurabili a livello globale.
+Agora supports two agent↔orchestrator communication modes, configured globally.
 
-## Configurazione
+## Configuration
 
 ```yaml
 communication: h2c      # default
-# oppure
+# or
 communication: natural
 ```
 
-## Confronto
+## Comparison
 
-| Aspetto | `h2c` | `natural` |
-|---------|-------|-----------|
-| Formato output | `[STATE:DONE]` + campi | `<<signal done>>` inline nel testo |
-| Struttura | Blocchi tipizzati con campi chiave-valore | Testo libero con token speciali |
-| Robustezza | Alta (modelli meno capaci) | Media (richiede che il modello rispetti la sintassi) |
-| Leggibilità output | Tecnica | Naturale |
-| System prompt injection | `H2cPreamble` iniettato automaticamente | Istruzioni signal nel role |
+| Aspect | `h2c` | `natural` |
+|--------|-------|-----------|
+| Output format | `[STATE:DONE]` + fields | `<<signal done>>` inline in the text |
+| Structure | Typed blocks with key-value fields | Free text with special tokens |
+| Robustness | High (less capable models) | Medium (requires the model to follow the syntax) |
+| Output readability | Technical | Natural |
+| System-prompt injection | `H2cPreamble` injected automatically | Signal instructions in the role |
 | Parsing | `H2cParser` + `H2cInterpreter` | `SignalParser` (signal + artifact) |
-| Artifact condivisi | — | `<<artifact key=value>>` |
+| Shared artifacts | — | `<<artifact key=value>>` |
 
-## Quando usare `h2c`
+## When to use `h2c`
 
-- Modelli con capacità di instruction-following moderate (es. modelli locali piccoli)
-- Pipeline dove la struttura dell'output è critica
-- Quando servono campi aggiuntivi oltre al segnale (es. `reason`, `count`)
+- Models with moderate instruction-following (e.g. small local models)
+- Pipelines where output structure is critical
+- When extra fields beyond the signal are needed (e.g. `reason`, `count`)
 
-## Quando usare `natural`
+## When to use `natural`
 
-- Modelli capaci (GPT-4, Claude, modelli > 13B)
-- Pipeline dove l'output deve essere leggibile dall'utente finale
-- Prototipazione rapida
+- Capable models (GPT-4, Claude, > 13B models)
+- Pipelines where the output must be readable by the end user
+- Rapid prototyping
 
-## Esempi di file config
+## Example config files
 
-- `examples/agora-h2c.yaml` — pipeline con H2C e loop condizionale
-- `examples/agora.yaml` — minimal senza grafo (natural implicito)
+- `examples/agora-h2c.yaml` — H2C pipeline with a conditional loop
+- `examples/agora.yaml` — minimal, no graph (natural implied)

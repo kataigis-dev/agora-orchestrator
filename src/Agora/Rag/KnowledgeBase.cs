@@ -22,6 +22,7 @@ public enum WriteOutcome
     Rejected,
 }
 
+/// <summary>Result of a knowledge-base write: the outcome, the text actually stored, and a detail note.</summary>
 public sealed record WriteResult(WriteOutcome Outcome, string StoredText, string Detail = "");
 
 /// <summary>
@@ -43,6 +44,8 @@ public sealed class KnowledgeBase
     private readonly Dictionary<string, ConflictAssessment> _assessmentCache = new();
     private const int MaxCacheEntries = 512;
 
+    /// <summary>Creates the knowledge base over a shared embedder/store, with the conflict judge,
+    /// optional human resolver, and the neighbor/conflict similarity thresholds.</summary>
     public KnowledgeBase(
         IEmbedder embedder,
         IVectorStore store,
@@ -61,6 +64,9 @@ public sealed class KnowledgeBase
         _conflictThreshold = conflictThreshold;
     }
 
+    /// <summary>Writes an entry: embeds it, finds related neighbors, and adds it directly when there
+    /// are none or none close enough; otherwise judges the conflict and either adds, replaces with a
+    /// reconciled entry, or escalates to the human resolver.</summary>
     public async Task<WriteResult> WriteAsync(
         string text, string source = "agent", string agentId = "", CancellationToken cancellationToken = default)
     {
@@ -102,6 +108,8 @@ public sealed class KnowledgeBase
         }
     }
 
+    /// <summary>Asks the human resolver to settle an unresolved conflict and applies the decision
+    /// (keep-new/merge replace the conflicting entries; keep-existing rejects the write).</summary>
     private async Task<WriteResult> EscalateAsync(
         string text, float[] vector, string source, string agentId,
         IReadOnlyList<Chunk> neighbors, ConflictAssessment assessment, CancellationToken cancellationToken)
@@ -147,9 +155,11 @@ public sealed class KnowledgeBase
         await AddAsync(text, vector ?? await EmbedOne(text, cancellationToken), source, cancellationToken);
     }
 
+    /// <summary>Inserts a new entry (with its vector) into the store.</summary>
     private Task AddAsync(string text, float[] vector, string source, CancellationToken cancellationToken)
         => _store.UpsertAsync(new[] { new Chunk(text, source) }, new[] { vector }, cancellationToken);
 
+    /// <summary>Embeds a single string and returns its vector.</summary>
     private async Task<float[]> EmbedOne(string text, CancellationToken cancellationToken)
         => (await _embedder.EmbedAsync(new[] { text }, cancellationToken))[0];
 
@@ -169,6 +179,7 @@ public sealed class KnowledgeBase
         return assessment;
     }
 
+    /// <summary>Builds a stable hash key from the new text and its neighbor texts for the judge cache.</summary>
     private static string CacheKey(string text, IReadOnlyList<Chunk> neighbors)
     {
         var joined = text + "\u0001" + string.Join("\u0001", neighbors.Select(n => n.Text));

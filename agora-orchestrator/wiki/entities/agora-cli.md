@@ -2,63 +2,64 @@
 type: entity
 title: Agora CLI
 tags: [cli, tool, dotnet]
-related: [agora-orchestrator, agora-api, guided-config]
+related: [agora-orchestrator, agora-api, guided-config, checkpointing, streaming]
 created: 2026-06-17
-updated: 2026-06-19
+updated: 2026-06-20
 ---
 
 # Agora CLI
 
-Eseguibile CLI (`Agora.Cli`) che espone i comandi principali del framework.
+CLI executable (`Agora.Cli`) exposing the framework's main commands.
 
-## Comandi
+## Commands
 
-| Comando | Descrizione |
+| Command | Description |
 |---------|-------------|
-| `init` | Costruisce una config YAML in modo guidato — vedi [[guided-config]] |
-| `run` | Esegue un singolo agente o un grafo (opz. `--checkpoint`/`--run-id`) |
-| `resume` | Riprende un run grafo da checkpoint — vedi [[checkpointing]] |
-| `validate` | Valida un file di configurazione YAML |
-| `ingest` | Indicizza sorgenti per RAG |
-| `eval` | Esegue uno scenario di eval deterministico (replay con risposte scriptate) |
+| `init` | Builds a YAML config interactively — see [[guided-config]] |
+| `run` | Runs a single agent or a graph (opt. `--stream`/`--checkpoint`/`--run-id`) |
+| `resume` | Resumes a graph run from a checkpoint — see [[checkpointing]] |
+| `validate` | Validates a YAML configuration file |
+| `ingest` | Indexes sources for RAG |
+| `eval` | Runs a deterministic eval scenario (scripted replay) |
 
-## Opzioni di `init`
+## `init` options
 
-| Opzione | Descrizione |
-|---------|-------------|
-| `--output <file>` | Path di destinazione proposto (default `./agora.yaml`) |
+| Option | Description |
+|--------|-------------|
+| `--output <file>` | Proposed destination path (default `./agora.yaml`) |
 
-## Opzioni di `run`
+## `run` options
 
-| Opzione | Descrizione |
-|---------|-------------|
-| `--config <file>` | Path al file YAML |
-| `--input <text>` | Input utente / task |
-| `--agent <id>` | Agente da eseguire (single-agent mode) |
-| `--graph` | Esegui il grafo definito in config |
-| `--stream` | Streaming dei token su stdout — vedi [[streaming]] |
-| `--checkpoint <dir>` | Salva i checkpoint per step (abilita `resume`) — vedi [[checkpointing]] |
-| `--run-id <id>` | Id del run per i checkpoint (default: generato) |
+| Option | Description |
+|--------|-------------|
+| `--config <file>` | Path to the YAML file |
+| `--input <text>` | User input / task |
+| `--agent <id>` | Agent to run (single-agent mode) |
+| `--graph` | Run the graph defined in the config |
+| `--stream` | Stream tokens to stdout — see [[streaming]] |
+| `--checkpoint <dir>` | Save per-step checkpoints (enables `resume`) — see [[checkpointing]] |
+| `--run-id <id>` | Run id for checkpoints (default: generated) |
 
-## Esempi di utilizzo
+## Usage examples
 
 ```bash
-# Configurazione guidata (genera ./agora.yaml)
+# Guided config (generates ./agora.yaml)
 dotnet run --project src/Agora.Cli -- init
 
-# Singolo agente
-dotnet run --project src/Agora.Cli -- run --config examples/agora.yaml --agent planner --input "Scrivi una nota"
+# Single agent
+dotnet run --project src/Agora.Cli -- run --config examples/agora.yaml --agent planner --input "Write a note"
 
-# Grafo multi-agente
-dotnet run --project src/Agora.Cli -- run --config examples/agora-h2c.yaml --input "Costruisci un todo app" --graph
+# Multi-agent graph
+dotnet run --project src/Agora.Cli -- run --config examples/agora-h2c.yaml --input "Build a todo app" --graph
 
-# Validazione config
+# Validate config
 dotnet run --project src/Agora.Cli -- validate --config examples/agora.yaml
 
-# Ingest RAG
+# RAG ingest
 dotnet run --project src/Agora.Cli -- ingest --config examples/agora-rag.yaml
 ```
 
 ## Approval handler
 
-In modalità CLI usa `ConsoleApprovalHandler` — mostra all'utente la richiesta di approvazione e attende input da tastiera.
+In CLI mode it uses `ConsoleApprovalHandler` — shows the approval request and waits for keyboard
+input. Knowledge-base write conflicts use `ConsoleConflictResolver`.

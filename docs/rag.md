@@ -1,83 +1,81 @@
 # RAG — Retrieval-Augmented Generation
 
-## Panoramica
+## Overview
 
-La pipeline RAG permette di indicizzare conoscenza (file, documenti, pagine web) e renderla disponibile agli agenti come contesto arricchito.
+The RAG pipeline indexes knowledge (text files) and makes it available to agents as enriched
+context. It is also **writable**: agents can record findings into a shared knowledge base.
 
-## Configurazione
+## Configuration
 
 ```yaml
 rag:
-  chunk_size: 1000
-  chunk_overlap: 200
-  embeddings:
-    provider: openai
-    model: text-embedding-3-small
-  vector_store:
-    type: memory           # "memory" (default) o "chroma"
-  knowledge:
-    - source: files
-      path: examples/knowledge/
-    - source: web
-      url: https://example.com/docs
+  enabled: true
+  refine:
+    strategy: none           # "none" | "llm"
+    model: balanced          # model alias for the "llm" refiner
+  retrieval:
+    embedder:
+      type: fake             # "fake" | "openai" | "ollama"
+      provider: openai       # provider for key/base when not "fake"
+      model: text-embedding-3-small
+    vector_store:
+      type: file             # "memory" | "file" | "qdrant"
+      path: ./kb.json        # for "file"
+      url: http://localhost:6334   # for "qdrant"
+      collection: agora      # for "qdrant"
+    top_k: 6
+    score_threshold: 0.0
+  ingest:
+    sources: [ ./docs ]
+    chunk_size: 800
+    chunk_overlap: 120
 ```
 
-## Pipeline di ingest
+## Ingest pipeline
 
 ```
-1. Load       — legge le fonti (file, directory, web scraping)
-2. Chunk      — divide in segmenti (configurabile: chunk_size, chunk_overlap)
-3. Embed      — genera embedding vettoriali per ogni chunk
-4. Store      — salva nel vector store (indicizzato)
+1. Load   — read .txt/.md files from the configured sources (files or directories, recursive)
+2. Chunk  — split into overlapping segments (chunk_size, chunk_overlap)
+3. Embed  — generate vectors for each chunk
+4. Store  — upsert into the vector store
 ```
-
-### Comando
 
 ```bash
 dotnet run --project src/Agora.Cli -- ingest --config examples/agora-rag.yaml
 ```
 
-## Chunking
+## Embedders
 
-| Parametro | Default | Descrizione |
-|---|---|---|
-| `chunk_size` | 1000 | Caratteri per chunk |
-| `chunk_overlap` | 200 | Sovrapposizione tra chunk consecutivi |
-| `separators` | ["\n\n", "\n", " "] | Ordine di priorità per separazione |
+- `fake` — deterministic, offline, no key (good to start; not semantic)
+- `openai` — e.g. `text-embedding-3-small` (needs an OpenAI provider/key)
+- `ollama` — local (e.g. `nomic-embed-text`)
 
-## Embeddings
+Real embedders are resolved by the edge-injected resolver (`AgentFrameworkEmbedders`), so the core
+stays framework-free. Note: Anthropic has no embeddings endpoint — use `openai`/`ollama` for those.
 
-Supporta:
-- **OpenAI** — `text-embedding-3-small`, `text-embedding-3-large`, `text-embedding-ada-002`
-- **Ollama** — `nomic-embed-text`, `all-minilm`
+## Vector stores
 
-## Vector store
-
-### Memory (default)
-
-Store in-memory per test e sviluppo. I dati vengono persi al riavvio.
-
-### Chroma
-
-Persistente su disco. Richiede `chroma` installato:
-
-```bash
-pip install chromadb
-```
-
-## Query
-
-Quando un agente usa RAG:
-
-1. La query dell'utente viene embedded
-2. Similarity search nel vector store (k=5 per default)
-3. I chunk più simili vengono aggiunti al contesto come `knowledge` source
-4. L'agente riceve il contesto arricchito
-
-## Knowledge sources
-
-| Source | Descrizione |
+| Type | Notes |
 |---|---|
-| `files` | Carica file da path locale (.md, .txt, .pdf, .cs, .py) |
-| `directory` | Carica ricorsivamente tutti i file in una directory |
-| `web` | Web scraping di pagine web |
+| `memory` | In-process; lost on restart |
+| `file` | JSON on disk; persists across runs |
+| `qdrant` | Qdrant server over gRPC (`Agora.AgentFramework`, injected from the edge) |
+
+`IVectorStore` is async (`UpsertAsync`/`QueryAsync`/`DeleteAsync`) with stable ids.
+
+## Retrieval
+
+At the start of a graph run, the user input is refined (optional), embedded, and the top-K most
+similar chunks (above `score_threshold`) are injected as seed context for the entry agent.
+Agents can also query on demand with the `rag_search` tool.
+
+## Writable knowledge base
+
+Agents write to the shared KB with the `rag_write` tool. `KnowledgeBase` embeds the new entry,
+finds similar entries, asks an LLM `IConflictJudge` whether it conflicts, and either stores it,
+auto-reconciles, or escalates to a human (`IConflictResolver`: keep existing / keep new / merge).
+
+## Context memory
+
+With `memory: { enabled: true }`, declared artifacts are stored and only the top-K relevant ones
+are recalled into each agent's context — compressing tokens. See the context-memory page.
