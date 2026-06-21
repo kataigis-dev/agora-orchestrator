@@ -1,97 +1,93 @@
 # 05 — RAG: Retrieval-Augmented Generation
 
-## Il problema che risolve
+## The problem it solves
 
-Un LLM conosce solo i dati di addestramento fino al suo *knowledge cutoff* e non può vedere i dati
-privati o aggiornati di un'organizzazione (vedi [01](01-fondamenti-llm.md)). Riaddestrare il modello è
-costoso e lento. Il **RAG** è la tecnica per dare al modello accesso a una **base di conoscenza
-autorevole esterna** *al momento della generazione*, senza modificarne i pesi.
+An LLM only knows its training data up to its *knowledge cutoff* and cannot see an organization's private
+or up-to-date data (see [01](01-fondamenti-llm.md)). Retraining the model is expensive and slow. **RAG**
+is the technique for giving the model access to an **authoritative external knowledge base** *at
+generation time*, without changing its weights.
 
-> "Il RAG è il processo di ottimizzare l'output di un LLM facendo sì che faccia riferimento a una base
-> di conoscenza autorevole, esterna ai suoi dati di addestramento, prima di generare una risposta."
+> "RAG is the process of optimizing the output of an LLM so it references an authoritative knowledge
+> base, outside its training data sources, before generating a response."
 > — [AWS, *What is RAG?*](https://aws.amazon.com/what-is/retrieval-augmented-generation/)
 
-## Come funziona (ad alto livello)
+## How it works (high level)
 
-Quando l'utente pone una domanda
+When the user asks a question
 ([AWS](https://aws.amazon.com/what-is/retrieval-augmented-generation/),
 [NVIDIA](https://blogs.nvidia.com/blog/what-is-retrieval-augmented-generation/)):
 
-1. la domanda viene convertita in un **embedding** (vettore numerico);
-2. si cercano nel **vector store** i frammenti (chunk) il cui embedding è più vicino a quello della
-   domanda — è la **ricerca semantica**;
-3. i frammenti recuperati vengono **iniettati nel prompt** insieme alla domanda;
-4. l'LLM genera la risposta combinando la propria capacità linguistica con i dati recuperati, e può
-   **citare le fonti**.
+1. the question is converted into an **embedding** (a numeric vector);
+2. the **vector store** is searched for the chunks whose embedding is closest to the question's — this is
+   **semantic search**;
+3. the retrieved chunks are **injected into the prompt** together with the question;
+4. the LLM generates the answer combining its own linguistic ability with the retrieved data, and can
+   **cite the sources**.
 
-Il risultato: risposte aggiornate, ancorate a fonti verificabili, con meno allucinazioni.
+The result: up-to-date answers, grounded in verifiable sources, with fewer hallucinations.
 
-## La pipeline RAG in dettaglio
+## The RAG pipeline in detail
 
-### Fase di indicizzazione (offline / *ingest*)
-
-```
-documenti ──▶ chunking ──▶ embedding ──▶ vector store
-```
-
-- **Chunking**: spezzare documenti grandi in **frammenti** più piccoli e gestibili. La dimensione del
-  chunk e la **sovrapposizione** (*overlap*) tra chunk sono parametri chiave: chunk troppo grandi
-  diluiscono la pertinenza, troppo piccoli perdono contesto
-  ([AWS](https://aws.amazon.com/what-is/retrieval-augmented-generation/)).
-- **Embedding**: trasformare ogni chunk nel suo vettore numerico, che ne cattura il significato
-  semantico.
-- **Vector store** (o *vector database*/*vector index*): il database che memorizza gli embedding e
-  permette ricerche di vicinanza efficienti. Esempi: indici in memoria, su file, o servizi dedicati
-  (Qdrant, ecc.).
-
-### Fase di interrogazione (online / *retrieval + generation*)
+### Indexing phase (offline / *ingest*)
 
 ```
-domanda ──▶ embedding ──▶ ricerca (top-k) ──▶ [rerank] ──▶ prompt + contesto ──▶ LLM ──▶ risposta
+documents ──▶ chunking ──▶ embedding ──▶ vector store
 ```
 
-- **Top-k**: quanti frammenti recuperare.
-- **Score threshold**: soglia minima di similarità per includere un frammento.
-- **Reranking** (opzionale): un secondo modello riordina i risultati per pertinenza prima di passarli
-  all'LLM, migliorando la precisione.
+- **Chunking**: splitting large documents into smaller, manageable **chunks**. The chunk size and the
+  **overlap** between chunks are key parameters: chunks too large dilute relevance, too small lose
+  context ([AWS](https://aws.amazon.com/what-is/retrieval-augmented-generation/)).
+- **Embedding**: turning each chunk into its numeric vector, which captures its semantic meaning.
+- **Vector store** (or *vector database*/*vector index*): the database that stores the embeddings and
+  enables efficient nearest-neighbor searches. Examples: in-memory indexes, on file, or dedicated
+  services (Qdrant, etc.).
 
-## Varianti di RAG
+### Query phase (online / *retrieval + generation*)
 
-| Variante | Idea |
-|----------|------|
-| **Naive RAG** | La pipeline base descritta sopra: recupera *k* chunk e genera |
-| **Advanced RAG** | Aggiunge pre-elaborazione della query, reranking, fusione di più fonti, riscrittura |
-| **Agentic RAG** | Il *retrieval* diventa uno **strumento** che l'agente decide quando e come usare, eventualmente iterando più ricerche e ragionando sui risultati |
+```
+question ──▶ embedding ──▶ search (top-k) ──▶ [rerank] ──▶ prompt + context ──▶ LLM ──▶ answer
+```
 
-L'**Agentic RAG** è il punto di contatto con i capitoli sugli agenti: invece di una pipeline fissa, il
-recupero è una capacità che l'agente invoca dinamicamente nel suo loop di ragionamento.
+- **Top-k**: how many chunks to retrieve.
+- **Score threshold**: the minimum similarity to include a chunk.
+- **Reranking** (optional): a second model reorders the results by relevance before passing them to the
+  LLM, improving precision.
+
+## RAG variants
+
+| Variant | Idea |
+|---------|------|
+| **Naive RAG** | The base pipeline described above: retrieve *k* chunks and generate |
+| **Advanced RAG** | Adds query pre-processing, reranking, fusion of multiple sources, rewriting |
+| **Agentic RAG** | *Retrieval* becomes a **tool** the agent decides when and how to use, possibly iterating multiple searches and reasoning over the results |
+
+**Agentic RAG** is the point of contact with the agent chapters: instead of a fixed pipeline, retrieval
+is a capability the agent invokes dynamically within its reasoning loop.
 
 ## RAG vs fine-tuning vs context window
 
-- **RAG**: per conoscenza **fattuale, dinamica, privata**. Aggiornabile cambiando i documenti, senza
-  riaddestrare. Cita le fonti.
-- **Fine-tuning**: per insegnare **stile, formato o competenze**, non fatti che cambiano spesso.
-- **Contesto lungo**: se i documenti rilevanti sono pochi e piccoli, a volte basta metterli direttamente
-  nel prompt. Ma la finestra di contesto ha rendimenti decrescenti (vedi [06](06-memoria-contesto.md)),
-  quindi il RAG resta preferibile su grandi corpora.
+- **RAG**: for **factual, dynamic, private** knowledge. Updatable by changing the documents, without
+  retraining. Cites the sources.
+- **Fine-tuning**: to teach **style, format or skills**, not facts that change often.
+- **Long context**: if the relevant documents are few and small, sometimes it is enough to put them
+  directly into the prompt. But the context window has diminishing returns (see
+  [06](06-memoria-contesto.md)), so RAG remains preferable over large corpora.
 
-## Valutare un sistema RAG
+## Evaluating a RAG system
 
-Un RAG va valutato su due fronti distinti:
+A RAG system must be evaluated on two distinct fronts:
 
-- **Qualità del retrieval**: i frammenti recuperati sono pertinenti? (metriche di precision/recall sul
-  recupero).
-- **Qualità della generazione**: la risposta è *fedele* (*faithfulness*) ai frammenti recuperati e
-  *pertinente* alla domanda? Qui si usano spesso valutatori automatici (vedi
-  [10 — Valutazione](10-valutazione-osservabilita.md)).
+- **Retrieval quality**: are the retrieved chunks relevant? (precision/recall metrics over retrieval).
+- **Generation quality**: is the answer *faithful* to the retrieved chunks and *relevant* to the
+  question? Here automatic judges are often used (see [10 — Evaluation](10-valutazione-osservabilita.md)).
 
-## RAG come base di conoscenza *scrivibile*
+## RAG as a *writable* knowledge base
 
-Nei sistemi multi-agente il vector store non è solo in lettura: può diventare una **memoria condivisa
-scrivibile**, in cui gli agenti depositano risultati intermedi che altri agenti recuperano. Questo
-collega il RAG ai temi di [memoria](06-memoria-contesto.md) e
-[orchestrazione](08-orchestrazione-multi-agente.md).
+In multi-agent systems the vector store is not only for reading: it can become a **writable shared
+memory**, in which agents deposit intermediate results that other agents retrieve. This connects RAG to
+the topics of [memory](06-memoria-contesto.md) and
+[orchestration](08-orchestrazione-multi-agente.md).
 
 ---
 
-Precedente: [04 — MCP](04-mcp.md) · Prossimo: [06 — Memoria e context engineering](06-memoria-contesto.md).
+Previous: [04 — MCP](04-mcp.md) · Next: [06 — Memory and context engineering](06-memoria-contesto.md).

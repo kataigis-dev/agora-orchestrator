@@ -1,78 +1,77 @@
-# 09 — Spec-driven development per agenti
+# 09 — Spec-driven development for agents
 
-## Il problema: la fiducia nella narrazione
+## The problem: trusting the narration
 
-Un agente LLM tende a **dichiarare** il successo ("ho implementato la funzione, i test passano") anche
-quando non è vero, perché ottimizza la plausibilità del testo, non la verità (vedi
-[01](01-fondamenti-llm.md)). Se i *gate* di un workflow si fidano di questa narrazione, il sistema
-diventa inaffidabile. Lo **spec-driven development (SDD)** è la risposta: trasformare le decisioni di
-controllo da "*il modello dice fatto*" a "*un controllo deterministico afferma la realtà*".
+An LLM agent tends to **declare** success ("I implemented the function, the tests pass") even when it is
+not true, because it optimizes for the plausibility of the text, not the truth (see
+[01](01-fondamenti-llm.md)). If a workflow's *gates* trust this narration, the system becomes unreliable.
+**Spec-driven development (SDD)** is the answer: turning control decisions from "*the model says it's
+done*" into "*a deterministic check asserts reality*".
 
-Questo principio è coerente con le raccomandazioni di tutte le fonti:
+This principle is consistent with the recommendations of all the sources:
 
-- Anthropic: inserire **gate programmatici** tra i passi di un workflow per verificare il progresso
+- Anthropic: insert **programmatic gates** between the steps of a workflow to verify progress
   ([*Building Effective Agents*](https://www.anthropic.com/research/building-effective-agents)).
-- Microsoft: "usa **metriche deterministiche** per i controlli esatti come la correttezza di una
-  chiamata a strumento, e l'LLM-as-judge solo per ciò che richiede giudizio"
+- Microsoft: "use **deterministic metrics** for exact checks like tool-call correctness, and LLM-as-judge
+  only for what requires judgment"
   ([*AI Agents in Production*](https://microsoft.github.io/ai-agents-for-beginners/10-ai-agents-production/)).
-- AWS: le decisioni dell'LLM sono non-deterministiche, quindi servono **guardrail** e confini espliciti
+- AWS: an LLM's decisions are non-deterministic, so you need **guardrails** and explicit boundaries
   ([Agentic AI Lens](https://docs.aws.amazon.com/wellarchitected/latest/agentic-ai-lens/agentic-ai-lens.html)).
 
-## Cosa è una specifica macchina-verificabile
+## What a machine-checkable specification is
 
-Invece di una specifica in testo libero (sepolta nei prompt o in voci RAG sfumate), l'SDD usa una
-specifica **strutturata** con queste proprietà:
+Instead of a free-text specification (buried in prompts or fuzzy RAG entries), SDD uses a **structured**
+specification with these properties:
 
-- **Requisiti con identificatori stabili** (es. `R1`, `R2`), priorità e stato di ciclo di vita
-  (proposto → approvato → implementato → verificato).
-- **Criteri di accettazione** per ogni requisito: ciò che definisce "fatto", in forma **verificabile a
-  macchina** (un test da eseguire, un comando, l'esistenza di un file).
-- **Task di implementazione** che **tracciano** verso i requisiti che soddisfano.
-- Un **validatore** che impone le invarianti a ogni scrittura (id unici, nessun task senza requisito,
-  nessun riferimento pendente).
+- **Requirements with stable identifiers** (e.g. `R1`, `R2`), priorities and a lifecycle status
+  (proposed → approved → implemented → verified).
+- **Acceptance criteria** for each requirement: what defines "done", in a **machine-checkable** form (a
+  test to run, a command, the existence of a file).
+- **Implementation tasks** that **trace** back to the requirements they satisfy.
+- A **validator** that enforces the invariants on every write (unique ids, no task without a requirement,
+  no dangling references).
 
-## I tre cardini dell'SDD
+## The three pillars of SDD
 
-### 1. Criteri di accettazione eseguibili
-Ogni criterio è legato a un **controllo** (*check*) che può essere eseguito davvero: un test, un comando
-di build, la verifica dell'esistenza di un artefatto. Il verdetto deriva dall'**exit code** del
-processo, non dal giudizio del modello.
+### 1. Executable acceptance criteria
+Each criterion is bound to a **check** that can actually be run: a test, a build command, the existence
+of an artifact. The verdict comes from the process's **exit code**, not from the model's judgment.
 
-### 2. Esecuzione reale dei controlli
-Build e test vengono eseguiti come **processi reali** (con le dovute cautele di sicurezza:
-allow-list di comandi, nessuna shell, timeout — vedi [12](12-sicurezza-governance.md)). Un requisito
-passa a "verificato" **solo** quando i suoi controlli passano in modo deterministico.
+### 2. Real check execution
+Builds and tests are run as **real processes** (with the proper security precautions: a command
+allow-list, no shell, timeouts — see [12](12-sicurezza-governance.md)). A requirement moves to "verified"
+**only** when its checks pass deterministically.
 
-### 3. Tracciabilità e gate di completamento
-Si impone la **tracciabilità requisito ↔ task ↔ test**: nessun task senza requisito, nessun requisito
-approvato senza un task che lo copra, nessun requisito "verificato" senza un controllo reale che lo
-sostenga. Il **completamento** del lavoro è un verdetto deterministico (COMPLETO/INCOMPLETO) calcolato
-sulla matrice di tracciabilità, non una dichiarazione dell'agente.
+### 3. Traceability and a completion gate
+**Requirement ↔ task ↔ test** traceability is enforced: no task without a requirement, no approved
+requirement without a task covering it, no requirement "verified" without a real check backing it. The
+**completion** of the work is a deterministic verdict (COMPLETE/INCOMPLETE) computed over the
+traceability matrix, not a declaration by the agent.
 
 ```
-Requisito R1 ──coperto da──▶ Task T1 ──evidenza──▶ check "test" (exit 0) ✓ verificato
-Requisito R2 ──coperto da──▶ Task T2 ──evidenza──▶ check "build" (exit 1) ✗ NON verificato  ⟹ INCOMPLETO
+Requirement R1 ──covered by──▶ Task T1 ──evidence──▶ check "test" (exit 0) ✓ verified
+Requirement R2 ──covered by──▶ Task T2 ──evidence──▶ check "build" (exit 1) ✗ NOT verified  ⟹ INCOMPLETE
 ```
 
-## Perché è un pattern di affidabilità
+## Why it is a reliability pattern
 
-L'SDD combina due pattern già visti in forma "indurita":
+SDD combines two patterns already seen, in a "hardened" form:
 
-- l'**evaluator-optimizer** / **maker-checker** ([07](07-workflow-pattern.md),
-  [08](08-orchestrazione-multi-agente.md)), ma con il valutatore **deterministico** (un processo, non un
+- the **evaluator-optimizer** / **maker-checker** ([07](07-workflow-pattern.md),
+  [08](08-orchestrazione-multi-agente.md)), but with a **deterministic** evaluator (a process, not an
   LLM);
-- i **gate programmatici** del prompt chaining, applicati all'intera specifica.
+- the **programmatic gates** of prompt chaining, applied to the whole specification.
 
-Il risultato è un workflow agentico in cui "*i gate affermano la realtà*": la qualità non dipende
-dall'auto-valutazione del modello.
+The result is an agentic workflow in which "*the gates assert reality*": quality does not depend on the
+model's self-assessment.
 
-## Legame con il progetto
+## Link to the project
 
-Agora Orchestrator implementa l'SDD in tre fasi (schema strutturato → verifica reale → gate di
-tracciabilità). I dettagli tecnici sono in [`../spec.md`](../spec.md); la mappatura concettuale è in
-[15 — Mappatura su Agora](15-mappatura-agora.md).
+Agora Orchestrator implements SDD in three phases (structured schema → real verification → traceability
+gate). The technical details are in [`../spec.md`](../spec.md); the conceptual mapping is in
+[15 — Mapping onto Agora](15-mappatura-agora.md).
 
 ---
 
-Precedente: [08 — Orchestrazione multi-agente](08-orchestrazione-multi-agente.md) · Prossimo:
-[10 — Valutazione e osservabilità](10-valutazione-osservabilita.md).
+Previous: [08 — Multi-agent orchestration](08-orchestrazione-multi-agente.md) · Next:
+[10 — Evaluation and observability](10-valutazione-osservabilita.md).

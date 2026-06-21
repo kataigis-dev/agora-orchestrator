@@ -1,78 +1,76 @@
-# 03 — Strumenti e function calling
+# 03 — Tools and function calling
 
-## Perché gli strumenti
+## Why tools
 
-Un LLM da solo può solo generare testo. Gli **strumenti** (*tools*) gli danno la capacità di
-**osservare** (leggere file, interrogare un database, cercare sul web) e **agire** (scrivere file,
-chiamare API, eseguire comandi). Sono ciò che trasforma un modello in un agente capace di operare nel
-mondo ([Anthropic, *Building Effective Agents*](https://www.anthropic.com/research/building-effective-agents)).
+An LLM on its own can only generate text. **Tools** give it the ability to **observe** (read files,
+query a database, search the web) and **act** (write files, call APIs, run commands). They are what
+turns a model into an agent capable of operating in the world
+([Anthropic, *Building Effective Agents*](https://www.anthropic.com/research/building-effective-agents)).
 
-## Function calling: come funziona
+## Function calling: how it works
 
-Il meccanismo standard si chiama **function calling** (o *tool use*):
+The standard mechanism is called **function calling** (or *tool use*):
 
-1. Allo sviluppatore fornisce al modello, insieme al prompt, lo **schema** di ogni strumento
-   disponibile: nome, descrizione, parametri (di solito in JSON Schema).
-2. Il modello, anziché rispondere in testo, può emettere una **richiesta di chiamata**: il nome dello
-   strumento e gli argomenti.
-3. L'**applicazione** (non il modello) esegue lo strumento e restituisce il risultato.
-4. Il modello incorpora l'osservazione e prosegue (vedi il loop ReAct in [02](02-agenti.md)).
+1. The developer gives the model, along with the prompt, the **schema** of each available tool: name,
+   description, parameters (usually in JSON Schema).
+2. The model, instead of replying in text, can emit a **call request**: the tool name and the arguments.
+3. The **application** (not the model) runs the tool and returns the result.
+4. The model incorporates the observation and continues (see the ReAct loop in [02](02-agenti.md)).
 
-Punto cruciale per la sicurezza: **è l'applicazione, non il modello, a eseguire il codice**. Il modello
-propone *cosa* fare; l'orchestratore decide *se e come* farlo, applicando validazione, allow-list e
-approvazioni umane.
+Crucial point for security: **it is the application, not the model, that executes the code**. The model
+proposes *what* to do; the orchestrator decides *whether and how* to do it, applying validation,
+allow-lists and human approvals.
 
-## L'interfaccia agente-computer (ACI)
+## The agent-computer interface (ACI)
 
-Anthropic introduce il concetto di **Agent-Computer Interface (ACI)**: così come si cura l'interfaccia
-uomo-macchina (UI), va curata l'interfaccia con cui l'agente usa gli strumenti. Strumenti mal descritti
-o ambigui producono agenti inaffidabili. Le buone pratiche
+Anthropic introduces the concept of the **Agent-Computer Interface (ACI)**: just as you take care of the
+human-machine interface (UI), you must take care of the interface through which the agent uses tools.
+Poorly described or ambiguous tools produce unreliable agents. Best practices
 ([Anthropic, *Writing tools for agents*](https://www.anthropic.com/engineering/writing-tools-for-agents)):
 
-- **Descrizioni chiare e complete**: il modello sceglie lo strumento *solo* in base a nome e
-  descrizione. Documentare cosa fa, quando usarlo, cosa restituisce.
-- **Parametri non ambigui**: nomi espliciti, formati indicati con esempi.
-- **Output utile e conciso**: restituire ciò che serve al passo successivo, non dump enormi (che
-  saturano la finestra di contesto).
-- **Errori informativi**: un messaggio di errore comprensibile permette al modello di correggersi.
-- **Testare e iterare**: trattare gli strumenti come codice di produzione, con test e *sandbox*.
+- **Clear, complete descriptions**: the model picks the tool *only* from its name and description.
+  Document what it does, when to use it, what it returns.
+- **Unambiguous parameters**: explicit names, formats indicated with examples.
+- **Useful, concise output**: return what the next step needs, not huge dumps (which saturate the
+  context window).
+- **Informative errors**: a comprehensible error message lets the model self-correct.
+- **Test and iterate**: treat tools as production code, with tests and a *sandbox*.
 
-## Categorie di strumenti
+## Categories of tools
 
-| Categoria | Esempi |
-|-----------|--------|
-| **Lettura/osservazione** | ricerca semantica (RAG), lettura file, query DB, ricerca web |
-| **Scrittura/azione** | scrittura file, chiamate API che modificano lo stato, esecuzione comandi |
-| **Comunicazione** | chiedere a un altro agente, chiedere a un umano |
-| **Verifica** | eseguire test/build e leggerne l'esito (controlli deterministici) |
+| Category | Examples |
+|----------|----------|
+| **Read/observe** | semantic search (RAG), reading files, DB queries, web search |
+| **Write/act** | writing files, state-changing API calls, running commands |
+| **Communication** | asking another agent, asking a human |
+| **Verification** | running tests/builds and reading their outcome (deterministic checks) |
 
-La distinzione tra strumenti **read-only** e strumenti che **modificano lo stato** è centrale per la
-governance: gli strumenti di azione richiedono limiti più stretti (vedi
-[12 — Sicurezza e governance](12-sicurezza-governance.md)).
+The distinction between **read-only** tools and tools that **change state** is central to governance:
+action tools require tighter limits (see [12 — Security and governance](12-sicurezza-governance.md)).
 
-## Approvazione umana (gating)
+## Human approval (gating)
 
-Per le azioni rischiose o irreversibili, lo strumento può essere **gated** da un'approvazione umana:
-l'agente propone la chiamata, ma l'esecuzione si blocca finché una persona non conferma. È il pattern
-**Human-in-the-Loop** applicato a livello di strumento (vedi [11](11-human-in-the-loop.md)). Google lo
-elenca tra i pattern di progettazione fondamentali, da usare per "compiti ad alto rischio o soggettivi"
+For risky or irreversible actions, a tool can be **gated** by a human approval: the agent proposes the
+call, but execution is blocked until a person confirms. It is the **Human-in-the-Loop** pattern applied
+at the tool level (see [11](11-human-in-the-loop.md)). Google lists it among the fundamental design
+patterns, to be used for "high-stakes or subjective tasks"
 ([Google Cloud](https://docs.cloud.google.com/architecture/choose-design-pattern-agentic-ai-system)).
 
 ## Least privilege
 
-AWS insiste sul principio del **privilegio minimo** anche per gli strumenti: "i confini dei permessi
-dovrebbero fornire accesso solo ai sistemi e alle fonti dati necessari a generare una risposta" e i
-ruoli vanno costruiti con il *least privilege* in mente
+AWS insists on the **least-privilege** principle for tools too: "permission boundaries should only
+provide access to the systems and data sources necessary to generate a response", and roles should be
+built with *least privilege* in mind
 ([AWS, GENSEC05-BP01](https://docs.aws.amazon.com/wellarchitected/latest/generative-ai-lens/gensec05-bp01.html)).
-In pratica: un agente dovrebbe avere accesso **solo** agli strumenti che gli servono, e nient'altro
-(allow-list per agente).
+In practice: an agent should have access **only** to the tools it needs, and nothing else (a per-agent
+allow-list).
 
-## Standardizzare l'accesso agli strumenti: MCP
+## Standardizing tool access: MCP
 
-Storicamente ogni integrazione strumento↔modello era custom. Il **Model Context Protocol (MCP)** di
-Anthropic standardizza questo collegamento, così uno strumento esposto una volta è utilizzabile da
-qualunque applicazione compatibile. È l'argomento del prossimo capitolo.
+Historically every tool↔model integration was custom. Anthropic's **Model Context Protocol (MCP)**
+standardizes this connection, so a tool exposed once is usable by any compatible application. It is the
+subject of the next chapter.
 
 ---
 
-Precedente: [02 — Agenti](02-agenti.md) · Prossimo: [04 — Model Context Protocol](04-mcp.md).
+Previous: [02 — Agents](02-agenti.md) · Next: [04 — Model Context Protocol](04-mcp.md).

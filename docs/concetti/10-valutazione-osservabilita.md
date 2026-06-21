@@ -1,82 +1,80 @@
-# 10 — Valutazione e osservabilità
+# 10 — Evaluation and observability
 
-Un sistema agentico non si giudica da una singola risposta riuscita: va **misurato** in modo sistematico
-(valutazione) e **osservato** in produzione (osservabilità). Sono due facce della stessa esigenza —
-sapere se il sistema è *affidabile*, non solo *capace*.
+An agentic system is not judged by a single successful answer: it must be **measured** systematically
+(evaluation) and **observed** in production (observability). They are two faces of the same need — knowing
+whether the system is *reliable*, not just *capable*.
 
-## Valutazione (evals)
+## Evaluation (evals)
 
-### Due famiglie di metriche
+### Two families of metrics
 
-La distinzione fondamentale, ribadita da Microsoft e dalla letteratura sugli eval
+The fundamental distinction, reiterated by Microsoft and the evals literature
 ([Microsoft, *AI Agents in Production*](https://microsoft.github.io/ai-agents-for-beginners/10-ai-agents-production/)):
 
-| Tipo | Quando usarla | Esempi |
-|------|---------------|--------|
-| **Metriche deterministiche** | Controlli esatti, oggettivi | la chiamata a strumento è corretta? il test passa? il JSON è valido? il task è completato? |
-| **LLM-as-judge** | Criteri che richiedono giudizio o contesto | la risposta è pertinente? fedele alle fonti? di tono adeguato? |
+| Type | When to use it | Examples |
+|------|----------------|----------|
+| **Deterministic metrics** | Exact, objective checks | is the tool call correct? does the test pass? is the JSON valid? is the task complete? |
+| **LLM-as-judge** | Criteria requiring judgment or context | is the answer relevant? faithful to the sources? appropriate in tone? |
 
-Regola pratica: **preferire sempre i controlli deterministici** dove possibile; ricorrere all'LLM-judge
-solo per ciò che non è verificabile a macchina. È lo stesso principio dello
+Practical rule: **always prefer deterministic checks** where possible; resort to the LLM-judge only for
+what is not machine-verifiable. It is the same principle as
 [spec-driven development](09-spec-driven-development.md).
 
 ### LLM-as-judge
 
-L'**LLM-as-judge** usa un modello per valutare gli output di un altro: permette di automatizzare
-controlli di qualità che altrimenti richiederebbero revisione umana, valutando migliaia di output in
-pochi minuti e segnalando allucinazioni o risposte fuori tema. Buone pratiche
-([Microsoft](https://microsoft.github.io/ai-agents-for-beginners/10-ai-agents-production/), e fonti
-correlate):
+**LLM-as-judge** uses a model to evaluate another model's outputs: it lets you automate quality checks
+that would otherwise require human review, evaluating thousands of outputs in minutes and flagging
+hallucinations or off-topic answers. Best practices
+([Microsoft](https://microsoft.github.io/ai-agents-for-beginners/10-ai-agents-production/), and related
+sources):
 
-- **rubriche chiare** e prompt strutturati per il giudice;
-- **output vincolati** (es. JSON) per ridurre l'ambiguità;
-- *score smoothing* e calibrazione contro etichette umane;
-- non usarlo per ciò che un controllo esatto può verificare meglio.
+- **clear rubrics** and structured prompts for the judge;
+- **constrained output** (e.g. JSON) to reduce ambiguity;
+- *score smoothing* and calibration against human labels;
+- do not use it for what an exact check can verify better.
 
-### Cosa valutare in un agente
+### What to evaluate in an agent
 
-Oltre alla qualità della risposta finale, gli agenti richiedono metriche specifiche:
+Beyond the quality of the final answer, agents require specific metrics:
 
-- **Correttezza nell'uso degli strumenti** (*tool calling*): ha chiamato lo strumento giusto con gli
-  argomenti giusti?
-- **Completamento del compito** (*task completion*): l'obiettivo è stato raggiunto?
-- **Qualità del ragionamento** e della **traiettoria**: i passi intermedi erano sensati?
-- **Valutazione basata sulla traccia** (*trace-based*): si valuta l'intera traiettoria, non solo il
-  risultato (qui si inserisce l'idea di *agent-as-a-judge*, un agente che valuta un altro osservandone i
-  passi intermedi).
+- **Tool-use correctness** (*tool calling*): did it call the right tool with the right arguments?
+- **Task completion**: was the goal achieved?
+- **Reasoning quality** and **trajectory**: were the intermediate steps sensible?
+- **Trace-based evaluation**: you evaluate the whole trajectory, not just the result (this is where the
+  idea of *agent-as-a-judge* fits — an agent evaluating another by observing its intermediate steps).
 
-## Osservabilità
+## Observability
 
-L'obiettivo è **strumentare** il codice dell'agente perché emetta **tracce** e **metriche** raccoglibili
-da una piattaforma di osservabilità. **OpenTelemetry** sta emergendo come standard di settore per
-l'osservabilità degli LLM
-([Microsoft](https://microsoft.github.io/ai-agents-for-beginners/10-ai-agents-production/)).
+The goal is to **instrument** the agent's code so it emits **traces** and **metrics** that an
+observability platform can collect. **OpenTelemetry** is emerging as the industry standard for LLM
+observability
+([Microsoft, *AI Agents in Production*](https://microsoft.github.io/ai-agents-for-beginners/10-ai-agents-production/)).
 
-AWS sottolinea che osservabilità e auditabilità vanno **progettate fin dall'inizio**, non aggiunte dopo:
-Amazon Bedrock AgentCore Observability, ad esempio, abilita il monitoraggio in tempo reale tracciando
-**latenza, uso dei token e tassi di errore**
+AWS stresses that observability and auditability must be **designed from the start**, not added later:
+Amazon Bedrock AgentCore Observability, for example, enables real-time monitoring tracking **latency,
+token usage and error rates**
 ([AWS, Agentic AI Lens](https://docs.aws.amazon.com/wellarchitected/latest/agentic-ai-lens/agentic-ai-lens.html)).
 
-### Metriche di affidabilità tipiche di un run agentico
+### Typical reliability metrics of an agentic run
 
-| Segnale | Cosa indica |
-|---------|-------------|
-| **Completamento** | il run ha raggiunto la fine o si è interrotto? |
-| **Rework / loop** | quante volte il grafo è tornato indietro a rifare il lavoro (proxy di instabilità) |
-| **Distribuzione del lavoro** | dove si è concentrato lo sforzo (visite per nodo) |
-| **Costo** | token in ingresso/uscita, hit di cache del prompt |
-| **Verifica** | quanta parte dell'ambito è stata effettivamente verificata (vedi SDD) |
+| Signal | What it indicates |
+|--------|-------------------|
+| **Completion** | did the run reach the end or abort? |
+| **Rework / loops** | how many times the graph went back to redo work (a proxy for instability) |
+| **Work distribution** | where effort concentrated (visits per node) |
+| **Cost** | input/output tokens, prompt-cache hits |
+| **Verification** | how much of the scope was actually verified (see SDD) |
 
-Queste metriche permettono di **confrontare configurazioni** (un grafo più snello vs la pipeline
-completa con gate; memoria attiva vs disattiva) invece di giudicare un run dalla sola risposta finale.
+These metrics let you **compare configurations** (a leaner graph vs the full pipeline with gates; memory
+on vs off) instead of judging a run on the final answer alone.
 
-## Il legame con il progetto
+## Link to the project
 
-Agora Orchestrator separa l'esecuzione dalla presentazione tramite *observer* e aggrega gli eventi in
-metriche di run (passi, rework, token/cache, tracciabilità della specifica). Dettagli in
+Agora Orchestrator separates execution from presentation via *observers* and aggregates events into run
+metrics (steps, rework, token/cache, spec traceability). Details in
 [`../observability.md`](../observability.md).
 
 ---
 
-Precedente: [09 — Spec-driven development](09-spec-driven-development.md) · Prossimo:
+Previous: [09 — Spec-driven development](09-spec-driven-development.md) · Next:
 [11 — Human-in-the-loop](11-human-in-the-loop.md).

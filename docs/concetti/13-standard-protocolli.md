@@ -1,69 +1,68 @@
-# 13 — Standard e protocolli
+# 13 — Standards and protocols
 
-L'ecosistema agentico sta convergendo su alcuni **standard aperti** che riducono il *lock-in* e
-permettono a componenti di fornitori diversi di interoperare. Tre sono i più rilevanti.
+The agentic ecosystem is converging on a few **open standards** that reduce *lock-in* and let components
+from different vendors interoperate. Three are the most relevant.
 
 ## MCP — Model Context Protocol
 
-**Problema risolto**: collegare un agente a **strumenti e dati**.
+**Problem solved**: connecting an agent to **tools and data**.
 
-Standard aperto di Anthropic (nov. 2024), architettura client–server su JSON-RPC 2.0, con tre primitive
-(*tools*, *resources*, *prompts*). Diventato di fatto lo standard del settore per dare agli agenti
-accesso a capacità esterne. Trattato in dettaglio nel capitolo [04 — MCP](04-mcp.md).
-Fonte: [modelcontextprotocol.io](https://modelcontextprotocol.io/),
+An open standard from Anthropic (Nov 2024), a client–server architecture over JSON-RPC 2.0, with three
+primitives (*tools*, *resources*, *prompts*). It has become the de-facto industry standard for giving
+agents access to external capabilities. Covered in detail in chapter [04 — MCP](04-mcp.md).
+Source: [modelcontextprotocol.io](https://modelcontextprotocol.io/),
 [Anthropic](https://www.anthropic.com/news/model-context-protocol).
 
 ## A2A — Agent-to-Agent
 
-**Problema risolto**: far comunicare **agenti diversi tra loro**, anche se costruiti con framework o
-*runtime* differenti.
+**Problem solved**: letting **different agents talk to each other**, even if built with different
+frameworks or *runtimes*.
 
-Mentre MCP collega l'agente agli strumenti, **A2A** standardizza la collaborazione **agente↔agente**:
-scoperta delle capacità di un agente, scambio di messaggi e delega di compiti attraverso confini di
-sistema. È supportato, tra gli altri, da Google e da Microsoft (che lo integra nel suo Agent Framework e
-in Semantic Kernel)
+While MCP connects the agent to tools, **A2A** standardizes **agent↔agent** collaboration: discovering an
+agent's capabilities, exchanging messages and delegating tasks across system boundaries. It is supported,
+among others, by Google and Microsoft (which integrates it into its Agent Framework and Semantic Kernel)
 ([Microsoft, *Building Multi-Agent Solutions with Semantic Kernel and A2A*](https://devblogs.microsoft.com/agent-framework/guest-blog-building-multi-agent-solutions-with-semantic-kernel-and-a2a-protocol/)).
-MCP e A2A sono **complementari**: il primo per gli strumenti, il secondo per gli agenti.
+MCP and A2A are **complementary**: the former for tools, the latter for agents.
 
 ## OpenTelemetry (GenAI)
 
-**Problema risolto**: **osservabilità** uniforme di tracce e metriche.
+**Problem solved**: uniform **observability** of traces and metrics.
 
-OpenTelemetry è lo standard di settore per tracce, metriche e log; le sue **convenzioni semantiche per
-la GenAI** stanno definendo come rappresentare in modo uniforme chiamate ai modelli, uso dei token e
-invocazioni di strumenti. Microsoft lo indica come standard emergente per l'osservabilità degli LLM
+OpenTelemetry is the industry standard for traces, metrics and logs; its **semantic conventions for
+GenAI** are defining how to uniformly represent model calls, token usage and tool invocations. Microsoft
+points to it as the emerging standard for LLM observability
 ([Microsoft, *AI Agents in Production*](https://microsoft.github.io/ai-agents-for-beginners/10-ai-agents-production/)).
-Vedi [10 — Valutazione e osservabilità](10-valutazione-osservabilita.md).
+See [10 — Evaluation and observability](10-valutazione-osservabilita.md).
 
-## Quadro d'insieme
+## Overall picture
 
 ```
         ┌─────────────────────────────────────────────┐
-        │                  AGENTE / RUNTIME            │
+        │                  AGENT / RUNTIME             │
         │                                              │
-   A2A  │   ◀── altri agenti (cross-runtime)           │
+   A2A  │   ◀── other agents (cross-runtime)           │
   ◀────▶│                                              │
-        │   MCP ──▶ strumenti / dati esterni           │
+        │   MCP ──▶ external tools / data              │
         │                                              │
-        │   OpenTelemetry ──▶ tracce, metriche, log    │
+        │   OpenTelemetry ──▶ traces, metrics, logs    │
         └─────────────────────────────────────────────┘
 ```
 
-| Standard | Collega | Promosso da |
-|----------|---------|-------------|
-| **MCP** | agente ↔ strumenti/dati | Anthropic (+ adozione di settore) |
-| **A2A** | agente ↔ agente | Google, Microsoft, ecc. |
-| **OpenTelemetry GenAI** | sistema ↔ osservabilità | CNCF / settore |
+| Standard | Connects | Promoted by |
+|----------|----------|-------------|
+| **MCP** | agent ↔ tools/data | Anthropic (+ industry adoption) |
+| **A2A** | agent ↔ agent | Google, Microsoft, etc. |
+| **OpenTelemetry GenAI** | system ↔ observability | CNCF / industry |
 
-## Perché adottare standard aperti
+## Why adopt open standards
 
-- **Interoperabilità**: componenti di fornitori diversi lavorano insieme.
-- **Riuso**: uno strumento/agente esposto una volta serve molte applicazioni.
-- **Riduzione del lock-in**: si cambia modello o framework senza riscrivere le integrazioni.
-- **Governance**: i confini standardizzati (client–server, messaggi A2A) sono punti naturali per
-  permessi e audit ([12](12-sicurezza-governance.md)).
+- **Interoperability**: components from different vendors work together.
+- **Reuse**: a tool/agent exposed once serves many applications.
+- **Reduced lock-in**: you swap model or framework without rewriting the integrations.
+- **Governance**: the standardized boundaries (client–server, A2A messages) are natural places for
+  permissions and auditing ([12](12-sicurezza-governance.md)).
 
 ---
 
-Precedente: [12 — Sicurezza e governance](12-sicurezza-governance.md) · Prossimo:
-[14 — Glossario](14-glossario.md).
+Previous: [12 — Security and governance](12-sicurezza-governance.md) · Next:
+[14 — Glossary](14-glossario.md).

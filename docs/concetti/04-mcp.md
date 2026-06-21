@@ -1,83 +1,82 @@
 # 04 — Model Context Protocol (MCP)
 
-## Cos'è
+## What it is
 
-Il **Model Context Protocol (MCP)** è uno **standard aperto** introdotto da Anthropic a novembre 2024
-per standardizzare il modo in cui i sistemi di IA (gli LLM e gli agenti) si integrano e scambiano dati
-con strumenti, sistemi e fonti di dati esterni
+The **Model Context Protocol (MCP)** is an **open standard** introduced by Anthropic in November 2024 to
+standardize the way AI systems (LLMs and agents) integrate and exchange data with external tools, systems
+and data sources
 ([Anthropic, *Introducing MCP*](https://www.anthropic.com/news/model-context-protocol)).
 
-L'analogia diffusa è quella di una **"porta USB-C per l'IA"**: invece di scrivere un'integrazione
-custom per ogni coppia modello–servizio, si espone il servizio una volta tramite MCP e qualunque
-applicazione compatibile può collegarsi. Questo sostituisce integrazioni frammentate con un unico
-protocollo, più semplice e affidabile.
+The common analogy is a **"USB-C port for AI"**: instead of writing a custom integration for every
+model–service pair, you expose the service once via MCP and any compatible application can connect. This
+replaces fragmented integrations with a single, simpler and more reliable protocol.
 
-Dal lancio, l'adozione è stata rapida: la comunità ha costruito migliaia di server MCP, sono disponibili
-SDK per tutti i principali linguaggi e il protocollo è diventato di fatto lo standard per collegare
-agenti a strumenti e dati ([modelcontextprotocol.io](https://modelcontextprotocol.io/)).
+Since launch, adoption has been rapid: the community has built thousands of MCP servers, SDKs are
+available for all major languages, and the protocol has become the de-facto standard for connecting
+agents to tools and data ([modelcontextprotocol.io](https://modelcontextprotocol.io/)).
 
-## Architettura: client–server
+## Architecture: client–server
 
-MCP definisce un'architettura **client–server** semplice, con messaggi **JSON-RPC 2.0**:
+MCP defines a simple **client–server** architecture, with **JSON-RPC 2.0** messages:
 
 ```
 ┌────────────────────┐         JSON-RPC 2.0          ┌────────────────────┐
 │   Host / MCP client │ ◀───────────────────────────▶ │     MCP server      │
-│  (l'app con l'LLM)  │                                │ (proprietario dati) │
+│   (the app + LLM)   │                                │   (data owner)      │
 └────────────────────┘                                └────────────────────┘
          │                                                       │
-   un client per ogni                                  espone strumenti, risorse,
-   server a cui si collega                              prompt verso una fonte dati
+   one client per                                      exposes tools, resources,
+   server it connects to                               prompts toward a data source
 ```
 
-- **Host / Client**: l'applicazione che contiene l'agente/LLM e che *consuma* le capacità. Apre una
-  connessione (un client) verso ciascun server.
-- **Server**: un processo che *espone* le capacità di una fonte dati o di un servizio (file system,
-  GitHub, un database, un knowledge base...).
+- **Host / Client**: the application that contains the agent/LLM and *consumes* the capabilities. It
+  opens a connection (a client) to each server.
+- **Server**: a process that *exposes* the capabilities of a data source or service (a file system,
+  GitHub, a database, a knowledge base...).
 
-Esistono server ufficiali e di comunità per Google Drive, Slack, GitHub, database come Postgres/SQLite,
-browser web e molto altro.
+There are official and community servers for Google Drive, Slack, GitHub, databases such as
+Postgres/SQLite, web browsers and much more.
 
-## Le primitive di MCP
+## MCP's primitives
 
-Un server MCP annuncia un insieme standardizzato di capacità, divise in tre **primitive**
+An MCP server announces a standardized set of capabilities, divided into three **primitives**
 ([Wikipedia, *Model Context Protocol*](https://en.wikipedia.org/wiki/Model_Context_Protocol);
 [modelcontextprotocol.io](https://modelcontextprotocol.io/)):
 
-| Primitiva | Cosa è | Esempio |
-|-----------|--------|---------|
-| **Tools** (strumenti) | Funzioni invocabili che compiono azioni o calcoli | `write_file`, `query_db`, `search` |
-| **Resources** (risorse) | Endpoint di dati in sola lettura, indirizzabili da un URI | il contenuto di un file, una riga di DB |
-| **Prompts** | Template di istruzioni pre-scritti, riutilizzabili | un prompt "riassumi questo ticket" |
+| Primitive | What it is | Example |
+|-----------|-----------|---------|
+| **Tools** | Invocable functions that perform actions or computations | `write_file`, `query_db`, `search` |
+| **Resources** | Read-only data endpoints, addressable by a URI | the contents of a file, a DB row |
+| **Prompts** | Pre-written, reusable instruction templates | a "summarize this ticket" prompt |
 
-Gli **strumenti** sono la primitiva più usata dagli agenti, perché si mappano direttamente sul
-[function calling](03-strumenti-function-calling.md): il client scopre gli strumenti del server e li
-presenta al modello come funzioni chiamabili.
+**Tools** are the primitive most used by agents, because they map directly onto
+[function calling](03-strumenti-function-calling.md): the client discovers the server's tools and
+presents them to the model as callable functions.
 
-## Trasporti
+## Transports
 
-MCP è agnostico rispetto al canale di trasporto. I due più comuni:
+MCP is agnostic about the transport channel. The two most common:
 
-- **stdio**: il client avvia il server come processo locale e comunica su standard input/output. Ideale
-  per strumenti locali (file system, CLI).
-- **HTTP** (con streaming): il client si collega a un server remoto via HTTP. Ideale per servizi
-  condivisi o in cloud.
+- **stdio**: the client launches the server as a local process and communicates over standard
+  input/output. Ideal for local tools (file system, CLI).
+- **HTTP** (with streaming): the client connects to a remote server over HTTP. Ideal for shared or
+  cloud services.
 
-## Perché conta per gli agenti
+## Why it matters for agents
 
-1. **Interoperabilità**: lo stesso server è usabile da più agenti e da più applicazioni, senza riscrivere
-   integrazioni.
-2. **Separazione delle responsabilità**: chi possiede i dati espone un server; chi costruisce l'agente
-   consuma capacità senza conoscere i dettagli interni.
-3. **Sicurezza e governance**: il confine client–server è un punto naturale dove applicare permessi,
-   allow-list e audit (vedi [12](12-sicurezza-governance.md)).
+1. **Interoperability**: the same server is usable by multiple agents and multiple applications, without
+   rewriting integrations.
+2. **Separation of concerns**: whoever owns the data exposes a server; whoever builds the agent consumes
+   capabilities without knowing the internal details.
+3. **Security and governance**: the client–server boundary is a natural place to apply permissions,
+   allow-lists and auditing (see [12](12-sicurezza-governance.md)).
 
-## Protocolli affini
+## Related protocols
 
-MCP risolve il collegamento **agente ↔ strumenti/dati**. Un problema diverso è il collegamento
-**agente ↔ agente**: per quello sta emergendo il protocollo **A2A (Agent-to-Agent)**, trattato nel
-capitolo [13 — Standard e protocolli](13-standard-protocolli.md).
+MCP solves the **agent ↔ tools/data** connection. A different problem is the **agent ↔ agent**
+connection: for that the **A2A (Agent-to-Agent)** protocol is emerging, covered in chapter
+[13 — Standards and protocols](13-standard-protocolli.md).
 
 ---
 
-Precedente: [03 — Strumenti](03-strumenti-function-calling.md) · Prossimo: [05 — RAG](05-rag.md).
+Previous: [03 — Tools](03-strumenti-function-calling.md) · Next: [05 — RAG](05-rag.md).

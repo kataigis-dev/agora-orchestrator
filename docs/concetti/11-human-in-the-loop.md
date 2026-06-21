@@ -1,53 +1,53 @@
 # 11 — Human-in-the-loop (HITL)
 
-## Cos'è
+## What it is
 
-Il pattern **Human-in-the-loop (HITL)** inserisce un essere umano in **punti di controllo** del
-workflow agentico: l'agente si **ferma** e attende che una persona riveda il lavoro, **approvi**,
-**corregga** o **fornisca input** prima di proseguire
+The **Human-in-the-loop (HITL)** pattern inserts a human at **control points** of the agentic workflow:
+the agent **stops** and waits for a person to review the work, **approve**, **correct** or **provide
+input** before continuing
 ([Google Cloud, *Choose a design pattern*](https://docs.cloud.google.com/architecture/choose-design-pattern-agentic-ai-system)).
 
-È il riconoscimento che, per quanto autonomo, un agente che opera su decisioni non-deterministiche
-([01](01-fondamenti-llm.md)) non dovrebbe agire **senza supervisione** quando la posta in gioco è alta.
+It is the recognition that, however autonomous, an agent operating on non-deterministic decisions
+([01](01-fondamenti-llm.md)) should not act **without oversight** when the stakes are high.
 
-## Quando usarlo
+## When to use it
 
-Google e AWS indicano gli stessi scenari: compiti **ad alto rischio o soggettivi** —
+Google and AWS point to the same scenarios: **high-stakes or subjective** tasks —
 
-- transazioni finanziarie;
-- validazione di documenti sensibili;
-- approvazioni di *compliance*;
-- azioni irreversibili o che modificano sistemi di produzione.
+- financial transactions;
+- validation of sensitive documents;
+- *compliance* approvals;
+- irreversible actions or those that modify production systems.
 
-## Forme di HITL
+## Forms of HITL
 
-| Forma | Descrizione |
-|-------|-------------|
-| **Approvazione di azione (gating)** | L'agente propone una chiamata a strumento rischiosa; l'esecuzione è bloccata finché un umano non conferma. Vedi [03 — Strumenti](03-strumenti-function-calling.md). |
-| **Revisione di output** | L'agente produce un risultato che un umano deve approvare prima della pubblicazione. |
-| **Chat manager umano** | In un'orchestrazione *group chat* ([08](08-orchestrazione-multi-agente.md)), una persona può assumere il ruolo di coordinatore, guidando la discussione tra agenti. |
-| **Risoluzione di conflitti** | Quando più agenti producono risultati incompatibili, un umano (o una policy) dirime. |
+| Form | Description |
+|------|-------------|
+| **Action approval (gating)** | The agent proposes a risky tool call; execution is blocked until a human confirms. See [03 — Tools](03-strumenti-function-calling.md). |
+| **Output review** | The agent produces a result a human must approve before publication. |
+| **Human chat manager** | In a *group chat* orchestration ([08](08-orchestrazione-multi-agente.md)), a person can take the coordinator role, guiding the discussion among agents. |
+| **Conflict resolution** | When multiple agents produce incompatible results, a human (or a policy) arbitrates. |
 
-## Compromessi
+## Trade-offs
 
-Google è esplicita sul trade-off: l'HITL "**migliora sicurezza e affidabilità**" ma "richiede di
-costruire e mantenere sistemi di interazione esterni", aggiungendo complessità architetturale. Va quindi
-applicato **selettivamente**, ai soli punti dove il rischio lo giustifica, non a ogni passo (altrimenti
-si perde il vantaggio dell'automazione).
+Google is explicit about the trade-off: HITL "**improves safety and reliability**" but "requires building
+and maintaining external interaction systems", adding architectural complexity. It should therefore be
+applied **selectively**, only at the points where the risk justifies it, not at every step (otherwise you
+lose the benefit of automation).
 
-## HITL e governance
+## HITL and governance
 
-L'HITL è uno dei **guardrail** discussi nel capitolo sulla [sicurezza](12-sicurezza-governance.md): è il
-punto in cui il giudizio umano entra come confine esplicito al comportamento autonomo dell'agente.
-Combinato con il *least privilege* (l'agente può proporre azioni rischiose ma non eseguirle da solo),
-costituisce una difesa in profondità.
+HITL is one of the **guardrails** discussed in the [security](12-sicurezza-governance.md) chapter: it is
+the point where human judgment enters as an explicit boundary on the agent's autonomous behavior.
+Combined with *least privilege* (the agent can propose risky actions but not execute them on its own), it
+constitutes defense in depth.
 
-## Il legame con il progetto
+## Link to the project
 
-Agora Orchestrator espone interfacce di approvazione e di risoluzione conflitti, e permette di marcare
-singoli strumenti come *approvals* (gated) per agente. Dettagli in [`../agents.md`](../agents.md).
+Agora Orchestrator exposes approval and conflict-resolution interfaces, and lets you mark individual tools
+as *approvals* (gated) per agent. Details in [`../agents.md`](../agents.md).
 
 ---
 
-Precedente: [10 — Valutazione e osservabilità](10-valutazione-osservabilita.md) · Prossimo:
-[12 — Sicurezza e governance](12-sicurezza-governance.md).
+Previous: [10 — Evaluation and observability](10-valutazione-osservabilita.md) · Next:
+[12 — Security and governance](12-sicurezza-governance.md).

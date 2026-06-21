@@ -1,86 +1,86 @@
-# 01 — Fondamenti: LLM e prompting
+# 01 — Foundations: LLMs and prompting
 
-Prima di parlare di agenti serve un vocabolario condiviso sui **modelli linguistici di grandi
-dimensioni** (LLM, *Large Language Models*), il mattone su cui tutto il resto è costruito.
+Before talking about agents we need a shared vocabulary about **large language models** (LLMs), the
+building block everything else is built on.
 
-## Cos'è un LLM
+## What an LLM is
 
-Un LLM è un modello di rete neurale addestrato su enormi quantità di testo a **predire il token
-successivo** data una sequenza di token precedenti. Da questa capacità apparentemente semplice
-emergono comportamenti complessi: rispondere a domande, riassumere, tradurre, scrivere codice,
-ragionare passo-passo. Un LLM non "consulta un database" quando risponde: genera testo plausibile sulla
-base degli schemi statistici appresi durante l'addestramento. Questo ha due conseguenze fondamentali:
+An LLM is a neural-network model trained on enormous amounts of text to **predict the next token** given
+a sequence of preceding tokens. From this apparently simple capability complex behaviors emerge:
+answering questions, summarizing, translating, writing code, reasoning step by step. An LLM does not
+"consult a database" when it answers: it generates plausible text based on the statistical patterns
+learned during training. This has two fundamental consequences:
 
-1. **Conoscenza congelata.** Il modello conosce solo ciò che era nei dati di addestramento fino a una
-   certa data (*knowledge cutoff*). Non conosce eventi successivi né dati privati/aziendali. Questo è il
-   problema che il [RAG](05-rag.md) risolve.
-2. **Allucinazioni.** Il modello può generare affermazioni fluenti ma false, perché ottimizza la
-   plausibilità linguistica, non la verità. Per questo i sistemi seri **verificano** gli output invece
-   di fidarsi (vedi [valutazione](10-valutazione-osservabilita.md) e
+1. **Frozen knowledge.** The model only knows what was in its training data up to a certain date
+   (*knowledge cutoff*). It does not know later events nor private/company data. This is the problem
+   that [RAG](05-rag.md) solves.
+2. **Hallucinations.** The model can produce fluent but false statements, because it optimizes for
+   linguistic plausibility, not truth. This is why serious systems **verify** outputs instead of
+   trusting them (see [evaluation](10-valutazione-osservabilita.md) and
    [spec-driven development](09-spec-driven-development.md)).
 
-## Token e finestra di contesto
+## Tokens and the context window
 
-- **Token**: l'unità con cui il modello legge e scrive. Un token è circa 3–4 caratteri in inglese (un
-  po' di più in italiano); "orchestrazione" può valere più token. Il costo e la latenza di una chiamata
-  dipendono dal numero di token in ingresso e in uscita.
-- **Finestra di contesto** (*context window*): il numero massimo di token che il modello può
-  considerare in una singola chiamata (prompt + risposta). È una risorsa **finita e con rendimenti
-  decrescenti**: oltre una certa quantità, aggiungere testo degrada la qualità invece di migliorarla.
-  Gestire bene questo spazio è il tema del [context engineering](06-memoria-contesto.md).
+- **Token**: the unit the model reads and writes with. A token is roughly 3–4 characters in English (a
+  bit more in Italian); "orchestrazione" may be worth several tokens. The cost and latency of a call
+  depend on the number of input and output tokens.
+- **Context window**: the maximum number of tokens the model can consider in a single call (prompt +
+  response). It is a **finite resource with diminishing returns**: beyond a certain amount, adding text
+  degrades quality instead of improving it. Managing this space well is the topic of
+  [context engineering](06-memoria-contesto.md).
 
-## Il prompt
+## The prompt
 
-Il **prompt** è il testo in ingresso. Si distinguono di solito:
+The **prompt** is the input text. It is usually broken down into:
 
-- **System prompt** (*istruzioni di sistema*): definisce ruolo, comportamento, vincoli e formato di
-  risposta dell'assistente. È persistente per tutta la conversazione.
-- **Messaggi utente / assistente**: il dialogo vero e proprio.
-- **Contesto aggiuntivo**: documenti recuperati (RAG), risultati di strumenti, memoria.
+- **System prompt**: defines the assistant's role, behavior, constraints and response format. It
+  persists for the whole conversation.
+- **User / assistant messages**: the dialogue itself.
+- **Additional context**: retrieved documents (RAG), tool results, memory.
 
-Anthropic raccomanda un ordine preciso del contesto — **prima le istruzioni di sistema, poi la memoria
-rilevante, poi le definizioni degli strumenti, infine la cronologia** — perché "la disposizione e la
-qualità di questo contesto determinano le prestazioni dell'agente più di qualsiasi altro fattore"
+Anthropic recommends a precise ordering of the context — **system instructions first, then relevant
+memory, then tool definitions, finally the conversation history** — because "the arrangement and quality
+of this context determine the agent's performance more than any other factor"
 ([Anthropic, *Effective context engineering*](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)).
 
-### Tecniche di prompting comuni
+### Common prompting techniques
 
-| Tecnica | Idea |
-|---------|------|
-| *Zero-shot* | Si chiede direttamente, senza esempi |
-| *Few-shot* | Si forniscono alcuni esempi del comportamento desiderato |
-| *Chain-of-thought* | Si chiede al modello di "ragionare passo per passo" prima di rispondere |
-| *Structured output* | Si vincola la risposta a un formato (es. JSON), per renderla verificabile a macchina |
+| Technique | Idea |
+|-----------|------|
+| *Zero-shot* | You ask directly, with no examples |
+| *Few-shot* | You provide a few examples of the desired behavior |
+| *Chain-of-thought* | You ask the model to "reason step by step" before answering |
+| *Structured output* | You constrain the answer to a format (e.g. JSON), making it machine-verifiable |
 
-L'output strutturato è particolarmente importante nei sistemi agentici: vincolare il modello a JSON
-"rimuove l'ambiguità e permette una valutazione più standardizzata"
+Structured output is especially important in agentic systems: constraining the model to JSON "removes
+ambiguity and allows for more standardized evaluation"
 ([Microsoft, *AI Agents in Production*](https://microsoft.github.io/ai-agents-for-beginners/10-ai-agents-production/)).
 
-## Parametri di generazione
+## Generation parameters
 
-- **Temperature**: controlla la casualità. Valori bassi (es. 0–0.3) rendono le risposte più
-  deterministiche e ripetibili; valori alti aumentano la varietà/creatività. Per compiti di precisione
-  (estrazione, classificazione, routing) si preferiscono valori bassi.
-- **Max tokens**: limite alla lunghezza della risposta.
-- **Top-p / top-k**: strategie alternative di campionamento dei token.
+- **Temperature**: controls randomness. Low values (e.g. 0–0.3) make responses more deterministic and
+  repeatable; high values increase variety/creativity. For precision tasks (extraction, classification,
+  routing) low values are preferred.
+- **Max tokens**: a limit on the response length.
+- **Top-p / top-k**: alternative token-sampling strategies.
 
-## Embedding
+## Embeddings
 
-Un **embedding** è la rappresentazione di un testo come **vettore numerico** che ne cattura il
-significato semantico: testi simili hanno vettori vicini nello spazio. Gli embedding sono il
-fondamento della ricerca semantica e quindi del [RAG](05-rag.md): si confronta il vettore della domanda
-con i vettori dei documenti per trovare i più pertinenti, anche quando le parole non coincidono
-esattamente ([AWS, *What is RAG?*](https://aws.amazon.com/what-is/retrieval-augmented-generation/)).
+An **embedding** is the representation of a piece of text as a **numeric vector** that captures its
+semantic meaning: similar texts have nearby vectors in the space. Embeddings are the foundation of
+semantic search and therefore of [RAG](05-rag.md): you compare the query's vector with the documents'
+vectors to find the most relevant ones, even when the words do not match exactly
+([AWS, *What is RAG?*](https://aws.amazon.com/what-is/retrieval-augmented-generation/)).
 
-## Non-determinismo: la sfida architetturale
+## Non-determinism: the architectural challenge
 
-A differenza del software tradizionale, le decisioni di un LLM sono **intrinsecamente
-non-deterministiche**: lo stesso input può produrre output diversi. AWS lo indica come una delle
-dimensioni che la progettazione agentica deve affrontare esplicitamente
+Unlike traditional software, an LLM's decisions are **inherently non-deterministic**: the same input can
+produce different outputs. AWS lists this as one of the dimensions that agentic design must address
+explicitly
 ([AWS, *Agentic AI — Generative AI Lens*](https://docs.aws.amazon.com/wellarchitected/latest/generative-ai-lens/agentic-ai.html)).
-La conseguenza pratica, ripresa in tutti i capitoli seguenti: **non fidarsi della narrazione del
-modello; verificare con controlli deterministici** ogni volta che è possibile.
+The practical consequence, echoed throughout the following chapters: **don't trust the model's narration;
+verify with deterministic checks** whenever possible.
 
 ---
 
-Prossimo: [02 — Agenti](02-agenti.md).
+Next: [02 — Agents](02-agenti.md).

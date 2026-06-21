@@ -1,99 +1,98 @@
-# 02 — Agenti
+# 02 — Agents
 
-## Cosa è un agente
+## What an agent is
 
-Non esiste una definizione unica, ma le fonti convergono. **Anthropic** distingue nettamente due cose
+There is no single definition, but the sources converge. **Anthropic** draws a sharp distinction between
+two things
 ([*Building Effective Agents*](https://www.anthropic.com/research/building-effective-agents)):
 
-- **Workflow**: "sistemi in cui LLM e strumenti sono orchestrati attraverso *percorsi di codice
-  predefiniti*". Il controllo del flusso è scritto dallo sviluppatore.
-- **Agente**: "sistemi in cui gli LLM *dirigono dinamicamente i propri processi e l'uso degli
-  strumenti*, mantenendo il controllo su come portano a termine i compiti". In forma essenziale, un
-  agente è "*solo un LLM che usa strumenti in un loop sulla base del feedback dell'ambiente*".
+- **Workflow**: "systems where LLMs and tools are orchestrated through *predefined code paths*". The
+  control flow is written by the developer.
+- **Agent**: "systems where LLMs *dynamically direct their own processes and tool usage*, maintaining
+  control over how they accomplish tasks". In essence, an agent is "*just an LLM using tools in a loop
+  based on environmental feedback*".
 
-**Google** lo formula in modo complementare: gli agenti sono sistemi che "risolvono problemi aperti,
-che possono richiedere decisioni autonome e la gestione di workflow complessi multi-step" ed "eccellono
-nel risolvere problemi in tempo reale usando dati esterni"
+**Google** frames it in a complementary way: agents are systems that "solve open-ended problems, which
+might require autonomous decision-making and complex multi-step workflow management" and "excel at
+solving problems in real-time by using external data"
 ([Google Cloud, *Choose a design pattern*](https://docs.cloud.google.com/architecture/choose-design-pattern-agentic-ai-system)).
 
-La differenza chiave rispetto a una semplice chiamata a un LLM è la **agency**: l'agente decide *quali*
-passi compiere, *quali* strumenti usare e *quando* fermarsi, anziché seguire uno script fisso.
+The key difference from a simple LLM call is **agency**: the agent decides *which* steps to take,
+*which* tools to use and *when* to stop, instead of following a fixed script.
 
-## Il "LLM aumentato": il mattone di base
+## The "augmented LLM": the basic building block
 
-Anthropic individua come blocco fondamentale l'**augmented LLM**: un modello potenziato con
-**retrieval, strumenti e memoria**. Il modello moderno usa attivamente queste capacità — genera da sé
-le query di ricerca, sceglie gli strumenti appropriati e decide cosa conservare in memoria.
+Anthropic identifies the **augmented LLM** as the foundational block: a model enhanced with
+**retrieval, tools and memory**. The modern model actively uses these capabilities — it generates its
+own search queries, picks the appropriate tools, and decides what to keep in memory.
 
 ```
             ┌──────────────────────────────┐
-   input ──▶│          LLM aumentato        │──▶ output
+   input ──▶│         Augmented LLM         │──▶ output
             │  ┌──────────┐  ┌────────────┐ │
-            │  │ retrieval│  │  strumenti  │ │
+            │  │ retrieval│  │   tools     │ │
             │  └──────────┘  └────────────┘ │
             │         ┌──────────┐          │
-            │         │  memoria │          │
+            │         │  memory  │          │
             │         └──────────┘          │
             └──────────────────────────────┘
 ```
 
-## I componenti di un agente
+## The components of an agent
 
-Mettendo insieme Google e Anthropic, un agente si compone di:
+Combining Google and Anthropic, an agent is made of:
 
-| Componente | Ruolo | Approfondimento |
-|------------|-------|-----------------|
-| **Modello (AI Model)** | Fornisce ragionamento e capacità decisionale | [01](01-fondamenti-llm.md) |
-| **System prompt** | Definisce comportamento, persona e vincoli operativi | [01](01-fondamenti-llm.md) |
-| **Strumenti (Tools)** | Risorse esterne per raccogliere informazioni o compiere azioni | [03](03-strumenti-function-calling.md) |
-| **Memoria** | Conserva informazioni tra i passi e tra le sessioni | [06](06-memoria-contesto.md) |
-| **Loop di orchestrazione/ragionamento** | Gestisce il ciclo iterativo *pensa → agisci → osserva* | sotto |
+| Component | Role | Deep dive |
+|-----------|------|-----------|
+| **Model (AI Model)** | Provides reasoning and decision-making | [01](01-fondamenti-llm.md) |
+| **System prompt** | Defines behavior, persona and constraints | [01](01-fondamenti-llm.md) |
+| **Tools** | External resources to gather information or take actions | [03](03-strumenti-function-calling.md) |
+| **Memory** | Keeps information across steps and across sessions | [06](06-memoria-contesto.md) |
+| **Orchestration/reasoning loop** | Manages the iterative *think → act → observe* cycle | below |
 
-## Il loop di ragionamento (ReAct)
+## The reasoning loop (ReAct)
 
-Il pattern canonico con cui un singolo agente opera è **ReAct** (*Reason + Act*): l'agente alterna
-in un ciclo iterativo
+The canonical pattern by which a single agent operates is **ReAct** (*Reason + Act*): the agent
+alternates in an iterative cycle
 ([Google Cloud, *Choose a design pattern*](https://docs.cloud.google.com/architecture/choose-design-pattern-agentic-ai-system)):
 
-1. **Thought (ragionamento)** — riflette su cosa fare;
-2. **Action (azione)** — sceglie uno strumento e ne formula gli argomenti (oppure produce la risposta
-   finale);
-3. **Observation (osservazione)** — riceve il risultato dello strumento e lo incorpora nel contesto;
+1. **Thought** — it reflects on what to do;
+2. **Action** — it picks a tool and formulates its arguments (or produces the final answer);
+3. **Observation** — it receives the tool's result and incorporates it into the context;
 
-ripetendo fino a una **condizione di uscita**. Da qui derivano due esigenze critiche che tutte le fonti
-sottolineano: **strumenti progettati con cura** e **condizioni di stop chiare** (altrimenti l'agente
-cicla all'infinito o consuma risorse senza concludere).
+repeating until an **exit condition** is met. From this come two critical needs that every source
+stresses: **carefully designed tools** and **clear stop conditions** (otherwise the agent loops forever
+or burns resources without finishing).
 
-## Livelli di autonomia: workflow vs agente
+## Levels of autonomy: workflow vs agent
 
-Microsoft descrive uno **spettro di complessità**: si va dalla singola chiamata LLM, alla pipeline
-deterministica (workflow), fino all'orchestrazione multi-agente realmente autonoma. La regola, condivisa
-da tutti, è: **usare il livello di complessità più basso che soddisfa in modo affidabile i requisiti**
+Microsoft describes a **complexity spectrum**: from a single LLM call, to a deterministic pipeline
+(workflow), up to truly autonomous multi-agent orchestration. The rule, shared by all, is: **use the
+lowest level of complexity that reliably meets the requirements**
 ([Microsoft, *AI Agent Orchestration Patterns*](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns)).
 
-| | Workflow | Agente autonomo |
-|---|----------|-----------------|
-| Controllo del flusso | codice predefinito | il modello decide |
-| Prevedibilità | alta | minore |
-| Adattabilità | bassa | alta |
-| Quando preferirlo | compiti ben definiti, ripetibili | problemi aperti, passi non noti a priori |
+| | Workflow | Autonomous agent |
+|---|----------|------------------|
+| Control flow | predefined code | the model decides |
+| Predictability | high | lower |
+| Adaptability | low | high |
+| When to prefer it | well-defined, repeatable tasks | open-ended problems, steps not known up front |
 
-Anthropic è esplicita: "i workflow spesso offrono migliore prevedibilità e consistenza per compiti ben
-definiti", mentre l'autonomia va introdotta solo quando serve flessibilità su larga scala.
+Anthropic is explicit: "workflows often provide better predictability and consistency for well-defined
+tasks", while autonomy should be introduced only when large-scale flexibility is needed.
 
-## I tre principi di progettazione (Anthropic)
+## The three design principles (Anthropic)
 
-1. **Semplicità** — molte implementazioni di successo sono "*solo una singola chiamata LLM ottimizzata
-   con retrieval ed esempi*". Aggiungere agenti e framework ha un costo (latenza, token, debug).
-2. **Trasparenza** — mostrare esplicitamente i passi di pianificazione dell'agente.
-3. **Cura dell'interfaccia agente-computer (ACI)** — documentare e testare gli strumenti con la stessa
-   attenzione che si dedicherebbe a un'interfaccia per esseri umani (vedi
-   [03](03-strumenti-function-calling.md)).
+1. **Simplicity** — many successful implementations are "*just a single optimized LLM call with
+   retrieval and examples*". Adding agents and frameworks has a cost (latency, tokens, debugging).
+2. **Transparency** — show the agent's planning steps explicitly.
+3. **Care for the agent-computer interface (ACI)** — document and test tools with the same attention you
+   would give to a human interface (see [03](03-strumenti-function-calling.md)).
 
-> **Da ricordare.** "Inizia semplice; aggiungi complessità solo quando un miglioramento dimostrato la
-> giustifica." Questo principio attraversa tutti i capitoli seguenti.
+> **Remember.** "Start simple; add complexity only when a demonstrated improvement justifies it." This
+> principle runs through all the following chapters.
 
 ---
 
-Precedente: [01 — Fondamenti](01-fondamenti-llm.md) · Prossimo:
-[03 — Strumenti e function calling](03-strumenti-function-calling.md).
+Previous: [01 — Foundations](01-fondamenti-llm.md) · Next:
+[03 — Tools and function calling](03-strumenti-function-calling.md).

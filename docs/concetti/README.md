@@ -1,53 +1,55 @@
-# Concetti e fondamenti dei sistemi agentici
+# Concepts and foundations of agentic systems
 
-Questa cartella raccoglie la **documentazione concettuale** del progetto Agora Orchestrator, in
-italiano. È una base di conoscenza autonoma: parte dalle definizioni di base (cosa è un *large language
-model*, cosa è un *agente*, cosa è il *RAG*) e arriva agli **standard e ai pattern per i workflow
-agentici** adottati dall'industria.
+This folder gathers the **conceptual documentation** of the Agora Orchestrator project. It is a
+self-contained knowledge base: it starts from the basic definitions (what a *large language model* is,
+what an *agent* is, what *RAG* is) and works up to the **standards and patterns for agentic workflows**
+adopted by the industry.
 
-Le nozioni sono tratte e sintetizzate da fonti primarie affidabili — **Anthropic, Google, Microsoft e
-Amazon (AWS)** — oltre alle specifiche aperte (Model Context Protocol, OpenTelemetry). Ogni capitolo
-cita le fonti puntuali; l'elenco completo è in [99-fonti.md](99-fonti.md).
+The notions are drawn and synthesized from reliable primary sources — **Anthropic, Google, Microsoft and
+Amazon (AWS)** — plus the open specifications (Model Context Protocol, OpenTelemetry). Each chapter cites
+its specific sources; the complete list is in [99-fonti.md](99-fonti.md).
 
-> Questa cartella è **concettuale e indipendente dal codice**. Per la documentazione tecnica di Agora
-> Orchestrator (configurazione YAML, CLI, architettura del codice) vedi la cartella
-> [`../`](../index.md). Il capitolo [15-mappatura-agora.md](15-mappatura-agora.md) collega ogni concetto
-> alla sua implementazione concreta nel progetto.
+> This folder is **conceptual and independent of the code**. For Agora Orchestrator's technical
+> documentation (YAML configuration, CLI, code architecture) see the [`../`](../index.md) folder. Chapter
+> [15-mappatura-agora.md](15-mappatura-agora.md) connects every concept to its concrete implementation in
+> the project.
 
-## Indice
+## Index
 
-| # | Capitolo | Contenuto |
-|---|----------|-----------|
-| 01 | [Fondamenti: LLM e prompting](01-fondamenti-llm.md) | Modelli linguistici, token, finestra di contesto, prompt, temperatura, allucinazioni, embedding |
-| 02 | [Agenti](02-agenti.md) | Definizione di agente, LLM aumentato, componenti, loop di ragionamento (ReAct), autonomia, *workflow vs agente* |
-| 03 | [Strumenti e function calling](03-strumenti-function-calling.md) | Tool use, function calling, interfaccia agente-computer (ACI), progettazione e approvazione degli strumenti |
-| 04 | [Model Context Protocol (MCP)](04-mcp.md) | Standard aperto per collegare agenti a dati e strumenti: architettura, primitive, trasporti |
-| 05 | [RAG — Retrieval-Augmented Generation](05-rag.md) | Pipeline completa (ingest, chunking, embedding, vector store, retrieval, generazione), varianti, valutazione |
-| 06 | [Memoria e context engineering](06-memoria-contesto.md) | Gestione del contesto, memoria a breve/lungo termine, compattazione, note strutturate |
-| 07 | [Pattern di workflow agentici](07-workflow-pattern.md) | I pattern di Anthropic: prompt chaining, routing, parallelizzazione, orchestrator-workers, evaluator-optimizer |
-| 08 | [Orchestrazione multi-agente](08-orchestrazione-multi-agente.md) | Pattern multi-agente di Microsoft e Google, livello di complessità, protocollo A2A |
-| 09 | [Spec-driven development](09-spec-driven-development.md) | Specifiche macchina-verificabili, gate deterministici, tracciabilità requisito↔task↔test |
-| 10 | [Valutazione e osservabilità](10-valutazione-osservabilita.md) | Eval, metriche deterministiche vs LLM-as-judge, tracce, OpenTelemetry, metriche di affidabilità |
-| 11 | [Human-in-the-loop](11-human-in-the-loop.md) | Supervisione umana, approvazioni, checkpoint |
-| 12 | [Sicurezza e governance](12-sicurezza-governance.md) | AWS Well-Architected Agentic AI Lens, least privilege, guardrail, SAIF, Responsible AI |
-| 13 | [Standard e protocolli](13-standard-protocolli.md) | MCP, A2A, OpenTelemetry GenAI — riepilogo degli standard emergenti |
-| 14 | [Glossario](14-glossario.md) | Definizioni rapide dei termini |
-| 15 | [Mappatura su Agora Orchestrator](15-mappatura-agora.md) | Dove ogni concetto vive nel progetto |
-| 16 | [Microsoft Agent Framework](16-microsoft-agent-framework.md) | Il framework open source di Microsoft (agenti + workflow), su cui poggia lo strato di integrazione di Agora |
-| 99 | [Fonti](99-fonti.md) | Bibliografia completa con URL |
+| # | Chapter | Content |
+|---|---------|---------|
+| 01 | [Foundations: LLMs and prompting](01-fondamenti-llm.md) | Language models, tokens, context window, prompts, temperature, hallucinations, embeddings |
+| 02 | [Agents](02-agenti.md) | Definition of an agent, the augmented LLM, components, reasoning loop (ReAct), autonomy, *workflow vs agent* |
+| 03 | [Tools and function calling](03-strumenti-function-calling.md) | Tool use, function calling, agent-computer interface (ACI), tool design and approval |
+| 04 | [Model Context Protocol (MCP)](04-mcp.md) | Open standard for connecting agents to data and tools: architecture, primitives, transports |
+| 05 | [RAG — Retrieval-Augmented Generation](05-rag.md) | The full pipeline (ingest, chunking, embedding, vector store, retrieval, generation), variants, evaluation |
+| 06 | [Memory and context engineering](06-memoria-contesto.md) | Context management, short/long-term memory, compaction, structured note-taking |
+| 07 | [Agentic workflow patterns](07-workflow-pattern.md) | Anthropic's patterns: prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer |
+| 08 | [Multi-agent orchestration](08-orchestrazione-multi-agente.md) | Microsoft and Google multi-agent patterns, the complexity spectrum, the A2A protocol |
+| 09 | [Spec-driven development](09-spec-driven-development.md) | Machine-checkable specifications, deterministic gates, requirement↔task↔test traceability |
+| 10 | [Evaluation and observability](10-valutazione-osservabilita.md) | Evals, deterministic metrics vs LLM-as-judge, traces, OpenTelemetry, reliability metrics |
+| 11 | [Human-in-the-loop](11-human-in-the-loop.md) | Human oversight, approvals, checkpoints |
+| 12 | [Security and governance](12-sicurezza-governance.md) | AWS Well-Architected Agentic AI Lens, least privilege, guardrails, SAIF, Responsible AI |
+| 13 | [Standards and protocols](13-standard-protocolli.md) | MCP, A2A, OpenTelemetry GenAI — a recap of the emerging standards |
+| 14 | [Glossary](14-glossario.md) | Quick definitions of the terms |
+| 15 | [Mapping onto Agora Orchestrator](15-mappatura-agora.md) | Where each concept lives in the project |
+| 16 | [Microsoft Agent Framework](16-microsoft-agent-framework.md) | Microsoft's open-source framework (agents + workflows), the basis of Agora's integration layer |
+| 17 | [Execution flow](17-flusso-di-esecuzione.md) | How the app works step by step, from command to result — for absolute beginners |
+| 18 | [Class reference](18-riferimento-classi.md) | Every class/interface/record in the code and what it is for, grouped by folder |
+| 99 | [Sources](99-fonti.md) | Full bibliography with URLs |
 
-## Come leggere
+## How to read this
 
-- Se parti da zero: leggi i capitoli in ordine (01 → 15).
-- Se conosci già gli LLM: salta al capitolo [02 Agenti](02-agenti.md).
-- Se ti interessano i **pattern di orchestrazione**: capitoli [07](07-workflow-pattern.md) e
-  [08](08-orchestrazione-multi-agente.md) sono il cuore degli standard per i workflow agentici.
-- Se vuoi vedere il legame con il codice: [15-mappatura-agora.md](15-mappatura-agora.md).
+- Starting from zero: read the chapters in order (01 → 15).
+- If you already know LLMs: jump to [02 Agents](02-agenti.md).
+- If you care about **orchestration patterns**: chapters [07](07-workflow-pattern.md) and
+  [08](08-orchestrazione-multi-agente.md) are the heart of the agentic-workflow standards.
+- If you want the link to the code: [15-mappatura-agora.md](15-mappatura-agora.md).
+- If you want to understand **how the app runs** and what each class does: [17 — Execution flow](17-flusso-di-esecuzione.md) and [18 — Class reference](18-riferimento-classi.md).
 
-## Una nota sulla terminologia
+## A note on terminology
 
-Il settore è giovane e i termini non sono ancora del tutto standardizzati: lo stesso pattern ha nomi
-diversi a seconda del fornitore (ad esempio *routing*, *handoff*, *triage* e *dispatch* indicano spesso
-la stessa idea). Dove utile, riportiamo i sinonimi. La regola pratica, ripetuta da tutte le fonti, è
-**iniziare dalla soluzione più semplice** e aggiungere complessità solo quando un guadagno misurabile
-la giustifica.
+The field is young and the terms are not yet fully standardized: the same pattern has different names
+depending on the vendor (for example *routing*, *handoff*, *triage* and *dispatch* often denote the same
+idea). Where useful, we note the synonyms. The practical rule, repeated by every source, is to **start
+with the simplest solution** and add complexity only when a measurable gain justifies it.
