@@ -135,12 +135,29 @@ spec:
     # key: "agora:spec-document"
 ```
 
+### checks
+
+Real build/test execution: a fixed allow-list of named commands that `run_check` and `spec_verify`
+may invoke. Commands run with no shell; `{key}` placeholders in arguments are substituted at call
+time. See [spec.md](spec.md#verifying-against-reality).
+
+```yaml
+checks:
+  workdir: .                 # relative to the config dir
+  timeout: 300               # seconds, per check
+  commands:
+    build: { command: dotnet, args: [build] }
+    test:  { command: dotnet, args: [test, --filter, "{filter}"] }
+```
+
 ## Built-in tools
 
 Available to agents that list them in `tools` (no MCP server needed):
 `read_file`, `write_file`, `search_files`, `list_directory` (filesystem); `rag_search`, `rag_write`
-(shared knowledge base); `ask_agent` (ask another agent); `spec_get`, `spec_propose_requirement`,
-`spec_set_status`, `spec_add_task`, `spec_link_task` (structured spec — requires the `spec` section).
+(shared knowledge base); `ask_agent` (ask another agent); `spec_get`, `spec_gate`,
+`spec_propose_requirement`, `spec_bind_check`, `spec_set_status`, `spec_add_task`, `spec_link_task`
+(structured spec — requires the `spec` section); `run_check`, `spec_verify` (real check execution —
+requires the `checks` section).
 Tools named in `approvals` are gated through a human (HITL).
 
 ## Natural communication

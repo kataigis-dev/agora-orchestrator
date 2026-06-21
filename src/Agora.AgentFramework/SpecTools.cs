@@ -5,11 +5,12 @@ using Microsoft.Extensions.AI;
 namespace Agora.AgentFramework;
 
 /// <summary>
-/// Built-in structured tools over the <see cref="ISpecStore"/>: <c>spec_get</c>,
-/// <c>spec_propose_requirement</c>, <c>spec_set_status</c>, <c>spec_add_task</c>, and
-/// <c>spec_link_task</c>. They replace free-text spec writes with typed operations that are validated
-/// by <see cref="SpecValidator"/> before persisting, so the specification stays a machine-checkable
-/// artifact. Gated by the agent's allow-listed tools like <see cref="RagTools"/>.
+/// Built-in structured tools over the <see cref="ISpecStore"/>: <c>spec_get</c>, <c>spec_gate</c>,
+/// <c>spec_propose_requirement</c>, <c>spec_bind_check</c>, <c>spec_set_status</c>, <c>spec_add_task</c>,
+/// and <c>spec_link_task</c>. They replace free-text spec writes with typed operations that are validated
+/// by <see cref="SpecValidator"/> before persisting (and a read-only completion gate via
+/// <see cref="TraceabilityValidator"/>), so the specification stays a machine-checkable artifact. Gated
+/// by the agent's allow-listed tools like <see cref="RagTools"/>.
 /// </summary>
 internal static class SpecTools
 {
@@ -28,6 +29,15 @@ internal static class SpecTools
                 name: "spec_get",
                 description: "Read the current structured specification (requirements, their acceptance "
                     + "criteria and status, and the implementation tasks)."));
+
+        if (set.Contains("spec_gate"))
+            tools.Add(AIFunctionFactory.Create(
+                async () => TraceabilityValidator.Analyze(await store.LoadAsync()).ToReport(),
+                name: "spec_gate",
+                description: "Check whether the specification is complete: every approved requirement "
+                    + "must be covered by a task and verified through real checks. Returns the traceability "
+                    + "matrix and a COMPLETE/INCOMPLETE verdict. Read-only — does not change anything. Use "
+                    + "this to decide whether work is actually done before signalling completion."));
 
         if (set.Contains("spec_propose_requirement"))
             tools.Add(AIFunctionFactory.Create(
@@ -53,6 +63,30 @@ internal static class SpecTools
                 description: "Propose a new requirement. 'priority' is must/should/could/wont. "
                     + "'acceptance' is one acceptance criterion per line (each becomes a checkable criterion). "
                     + "Returns the assigned requirement id (R1..Rn)."));
+
+        if (set.Contains("spec_bind_check"))
+            tools.Add(AIFunctionFactory.Create(
+                async (string requirementId, string criterionId, string kind, string expression) =>
+                {
+                    var doc = await store.LoadAsync();
+                    if (doc.FindRequirement(requirementId) is not { } requirement)
+                        return $"error: unknown requirement '{requirementId}'";
+                    var criteria = requirement.AcceptanceCriteria.ToList();
+                    var index = criteria.FindIndex(c => c.Id == criterionId);
+                    if (index < 0)
+                        return $"error: unknown criterion '{criterionId}' on '{requirementId}'";
+                    criteria[index] = criteria[index] with
+                    {
+                        Check = new SpecCheck(ParseEnum(kind, CheckKind.Manual), expression ?? ""),
+                    };
+                    var updated = requirement with { AcceptanceCriteria = criteria };
+                    return await Commit(store, doc.WithRequirement(updated), requireCriteria,
+                        $"bound {criterionId} -> {kind} {expression}");
+                },
+                name: "spec_bind_check",
+                description: "Bind an acceptance criterion to a check so it can be machine-verified. "
+                    + "'kind' is test/command/fileexists/manual; 'expression' is the configured check name "
+                    + "(with optional key=value args) for test/command, or a path for fileexists."));
 
         if (set.Contains("spec_set_status"))
             tools.Add(AIFunctionFactory.Create(

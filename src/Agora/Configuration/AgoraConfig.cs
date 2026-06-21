@@ -47,4 +47,7 @@ public sealed class AgoraConfig
 
     /// <summary>Optional structured spec-driven-development configuration.</summary>
     public SpecConfig? Spec { get; set; }
+
+    /// <summary>Optional real build/test execution (allow-listed checks) configuration.</summary>
+    public ChecksConfig? Checks { get; set; }
 }

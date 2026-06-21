@@ -34,6 +34,16 @@ spec:
 #       command: npx
 #       args: ["-y", "@modelcontextprotocol/server-memory"]
 
+# Real build/test execution: a fixed allow-list of named commands. Agents can only run these by
+# name (never a raw command line), and they execute with no shell, so arguments can't inject shell
+# syntax. spec_verify runs the check bound to each acceptance criterion and trusts the exit code.
+checks:
+  workdir: .
+  timeout: 300
+  commands:
+    build: { command: dotnet, args: [build] }
+    test:  { command: dotnet, args: [test, --filter, "{filter}"] }
+
 agents:
   pm:
     model: balanced
@@ -46,15 +56,30 @@ agents:
 
   architect:
     model: balanced
-    role: "Architect: break approved requirements into implementation tasks that trace to them."
+    role: "Architect: plan tasks and bind acceptance criteria to runnable checks."
     system_prompt: |
-      Read the spec with spec_get. For each approved requirement add tasks with spec_add_task,
-      linking the requirement ids the task implements. When every approved requirement is covered,
-      signal <<signal planned>>.
-    tools: [spec_get, spec_add_task, spec_link_task]
+      Read the spec with spec_get. For each approved requirement add tasks with spec_add_task
+      (linking the requirement ids it implements), and bind each acceptance criterion to a check with
+      spec_bind_check (kind command/test, expression is the configured check name — e.g. "build", or
+      "test filter=AuthTests"). When every approved requirement is covered and checkable, signal
+      <<signal planned>>.
+    tools: [spec_get, spec_add_task, spec_link_task, spec_bind_check]
+
+  qa:
+    model: balanced
+    role: "QA: verify each requirement by running its bound checks; never claim success without them."
+    system_prompt: |
+      For each requirement, call spec_verify to run its bound checks. spec_verify marks a requirement
+      Verified only when the checks pass deterministically. You may also call run_check directly to
+      diagnose a failure. Then call spec_gate: it deterministically reports whether every approved
+      requirement is covered and verified. Only signal <<signal verified>> when spec_gate reports
+      COMPLETE; otherwise report the gaps it lists and signal <<signal fix>>.
+    tools: [spec_get, run_check, spec_verify, spec_gate]
 
 graph:
   entry: pm
   edges:
     - { from: pm, to: architect, type: conditional, when: specced }
-    - { from: architect, to: END, type: conditional, when: planned }
+    - { from: architect, to: qa, type: conditional, when: planned }
+    - { from: qa, to: END, type: conditional, when: verified }
+    - { from: qa, to: architect, type: conditional, when: fix, max_loops: 3 }

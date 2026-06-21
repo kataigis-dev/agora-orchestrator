@@ -6,10 +6,12 @@ criteria; implementation tasks trace back to the requirements they satisfy; a va
 invariants on every write. This is the foundation for turning gate decisions from "the model says
 done" into deterministic checks.
 
-> **Status.** This is phase 1 of the SDD work: the structured schema, a persistent store (file or
-> RAG-over-MCP), the typed `spec_*` tools, and write-time validation. Phase 2 (real build/test
-> execution bound to acceptance criteria) and phase 3 (the completion gate consuming
-> requirement↔task↔test coverage) build on these types.
+> **Status.** Phases 1–3 are implemented: the structured schema, a persistent store (file or
+> RAG-over-MCP), the typed `spec_*` tools and write-time validation (phase 1); real build/test
+> execution bound to acceptance criteria with deterministic verification (phase 2 — see
+> [Verifying against reality](#verifying-against-reality)); and the traceability completion gate that
+> consumes requirement↔task↔check coverage, surfaced both as the `spec_gate` tool and on run metrics
+> (phase 3 — see [Gating completion](#gating-completion)).
 
 ## The model
 
@@ -92,15 +94,17 @@ Like every built-in tool they are gated by the agent's `tools` allow-list and ca
 | Tool | Signature | Effect |
 |---|---|---|
 | `spec_get` | `()` | Render the current requirements (with status + criteria) and tasks |
+| `spec_gate` | `()` | Read-only completion gate: the traceability matrix + a `COMPLETE`/`INCOMPLETE` verdict (see [Gating completion](#gating-completion)) |
 | `spec_propose_requirement` | `(title, description, priority, acceptance)` | Add a `Proposed` requirement; `acceptance` is one criterion per line; returns the new id |
+| `spec_bind_check` | `(requirementId, criterionId, kind, expression)` | Bind a criterion to a check so it can be machine-verified (see phase 2) |
 | `spec_set_status` | `(requirementId, status)` | Advance a requirement's lifecycle status |
 | `spec_add_task` | `(description, kind, requirementIds)` | Add a task linking comma/space-separated requirement ids (must exist); returns the new id |
 | `spec_link_task` | `(taskId, requirementIds)` | Link an existing task to more requirements |
 
 ## Validation rules (`SpecValidator`)
 
-Errors block a write; warnings surface gaps without blocking (the completion gate that consumes them
-arrives in phase 3).
+Errors block a write; warnings surface gaps without blocking. The whole-spec completion gate that
+consumes coverage is [`TraceabilityValidator`](#gating-completion) (phase 3).
 
 | Code | Severity | Rule |
 |---|---|---|
@@ -111,15 +115,85 @@ arrives in phase 3).
 | `empty-check-expression` | warning | Non-`Manual` checks carry an expression |
 | `uncovered-requirement` | warning | An approved requirement has an implementing task |
 
+## Verifying against reality
+
+Phase 2 makes acceptance criteria executable, so a gate asserts what the build/test runner reports
+rather than what the model claims.
+
+**Checks** are a fixed allow-list of named commands under the `checks` section. They run as real
+processes with **no shell** — the executable and each argument are passed directly, so a value can
+never be interpreted as shell syntax — and an agent can only invoke them *by name*, never as a raw
+command line. `{key}` placeholders in a check's arguments are substituted token-by-token at call time.
+
+```yaml
+checks:
+  workdir: .                 # relative to the config dir
+  timeout: 300               # seconds, per check
+  commands:
+    build: { command: dotnet, args: [build] }
+    test:  { command: dotnet, args: [test, --filter, "{filter}"] }
+```
+
+**Binding.** `spec_bind_check` attaches a `SpecCheck` to a criterion: `Kind` `Test`/`Command` names a
+configured check (with optional `key=value` args, e.g. `test filter=AuthTests`), `FileExists` names a
+path, `Manual` stays human-judged.
+
+**Two execution tools** (in `Agora.AgentFramework/CheckTools.cs`, gated by the allow-list and
+approval-gateable):
+
+| Tool | Signature | Effect |
+|---|---|---|
+| `run_check` | `(name, args)` | Run a configured check and return its real result (`args` is `key=value` pairs) |
+| `spec_verify` | `(requirementId)` | Run the checks bound to a requirement's criteria; on a deterministic pass mark it `Verified` and record evidence on covering tasks |
+
+`AcceptanceVerifier` (core) derives the verdict purely from exit codes: a requirement is verified only
+when it has criteria, every automated one passed, and none still need manual sign-off. `spec_verify`
+will not advance a requirement on a narrative claim of success — only on a passing check. `ICheckRunner`
+/ `ProcessCheckRunner` live in the core; the runner is built from config (no resolver needed) and
+exposed on `Runtime.CheckRunner`.
+
+## Gating completion
+
+Phase 3 turns per-requirement verification into a whole-spec **completion gate**: a run is "done" only
+when the committed scope is fully traced and verified, not when the graph happens to reach `END`.
+
+`TraceabilityValidator.Analyze` (core) projects the `SpecDocument` into a `TraceabilityReport` — a
+matrix of every requirement with the tasks that implement it and whether its acceptance is
+machine-checkable — and derives a deterministic verdict. A requirement is **in scope** once it is
+`Approved` or beyond (`Proposed`/`Rejected` are excluded). The gate blocks (an error gap) when:
+
+| Gap | Rule |
+|---|---|
+| `no-approved-requirements` | nothing has been approved — there is no committed scope to complete |
+| `uncovered-requirement` | an in-scope requirement has no implementing task |
+| `unverified-requirement` | an in-scope requirement has not reached `Verified` |
+| `unsubstantiated-verification` | a requirement is `Verified` but its acceptance is manual/expression-less — a verdict no real check could have produced (i.e. a hand-set status bypassing `spec_verify`) |
+| `orphan-task` *(warning)* | a task traces back to no requirement (write-blocked by `SpecValidator`; reported here so the matrix stands alone) |
+
+`report.IsComplete` is true only when there are no error gaps. Two consumers share it:
+
+- **`spec_gate` tool** (`Agora.AgentFramework`, read-only) — returns the matrix + `COMPLETE`/`INCOMPLETE`
+  so a QA/gate agent routes `done` only on a real verdict instead of self-assessment. It never mutates
+  the spec.
+- **`RunMetrics.Traceability`** — when a `spec` store is configured the runtime analyses the persisted
+  document at the end of every run and attaches a `TraceabilitySummary` (`Requirements`, `Covered`,
+  `Verified`, `Tasks`, `Complete`, plus coverage/verification rates) to `RunResult.Metrics`, so a caller
+  or CI can assert completeness programmatically. Reading the store is best-effort — a store failure
+  leaves the rest of the metrics intact.
+
 ## Example
 
-`examples/agora-spec.yaml` runs a two-stage pipeline: a `pm` agent records structured requirements
-and approves them, then an `architect` agent breaks each approved requirement into traceable tasks.
+`examples/agora-spec.yaml` runs the full loop: a `pm` agent records and approves structured
+requirements, an `architect` agent adds traceable tasks and binds each acceptance criterion to a
+check, and a `qa` agent calls `spec_verify` to mark requirements `Verified` only when their bound
+checks actually pass, then `spec_gate` to confirm the whole scope is complete — signalling done only on
+a `COMPLETE` verdict and looping back to the architect otherwise.
 
 ```bash
 dotnet run --project src/Agora.Cli -- run --config examples/agora-spec.yaml \
   --input "Build a URL shortener with auth" --graph
 ```
 
-The resulting `spec.json` is the structured, validated specification — ready for the execution and
-traceability phases to verify against.
+The resulting `spec.json` is the structured, validated, and verified specification, and the run's
+`RunResult.Metrics.Traceability` records whether the committed scope was actually covered and verified
+— a deterministic completion signal independent of any agent's narrative.

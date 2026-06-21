@@ -8,6 +8,7 @@ using Agora.Providers;
 using Agora.Rag;
 using Agora.Skills;
 using Agora.Specs;
+using Agora.Verification;
 
 namespace Agora;
 
@@ -73,6 +74,7 @@ public sealed class Runtime
         Rag = rag ?? BuildRag();
         KnowledgeBase = BuildKnowledgeBase();
         SpecStore = BuildSpecStore();
+        CheckRunner = BuildCheckRunner();
         _memory = BuildMemory();
         _router = _config.Defaults.Model is string routerAlias && _specs.TryGetValue(routerAlias, out var routerSpec)
             ? new LlmRouter(_provider, routerSpec)
@@ -90,6 +92,9 @@ public sealed class Runtime
 
     /// <summary>Structured spec store (source of truth for the <c>spec_*</c> tools), or null when SDD is off.</summary>
     public ISpecStore? SpecStore { get; }
+
+    /// <summary>Runs allow-listed build/test checks, or null when no <c>checks</c> are configured.</summary>
+    public ICheckRunner? CheckRunner { get; }
 
     /// <summary>Loads the config at <paramref name="path"/> and builds a runtime from it.</summary>
     public static Runtime FromConfig(
@@ -159,6 +164,13 @@ public sealed class Runtime
                 $"spec store type '{store.Type}' has no built-in implementation and no resolver provided");
     }
 
+    /// <summary>Builds the check runner from config (real process execution of allow-listed commands);
+    /// null when no <c>checks</c> are configured.</summary>
+    private ICheckRunner? BuildCheckRunner()
+        => _config.Checks is { } checks
+            ? new ProcessCheckRunner(checks, _configDir ?? Directory.GetCurrentDirectory())
+            : null;
+
     /// <summary>Builds context memory when enabled, reusing the RAG embedder/store or falling back to
     /// an offline store; null when memory is disabled.</summary>
     private ContextMemory? BuildMemory()
@@ -197,7 +209,7 @@ public sealed class Runtime
 
         using var _ = Tracing.BeginSpan("graph.run");
         var state = await executor.RunAsync(userInput, seedContext);
-        return BuildResult(state, id, enriched, metrics.Metrics);
+        return BuildResult(state, id, enriched, await WithTraceability(metrics.Metrics));
     }
 
     /// <summary>Resumes a previously checkpointed run from where it left off.</summary>
@@ -212,7 +224,35 @@ public sealed class Runtime
         var metrics = new MetricsExecutionObserver();
         var state = await BuildExecutor(runId, null, Observe(metrics))
             .RunAsync(snapshot.UserInput, resumeFrom: snapshot);
-        return BuildResult(state, runId, enriched: null, metrics.Metrics);
+        return BuildResult(state, runId, enriched: null, await WithTraceability(metrics.Metrics));
+    }
+
+    /// <summary>Enriches run metrics with the spec completion verdict when a spec store is configured.
+    /// Best-effort: a store read failure (e.g. an unreachable MCP server) leaves metrics untouched
+    /// rather than failing the run.</summary>
+    private async Task<RunMetrics> WithTraceability(RunMetrics metrics)
+    {
+        if (SpecStore is null)
+            return metrics;
+        try
+        {
+            var report = TraceabilityValidator.Analyze(await SpecStore.LoadAsync());
+            return metrics with
+            {
+                Traceability = new TraceabilitySummary
+                {
+                    Requirements = report.InScopeCount,
+                    Covered = report.CoveredCount,
+                    Verified = report.VerifiedCount,
+                    Tasks = report.TaskCount,
+                    Complete = report.IsComplete,
+                },
+            };
+        }
+        catch
+        {
+            return metrics;
+        }
     }
 
     /// <summary>Composes the configured (or default console) presentation observer with the run's
@@ -309,6 +349,7 @@ public sealed class Runtime
                 AskAgent = answerMode ? null : AskAgentAsync,
                 SpecStore = SpecStore,
                 SpecRequireCriteria = _config.Spec?.RequireCriteria ?? true,
+                CheckRunner = CheckRunner,
             });
         }
 

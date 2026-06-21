@@ -29,7 +29,7 @@ public class SpecToolsTests
 
     private static List<AITool> AllTools(ISpecStore store, bool requireCriteria = true) =>
         SpecTools.Create(
-            new[] { "spec_get", "spec_propose_requirement", "spec_set_status", "spec_add_task", "spec_link_task" },
+            new[] { "spec_get", "spec_gate", "spec_propose_requirement", "spec_bind_check", "spec_set_status", "spec_add_task", "spec_link_task" },
             store, requireCriteria);
 
     [Fact]
@@ -96,6 +96,51 @@ public class SpecToolsTests
         Assert.Contains("R1", view);
         Assert.Contains("Approved", view);
         Assert.Contains("T1", view);
+    }
+
+    [Fact]
+    public async Task BindCheck_MakesCriterionMachineCheckable()
+    {
+        var store = new MemSpecStore();
+        var tools = AllTools(store);
+
+        await Tool(tools, "spec_propose_requirement").InvokeAsync(Args(
+            ("title", "Login"), ("description", ""), ("priority", "must"), ("acceptance", "tests pass")));
+        var bound = AsString(await Tool(tools, "spec_bind_check").InvokeAsync(Args(
+            ("requirementId", "R1"), ("criterionId", "R1.A1"), ("kind", "test"), ("expression", "test filter=Auth"))));
+
+        Assert.Contains("ok", bound);
+        var check = store.Doc.FindRequirement("R1")!.AcceptanceCriteria[0].Check;
+        Assert.Equal(CheckKind.Test, check.Kind);
+        Assert.Equal("test filter=Auth", check.Expression);
+    }
+
+    [Fact]
+    public async Task SpecGate_ReportsCompletionVerdict_WithoutMutating()
+    {
+        var store = new MemSpecStore();
+        var tools = AllTools(store);
+
+        // An approved-but-uncovered requirement → the gate must report INCOMPLETE.
+        await Tool(tools, "spec_propose_requirement").InvokeAsync(Args(
+            ("title", "Login"), ("description", ""), ("priority", "must"), ("acceptance", "session exists")));
+        await Tool(tools, "spec_set_status").InvokeAsync(Args(("requirementId", "R1"), ("status", "approved")));
+
+        var before = store.Doc;
+        var incomplete = AsString(await Tool(tools, "spec_gate").InvokeAsync(Args()));
+        Assert.Contains("INCOMPLETE", incomplete);
+        Assert.Same(before, store.Doc); // read-only: nothing changed
+
+        // Cover it with a task and verify it → the gate flips to COMPLETE.
+        await Tool(tools, "spec_add_task").InvokeAsync(Args(
+            ("description", "implement"), ("kind", "be"), ("requirementIds", "R1")));
+        await Tool(tools, "spec_bind_check").InvokeAsync(Args(
+            ("requirementId", "R1"), ("criterionId", "R1.A1"), ("kind", "test"), ("expression", "test")));
+        await Tool(tools, "spec_set_status").InvokeAsync(Args(("requirementId", "R1"), ("status", "verified")));
+
+        var complete = AsString(await Tool(tools, "spec_gate").InvokeAsync(Args()));
+        Assert.Contains("COMPLETE", complete);
+        Assert.DoesNotContain("INCOMPLETE", complete);
     }
 
     [Fact]

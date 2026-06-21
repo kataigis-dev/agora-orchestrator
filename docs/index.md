@@ -32,7 +32,8 @@ src/
 │   ├── Providers/           # Chat provider interfaces
 │   ├── HumanInTheLoop/      # Approval / conflict-resolution interfaces
 │   ├── Rag/                 # RAG pipeline (ingest, chunking, embedding, search)
-│   ├── Specs/               # Structured spec models, store, validator (SDD)
+│   ├── Specs/               # Structured spec models, store, validator, traceability gate (SDD)
+│   ├── Verification/        # Real build/test execution + acceptance verification
 │   └── Resilience/          # Retry, timeout
 ├── Agora.AgentFramework/    # Concrete implementations with Microsoft.Extensions.AI
 ├── Agora.Api/               # ASP.NET REST API server
@@ -88,9 +89,11 @@ dotnet test tests/Agora.Api.Tests
 | **GraphExecutor** | Runs a directed graph of agents, managing state, messages and transitions |
 | **Agent** | Base agent: prompt + configuration + optional tools/skills |
 | **ChatProvider** | Interface for chat providers (OpenAI, Ollama, custom); prompt-caching hints |
-| **MetricsExecutionObserver** | Aggregates run events into `RunMetrics` (steps, rework, token/cache usage) |
+| **MetricsExecutionObserver** | Aggregates run events into `RunMetrics` (steps, rework, token/cache usage, spec traceability) |
 | **H2cParser** | Parses the H2C protocol (structured `[TYPE:SUBTYPE]` blocks) |
 | **McpToolSession** | Connection to MCP servers via stdio or HTTP |
 | **RagPipeline** | Ingest, chunking, embedding, vector search |
 | **SpecStore** | Persists the structured `SpecDocument` (requirements/tasks); file or RAG-over-MCP |
+| **CheckRunner** | Runs allow-listed build/test commands; `AcceptanceVerifier` binds them to criteria |
+| **TraceabilityValidator** | Derives the deterministic `COMPLETE`/`INCOMPLETE` completion gate from requirement↔task↔check coverage (`spec_gate` tool + `RunMetrics.Traceability`) |
 | **RetryPolicy** | Retry and timeout for API calls |

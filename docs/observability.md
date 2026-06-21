@@ -57,14 +57,23 @@ Console.WriteLine(m.ToSummary());
 | `InputTokens` / `OutputTokens` | total token cost |
 | `CacheReadTokens` / `CacheWriteTokens` | prompt-cache hits / writes |
 | `CacheHitRate` | `CacheReadTokens / InputTokens` — verifies caching is working |
+| `Traceability` | spec completion summary when a `spec` store is configured (else null) — see below |
+
+When a `spec` store is configured, the runtime analyses the persisted specification at the end of the
+run and attaches a `TraceabilitySummary`: `Requirements` (the approved scope), `Covered`, `Verified`,
+`Tasks`, the `CoverageRate`/`VerificationRate`, and `Complete` — the deterministic completion verdict
+(every approved requirement covered by a task and verified through real checks). It is the same verdict
+the `spec_gate` tool returns, surfaced as a metric so a caller or CI can gate on it. See
+[spec.md](spec.md#gating-completion).
 
 ### Why these
 
 They target the signals that distinguish *capable* from *reliable* runs: completion, how much the
 graph looped back to redo work (`ReworkCount`, `Signals[fix]`), where effort concentrated
-(`NodeVisits`), cost (`*Tokens`), and whether prompt caching actually engaged (`CacheHitRate`). Use
-them to compare configurations — e.g. a leaner graph vs. the full gated pipeline, or memory on vs.
-off — instead of judging a run on its final answer alone.
+(`NodeVisits`), cost (`*Tokens`), whether prompt caching actually engaged (`CacheHitRate`), and whether
+the committed spec scope was genuinely traced and verified (`Traceability.Complete`) rather than merely
+declared done. Use them to compare configurations — e.g. a leaner graph vs. the full gated pipeline, or
+memory on vs. off — instead of judging a run on its final answer alone.
 
 ## Plugging a custom observer
 

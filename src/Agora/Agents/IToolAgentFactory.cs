@@ -4,6 +4,7 @@ using Agora.Providers;
 using Agora.Rag;
 using Agora.Skills;
 using Agora.Specs;
+using Agora.Verification;
 
 namespace Agora.Agents;
 
@@ -33,6 +34,10 @@ public sealed record AgentBuildContext
 
     /// <summary>Whether the spec tools enforce "every requirement has an acceptance criterion".</summary>
     public bool SpecRequireCriteria { get; init; } = true;
+
+    /// <summary>Runs allow-listed checks for the <c>run_check</c>/<c>spec_verify</c> tools, or null
+    /// when no <c>checks</c> are configured.</summary>
+    public ICheckRunner? CheckRunner { get; init; }
 }
 
 /// <summary>

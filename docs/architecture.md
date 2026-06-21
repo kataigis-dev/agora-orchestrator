@@ -15,6 +15,7 @@ Agora Orchestrator is layered:
 │  IChatProvider  (OpenAI/Ollama)│  providers
 │  RagPipeline / KnowledgeBase   │  retrieval + writable KB
 │  ISpecStore (file / MCP)       │  structured specification
+│  ICheckRunner (process)        │  real build/test execution
 │  ContextMemory                 │  context compression
 │  McpToolSession                │  external tools
 ├───────────────────────────────┤
@@ -87,8 +88,21 @@ When the `spec` section is configured, the runtime builds an `ISpecStore` (the f
 as the RAG vector-store/embedder resolvers). Agents that allow-list the `spec_*` tools produce and
 mutate a structured `SpecDocument` (requirements with stable ids + acceptance criteria, and tasks
 that trace back to them); every write is validated by `SpecValidator` before persisting. The store is
-the deterministic source of truth, kept separate from similarity-based RAG retrieval. See
-[spec.md](spec.md).
+the deterministic source of truth, kept separate from similarity-based RAG retrieval.
+
+When a `checks` section is present, the runtime also builds an `ICheckRunner` (`ProcessCheckRunner`)
+that runs an allow-list of named build/test commands as real processes (no shell). The `run_check`
+and `spec_verify` tools execute these; `AcceptanceVerifier` binds them to acceptance criteria so a
+requirement is marked `Verified` only when its checks pass deterministically — moving gate decisions
+off LLM judgement.
+
+`TraceabilityValidator` lifts that from one requirement to the whole spec: it projects the document
+into a `TraceabilityReport` (the requirement↔task↔check matrix) and derives a deterministic
+`COMPLETE`/`INCOMPLETE` verdict — the committed scope is done only when every approved requirement is
+covered by a task and verified through real checks. The verdict is exposed both as the read-only
+`spec_gate` tool (so an agent routes `done` on the gate, not on self-assessment) and on
+`RunMetrics.Traceability`, which the runtime computes from the persisted spec at the end of each run so
+completeness can be asserted programmatically. See [spec.md](spec.md).
 
 ## Providers and models
 

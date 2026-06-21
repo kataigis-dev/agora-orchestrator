@@ -161,7 +161,7 @@ Full documentation in [`docs/`](docs/index.md):
 | [docs/observability.md](docs/observability.md) | Execution observers, run metrics (steps, rework, token/cache usage) |
 | [docs/mcp.md](docs/mcp.md) | MCP: stdio/HTTP servers, tool discovery, approval gates |
 | [docs/rag.md](docs/rag.md) | RAG: ingest pipeline, chunking, embeddings, vector store |
-| [docs/spec.md](docs/spec.md) | Structured specs: requirement/task model, store (file/MCP), `spec_*` tools, validation |
+| [docs/spec.md](docs/spec.md) | Structured specs: requirement/task model, store (file/MCP), `spec_*` tools, validation, real check execution (`run_check`/`spec_verify`), and the traceability completion gate (`spec_gate`) |
 | [docs/h2c.md](docs/h2c.md) | H2C protocol: blocks, types, interpreter |
 | [examples/README.md](examples/README.md) | Description of each example with commands |
 

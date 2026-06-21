@@ -42,6 +42,7 @@ public sealed class AgentFrameworkAgent : IAgent
         rawTools.AddRange(BuiltInFileTools.Create(_ctx.Card.Tools));
         rawTools.AddRange(RagTools.Create(_ctx.Card.Tools, _ctx.Rag, _ctx.KnowledgeBase, _ctx.Card.Id));
         rawTools.AddRange(SpecTools.Create(_ctx.Card.Tools, _ctx.SpecStore, _ctx.SpecRequireCriteria));
+        rawTools.AddRange(CheckTools.Create(_ctx.Card.Tools, _ctx.CheckRunner, _ctx.SpecStore, _ctx.SpecRequireCriteria));
         if (AskAgentTool.Create(_ctx.Card.Tools, _ctx.AskAgent) is { } askAgent)
             rawTools.Add(askAgent);
 
