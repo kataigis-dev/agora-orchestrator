@@ -1,7 +1,7 @@
 # 12 — Security and governance
 
 Agents **act**: they invoke tools and modify data **without explicit human instruction at every step**,
-on **non-deterministic** decisions ([01](01-fondamenti-llm.md)). This introduces risk dimensions that
+on **non-deterministic** decisions ([01](01-llm-foundations.md)). This introduces risk dimensions that
 traditional software does not have. All the sources converge on one idea: security must be **designed from
 the start**, not added later.
 
@@ -44,7 +44,7 @@ In practice: a per-agent tool allow-list, restricted credentials, no "just-in-ca
 ### Observability and auditability by design
 
 AWS recommends building them into the architecture from the start (e.g. tracking latency, token usage,
-error rates). See [10 — Evaluation and observability](10-valutazione-osservabilita.md).
+error rates). See [10 — Evaluation and observability](10-evaluation-observability.md).
 
 ## Google: Secure AI Framework (SAIF)
 
@@ -98,9 +98,9 @@ Combining the four sources, the **guardrails** of an agentic system include:
 Agora Orchestrator applies several of these guardrails: per-agent tool allow-lists, HITL approvals, and —
 for check execution — commands only from configuration, **with no shell**, with token-by-token
 substitution and timeouts. See [`../spec.md`](../spec.md) and
-[15 — Mapping onto Agora](15-mappatura-agora.md).
+[15 — Mapping onto Agora](15-agora-mapping.md).
 
 ---
 
 Previous: [11 — Human-in-the-loop](11-human-in-the-loop.md) · Next:
-[13 — Standards and protocols](13-standard-protocolli.md).
+[13 — Standards and protocols](13-standards-protocols.md).

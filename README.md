@@ -105,6 +105,9 @@ graph:
 
 Agents signal routing with `<<signal done>>` (natural mode) or `[STATE:DONE]` (H2C mode).
 
+> The **H2C** structured-communication protocol is by [LuPaLa-Coder/H2C](https://github.com/LuPaLa-Coder/H2C);
+> Agora implements it as one of its two communication modes.
+
 ### Tools via MCP
 
 ```yaml
@@ -163,7 +166,7 @@ Full documentation in [`docs/`](docs/index.md):
 | [docs/rag.md](docs/rag.md) | RAG: ingest pipeline, chunking, embeddings, vector store |
 | [docs/spec.md](docs/spec.md) | Structured specs: requirement/task model, store (file/MCP), `spec_*` tools, validation, real check execution (`run_check`/`spec_verify`), and the traceability completion gate (`spec_gate`) |
 | [docs/h2c.md](docs/h2c.md) | H2C protocol: blocks, types, interpreter |
-| [docs/concetti/](docs/concetti/README.md) | Conceptual documentation: agents, RAG, MCP, agentic-workflow patterns, security, execution flow & class reference — with sources from Anthropic/Google/Microsoft/AWS |
+| [docs/concepts/](docs/concepts/README.md) | Conceptual documentation: agents, RAG, MCP, agentic-workflow patterns, security, execution flow & class reference — with sources from Anthropic/Google/Microsoft/AWS |
 | [examples/README.md](examples/README.md) | Description of each example with commands |
 
 ## Build & test
@@ -173,6 +176,12 @@ dotnet build
 dotnet test tests/Agora.Tests
 dotnet test tests/Agora.Api.Tests
 ```
+
+## Acknowledgments
+
+- [@s4ndr0ne](https://github.com/s4ndr0ne) — for contributions to this repository.
+- [LuPaLa-Coder/H2C](https://github.com/LuPaLa-Coder/H2C) — author of the H2C structured-communication
+  protocol, implemented here as one of Agora's two communication modes.
 
 ## License
 

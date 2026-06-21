@@ -44,10 +44,10 @@ Combining Google and Anthropic, an agent is made of:
 
 | Component | Role | Deep dive |
 |-----------|------|-----------|
-| **Model (AI Model)** | Provides reasoning and decision-making | [01](01-fondamenti-llm.md) |
-| **System prompt** | Defines behavior, persona and constraints | [01](01-fondamenti-llm.md) |
-| **Tools** | External resources to gather information or take actions | [03](03-strumenti-function-calling.md) |
-| **Memory** | Keeps information across steps and across sessions | [06](06-memoria-contesto.md) |
+| **Model (AI Model)** | Provides reasoning and decision-making | [01](01-llm-foundations.md) |
+| **System prompt** | Defines behavior, persona and constraints | [01](01-llm-foundations.md) |
+| **Tools** | External resources to gather information or take actions | [03](03-tools-function-calling.md) |
+| **Memory** | Keeps information across steps and across sessions | [06](06-memory-context.md) |
 | **Orchestration/reasoning loop** | Manages the iterative *think → act → observe* cycle | below |
 
 ## The reasoning loop (ReAct)
@@ -87,12 +87,12 @@ tasks", while autonomy should be introduced only when large-scale flexibility is
    retrieval and examples*". Adding agents and frameworks has a cost (latency, tokens, debugging).
 2. **Transparency** — show the agent's planning steps explicitly.
 3. **Care for the agent-computer interface (ACI)** — document and test tools with the same attention you
-   would give to a human interface (see [03](03-strumenti-function-calling.md)).
+   would give to a human interface (see [03](03-tools-function-calling.md)).
 
 > **Remember.** "Start simple; add complexity only when a demonstrated improvement justifies it." This
 > principle runs through all the following chapters.
 
 ---
 
-Previous: [01 — Foundations](01-fondamenti-llm.md) · Next:
-[03 — Tools and function calling](03-strumenti-function-calling.md).
+Previous: [01 — Foundations](01-llm-foundations.md) · Next:
+[03 — Tools and function calling](03-tools-function-calling.md).

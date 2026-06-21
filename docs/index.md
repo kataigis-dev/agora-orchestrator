@@ -54,12 +54,12 @@ examples/
 └── agora-llama.yaml         # Local model via LLM studio
 docs/
 ├── (technical documentation)
-└── concetti/               # Conceptual documentation (agents, RAG, MCP, patterns, security, execution flow)
+└── concepts/               # Conceptual documentation (agents, RAG, MCP, patterns, security, execution flow)
 ```
 
 > For the **conceptual foundations** (what an agent is, RAG, MCP, the patterns and standards for agentic
 > workflows, security, the execution flow and a class reference), with sources from
-> Anthropic/Google/Microsoft/AWS, see [`concetti/`](concetti/README.md).
+> Anthropic/Google/Microsoft/AWS, see [`concepts/`](concepts/README.md).
 
 ## Quick start
 

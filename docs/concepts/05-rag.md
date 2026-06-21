@@ -3,7 +3,7 @@
 ## The problem it solves
 
 An LLM only knows its training data up to its *knowledge cutoff* and cannot see an organization's private
-or up-to-date data (see [01](01-fondamenti-llm.md)). Retraining the model is expensive and slow. **RAG**
+or up-to-date data (see [01](01-llm-foundations.md)). Retraining the model is expensive and slow. **RAG**
 is the technique for giving the model access to an **authoritative external knowledge base** *at
 generation time*, without changing its weights.
 
@@ -71,7 +71,7 @@ is a capability the agent invokes dynamically within its reasoning loop.
 - **Fine-tuning**: to teach **style, format or skills**, not facts that change often.
 - **Long context**: if the relevant documents are few and small, sometimes it is enough to put them
   directly into the prompt. But the context window has diminishing returns (see
-  [06](06-memoria-contesto.md)), so RAG remains preferable over large corpora.
+  [06](06-memory-context.md)), so RAG remains preferable over large corpora.
 
 ## Evaluating a RAG system
 
@@ -79,15 +79,15 @@ A RAG system must be evaluated on two distinct fronts:
 
 - **Retrieval quality**: are the retrieved chunks relevant? (precision/recall metrics over retrieval).
 - **Generation quality**: is the answer *faithful* to the retrieved chunks and *relevant* to the
-  question? Here automatic judges are often used (see [10 — Evaluation](10-valutazione-osservabilita.md)).
+  question? Here automatic judges are often used (see [10 — Evaluation](10-evaluation-observability.md)).
 
 ## RAG as a *writable* knowledge base
 
 In multi-agent systems the vector store is not only for reading: it can become a **writable shared
 memory**, in which agents deposit intermediate results that other agents retrieve. This connects RAG to
-the topics of [memory](06-memoria-contesto.md) and
-[orchestration](08-orchestrazione-multi-agente.md).
+the topics of [memory](06-memory-context.md) and
+[orchestration](08-multi-agent-orchestration.md).
 
 ---
 
-Previous: [04 — MCP](04-mcp.md) · Next: [06 — Memory and context engineering](06-memoria-contesto.md).
+Previous: [04 — MCP](04-mcp.md) · Next: [06 — Memory and context engineering](06-memory-context.md).

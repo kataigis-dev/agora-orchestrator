@@ -2,7 +2,7 @@
 
 An **exhaustive** list of every type in the code (class, interface, record, enum), grouped by folder
 according to the reorganized structure. For each: one line on *what it is for*. To understand how these
-pieces collaborate at runtime see [17 — Execution flow](17-flusso-di-esecuzione.md).
+pieces collaborate at runtime see [17 — Execution flow](17-execution-flow.md).
 
 Legend: **I** interface · **R** record · **E** enum · **C** class.
 
@@ -205,4 +205,4 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 
 ---
 
-Previous: [17 — Execution flow](17-flusso-di-esecuzione.md) · Back to the [index](README.md).
+Previous: [17 — Execution flow](17-execution-flow.md) · Back to the [index](README.md).

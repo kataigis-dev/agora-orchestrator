@@ -3,7 +3,7 @@
 This chapter follows a request from start to finish, naming **every class and method involved**. It is
 meant for someone who does not know the project: reading it you understand *what happens when you run
 Agora*. For a description of all the classes one by one see
-[18 — Class reference](18-riferimento-classi.md).
+[18 — Class reference](18-class-reference.md).
 
 ## Big picture: three projects
 
@@ -23,7 +23,7 @@ Agora.Api  ─┤── use ──▶  Agora ◀───────┤   chat 
 
 > Key principle: the core depends only on **abstractions**; the implementations are injected from the
 > outside (`provider`, `toolAgentFactory`, the various `*Resolver`s). See
-> [12 — Security](12-sicurezza-governance.md) and
+> [12 — Security](12-security-governance.md) and
 > [16 — Microsoft Agent Framework](16-microsoft-agent-framework.md).
 
 ---
@@ -64,7 +64,7 @@ exception and turns it into `ERROR: …` + exit code 1).
 | Step in the constructor | What it does |
 |---|---|
 | `ModelResolver.Resolve(config)` | flattens models+providers+defaults into runnable `ModelSpec`s (one per alias) |
-| `new ResilientChatProvider(provider)` | wraps the provider with retry+timeout ([`RetryPolicy`](10-valutazione-osservabilita.md)) |
+| `new ResilientChatProvider(provider)` | wraps the provider with retry+timeout ([`RetryPolicy`](10-evaluation-observability.md)) |
 | `BuildRag()` → `RagFactory.Build` | builds the `RagPipeline` (embedder, vector store, refiner) if there is a `rag` section |
 | `BuildKnowledgeBase()` | the **write** path into the same knowledge base (`KnowledgeBase`) |
 | `BuildSpecStore()` | `FileSpecStore` (file) or an injected store (RAG-over-MCP) if there is a `spec` section |
@@ -132,7 +132,7 @@ It builds the messages: `system` (from `AgentCard.ComposeInstructions`, marked `
 caching) + `user` (context + input). It calls `IChatProvider.CompleteAsync` (or `StreamAsync` if there is
 streaming and a provider that supports it). Finally `IOutputInterpreter.Interpret` turns the raw text into
 `(clean output, signals, artifacts)` — this is where `SignalParser` acts (see
-[signals and artifacts](14-glossario.md)). It returns an `AgentResult` including the token counts.
+[signals and artifacts](14-glossary.md)). It returns an `AgentResult` including the token counts.
 
 ### 8b. Tool-capable agent — `AgentFrameworkAgent.RunAsync`
 
@@ -201,4 +201,4 @@ Program.cs → CliRunner → CommandStrategy.Run
 ---
 
 Previous: [16 — Microsoft Agent Framework](16-microsoft-agent-framework.md) · Next:
-[18 — Class reference](18-riferimento-classi.md).
+[18 — Class reference](18-class-reference.md).

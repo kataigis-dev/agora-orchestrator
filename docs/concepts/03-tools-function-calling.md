@@ -15,7 +15,7 @@ The standard mechanism is called **function calling** (or *tool use*):
    description, parameters (usually in JSON Schema).
 2. The model, instead of replying in text, can emit a **call request**: the tool name and the arguments.
 3. The **application** (not the model) runs the tool and returns the result.
-4. The model incorporates the observation and continues (see the ReAct loop in [02](02-agenti.md)).
+4. The model incorporates the observation and continues (see the ReAct loop in [02](02-agents.md)).
 
 Crucial point for security: **it is the application, not the model, that executes the code**. The model
 proposes *what* to do; the orchestrator decides *whether and how* to do it, applying validation,
@@ -46,7 +46,7 @@ Poorly described or ambiguous tools produce unreliable agents. Best practices
 | **Verification** | running tests/builds and reading their outcome (deterministic checks) |
 
 The distinction between **read-only** tools and tools that **change state** is central to governance:
-action tools require tighter limits (see [12 — Security and governance](12-sicurezza-governance.md)).
+action tools require tighter limits (see [12 — Security and governance](12-security-governance.md)).
 
 ## Human approval (gating)
 
@@ -73,4 +73,4 @@ subject of the next chapter.
 
 ---
 
-Previous: [02 — Agents](02-agenti.md) · Next: [04 — Model Context Protocol](04-mcp.md).
+Previous: [02 — Agents](02-agents.md) · Next: [04 — Model Context Protocol](04-mcp.md).

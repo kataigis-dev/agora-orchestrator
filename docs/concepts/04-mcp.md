@@ -50,7 +50,7 @@ An MCP server announces a standardized set of capabilities, divided into three *
 | **Prompts** | Pre-written, reusable instruction templates | a "summarize this ticket" prompt |
 
 **Tools** are the primitive most used by agents, because they map directly onto
-[function calling](03-strumenti-function-calling.md): the client discovers the server's tools and
+[function calling](03-tools-function-calling.md): the client discovers the server's tools and
 presents them to the model as callable functions.
 
 ## Transports
@@ -69,14 +69,14 @@ MCP is agnostic about the transport channel. The two most common:
 2. **Separation of concerns**: whoever owns the data exposes a server; whoever builds the agent consumes
    capabilities without knowing the internal details.
 3. **Security and governance**: the client–server boundary is a natural place to apply permissions,
-   allow-lists and auditing (see [12](12-sicurezza-governance.md)).
+   allow-lists and auditing (see [12](12-security-governance.md)).
 
 ## Related protocols
 
 MCP solves the **agent ↔ tools/data** connection. A different problem is the **agent ↔ agent**
 connection: for that the **A2A (Agent-to-Agent)** protocol is emerging, covered in chapter
-[13 — Standards and protocols](13-standard-protocolli.md).
+[13 — Standards and protocols](13-standards-protocols.md).
 
 ---
 
-Previous: [03 — Tools](03-strumenti-function-calling.md) · Next: [05 — RAG](05-rag.md).
+Previous: [03 — Tools](03-tools-function-calling.md) · Next: [05 — RAG](05-rag.md).

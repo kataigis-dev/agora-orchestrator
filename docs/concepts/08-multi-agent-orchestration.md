@@ -3,7 +3,7 @@
 When a single agent is not enough — because the problem is cross-domain, because there are too many
 tools, or because distinct security boundaries are needed — you move to **multiple specialized agents
 that coordinate**. This chapter gathers the multi-agent orchestration patterns from **Microsoft** and
-**Google**, complementary to Anthropic's workflows from chapter [07](07-workflow-pattern.md).
+**Google**, complementary to Anthropic's workflows from chapter [07](07-workflow-patterns.md).
 
 ## First: do you really need multi-agent?
 
@@ -71,7 +71,7 @@ adds useful labels:
 - **Swarm**: agents collaborating with **all-to-all** communication, each building on the other's work.
   It is "the most complex and costly multi-agent pattern"; maximum quality, maximum risk of unproductive
   loops.
-- **ReAct** and **Human-in-the-loop**: already covered in [02](02-agenti.md) and
+- **ReAct** and **Human-in-the-loop**: already covered in [02](02-agents.md) and
   [11](11-human-in-the-loop.md).
 - **Custom logic**: bespoke orchestration with conditional logic, when no standard pattern fits.
 
@@ -85,7 +85,7 @@ Google identifies three interaction mechanisms between agents:
 
 For **interoperability between agents from different systems**, the **A2A (Agent-to-Agent)** protocol is
 emerging, complementary to MCP (which connects agents to tools). See
-[13 — Standards and protocols](13-standard-protocolli.md).
+[13 — Standards and protocols](13-standards-protocols.md).
 
 ## Benefits and risks of multi-agent
 
@@ -114,5 +114,5 @@ to prompt complexity, tool overload or security requirements.
 
 ---
 
-Previous: [07 — Workflow patterns](07-workflow-pattern.md) · Next:
+Previous: [07 — Workflow patterns](07-workflow-patterns.md) · Next:
 [09 — Spec-driven development](09-spec-driven-development.md).

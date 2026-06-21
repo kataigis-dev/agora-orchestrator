@@ -16,7 +16,7 @@ learned during training. This has two fundamental consequences:
    that [RAG](05-rag.md) solves.
 2. **Hallucinations.** The model can produce fluent but false statements, because it optimizes for
    linguistic plausibility, not truth. This is why serious systems **verify** outputs instead of
-   trusting them (see [evaluation](10-valutazione-osservabilita.md) and
+   trusting them (see [evaluation](10-evaluation-observability.md) and
    [spec-driven development](09-spec-driven-development.md)).
 
 ## Tokens and the context window
@@ -27,7 +27,7 @@ learned during training. This has two fundamental consequences:
 - **Context window**: the maximum number of tokens the model can consider in a single call (prompt +
   response). It is a **finite resource with diminishing returns**: beyond a certain amount, adding text
   degrades quality instead of improving it. Managing this space well is the topic of
-  [context engineering](06-memoria-contesto.md).
+  [context engineering](06-memory-context.md).
 
 ## The prompt
 
@@ -83,4 +83,4 @@ verify with deterministic checks** whenever possible.
 
 ---
 
-Next: [02 — Agents](02-agenti.md).
+Next: [02 — Agents](02-agents.md).

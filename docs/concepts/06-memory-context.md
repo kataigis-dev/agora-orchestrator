@@ -60,8 +60,8 @@ single agent drowning in a huge context. Microsoft explicitly cites *prompt comp
 overload* as reasons to move to multi-agent
 ([Microsoft](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns)).
 The flip side is that agents must **exchange only the minimum necessary context** so as not to reproduce
-the same problem at the system level (see [08](08-orchestrazione-multi-agente.md)).
+the same problem at the system level (see [08](08-multi-agent-orchestration.md)).
 
 ---
 
-Previous: [05 — RAG](05-rag.md) · Next: [07 — Workflow patterns](07-workflow-pattern.md).
+Previous: [05 — RAG](05-rag.md) · Next: [07 — Workflow patterns](07-workflow-patterns.md).

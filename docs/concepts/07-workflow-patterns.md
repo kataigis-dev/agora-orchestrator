@@ -4,7 +4,7 @@ This is one of the two central chapters on the **standards for agentic workflows
 patterns in which the flow is **orchestrated by predefined code** (workflows), following **Anthropic's**
 reference taxonomy
 ([*Building Effective Agents*](https://www.anthropic.com/research/building-effective-agents)). Chapter
-[08](08-orchestrazione-multi-agente.md) covers *multi-agent* orchestration instead.
+[08](08-multi-agent-orchestration.md) covers *multi-agent* orchestration instead.
 
 > Method reminder (Anthropic): **start with the simplest solution**. Many cases are solved with a single
 > LLM call augmented with retrieval and examples. Introduce the following patterns only when truly
@@ -92,7 +92,7 @@ input ─▶ generator ─▶ response ─▶ evaluator ─┴─▶ (ok) ─▶
 ## Workflow vs autonomous agent (again)
 
 The five patterns above are **workflows**: the path is hardcoded. Beyond these is the **autonomous
-agent**, which decides the sequence of actions itself in the ReAct loop (see [02](02-agenti.md)).
+agent**, which decides the sequence of actions itself in the ReAct loop (see [02](02-agents.md)).
 Anthropic reiterates: for well-defined tasks workflows offer better predictability; autonomy is
 introduced when flexibility is truly necessary.
 
@@ -108,5 +108,5 @@ introduced when flexibility is truly necessary.
 
 ---
 
-Previous: [06 — Memory and context](06-memoria-contesto.md) · Next:
-[08 — Multi-agent orchestration](08-orchestrazione-multi-agente.md).
+Previous: [06 — Memory and context](06-memory-context.md) · Next:
+[08 — Multi-agent orchestration](08-multi-agent-orchestration.md).

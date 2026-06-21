@@ -4,7 +4,7 @@
 
 An LLM agent tends to **declare** success ("I implemented the function, the tests pass") even when it is
 not true, because it optimizes for the plausibility of the text, not the truth (see
-[01](01-fondamenti-llm.md)). If a workflow's *gates* trust this narration, the system becomes unreliable.
+[01](01-llm-foundations.md)). If a workflow's *gates* trust this narration, the system becomes unreliable.
 **Spec-driven development (SDD)** is the answer: turning control decisions from "*the model says it's
 done*" into "*a deterministic check asserts reality*".
 
@@ -39,7 +39,7 @@ of an artifact. The verdict comes from the process's **exit code**, not from the
 
 ### 2. Real check execution
 Builds and tests are run as **real processes** (with the proper security precautions: a command
-allow-list, no shell, timeouts — see [12](12-sicurezza-governance.md)). A requirement moves to "verified"
+allow-list, no shell, timeouts — see [12](12-security-governance.md)). A requirement moves to "verified"
 **only** when its checks pass deterministically.
 
 ### 3. Traceability and a completion gate
@@ -57,8 +57,8 @@ Requirement R2 ──covered by──▶ Task T2 ──evidence──▶ check "
 
 SDD combines two patterns already seen, in a "hardened" form:
 
-- the **evaluator-optimizer** / **maker-checker** ([07](07-workflow-pattern.md),
-  [08](08-orchestrazione-multi-agente.md)), but with a **deterministic** evaluator (a process, not an
+- the **evaluator-optimizer** / **maker-checker** ([07](07-workflow-patterns.md),
+  [08](08-multi-agent-orchestration.md)), but with a **deterministic** evaluator (a process, not an
   LLM);
 - the **programmatic gates** of prompt chaining, applied to the whole specification.
 
@@ -69,9 +69,9 @@ model's self-assessment.
 
 Agora Orchestrator implements SDD in three phases (structured schema → real verification → traceability
 gate). The technical details are in [`../spec.md`](../spec.md); the conceptual mapping is in
-[15 — Mapping onto Agora](15-mappatura-agora.md).
+[15 — Mapping onto Agora](15-agora-mapping.md).
 
 ---
 
-Previous: [08 — Multi-agent orchestration](08-orchestrazione-multi-agente.md) · Next:
-[10 — Evaluation and observability](10-valutazione-osservabilita.md).
+Previous: [08 — Multi-agent orchestration](08-multi-agent-orchestration.md) · Next:
+[10 — Evaluation and observability](10-evaluation-observability.md).

@@ -32,7 +32,7 @@ OpenTelemetry is the industry standard for traces, metrics and logs; its **seman
 GenAI** are defining how to uniformly represent model calls, token usage and tool invocations. Microsoft
 points to it as the emerging standard for LLM observability
 ([Microsoft, *AI Agents in Production*](https://microsoft.github.io/ai-agents-for-beginners/10-ai-agents-production/)).
-See [10 — Evaluation and observability](10-valutazione-osservabilita.md).
+See [10 — Evaluation and observability](10-evaluation-observability.md).
 
 ## Overall picture
 
@@ -60,9 +60,9 @@ See [10 — Evaluation and observability](10-valutazione-osservabilita.md).
 - **Reuse**: a tool/agent exposed once serves many applications.
 - **Reduced lock-in**: you swap model or framework without rewriting the integrations.
 - **Governance**: the standardized boundaries (client–server, A2A messages) are natural places for
-  permissions and auditing ([12](12-sicurezza-governance.md)).
+  permissions and auditing ([12](12-security-governance.md)).
 
 ---
 
-Previous: [12 — Security and governance](12-sicurezza-governance.md) · Next:
-[14 — Glossary](14-glossario.md).
+Previous: [12 — Security and governance](12-security-governance.md) · Next:
+[14 — Glossary](14-glossary.md).
