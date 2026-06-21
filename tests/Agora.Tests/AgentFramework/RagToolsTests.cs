@@ -1,7 +1,14 @@
 using System.Text.Json;
-using Agora.AgentFramework;
+using Agora.AgentFramework.Agents;
+using Agora.AgentFramework.Providers;
+using Agora.AgentFramework.Rag;
+using Agora.AgentFramework.Specs;
+using Agora.AgentFramework.Mcp;
+using Agora.AgentFramework.Tools;
 using Agora.HumanInTheLoop;
-using Agora.Rag;
+using Agora.Rag.Contracts;
+using Agora.Rag.Models;
+using Agora.Rag.Concretes;
 using Microsoft.Extensions.AI;
 
 namespace Agora.Tests.AgentFramework;

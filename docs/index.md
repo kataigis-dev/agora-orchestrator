@@ -53,8 +53,13 @@ examples/
 ├── agora-spec.yaml          # Structured spec-driven development
 └── agora-llama.yaml         # Local model via LLM studio
 docs/
-└── (documentation)
+├── (documentazione tecnica in inglese)
+└── concetti/               # 🇮🇹 Documentazione concettuale in italiano (agenti, RAG, MCP, pattern, sicurezza)
 ```
+
+> 🇮🇹 Per i **fondamenti concettuali** (cosa è un agente, RAG, MCP, i pattern e gli standard per i
+> workflow agentici, sicurezza), con fonti Anthropic/Google/Microsoft/AWS, vedi
+> [`concetti/`](concetti/README.md).
 
 ## Quick start
 

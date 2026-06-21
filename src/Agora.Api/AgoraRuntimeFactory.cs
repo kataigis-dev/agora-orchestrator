@@ -1,8 +1,14 @@
-using Agora.Agents;
+using Agora.Agents.Contracts;
+using Agora.Agents.Models;
+using Agora.Agents.Concretes;
 using Agora.Configuration;
 using Agora.HumanInTheLoop;
-using Agora.Providers;
-using Agora.Rag;
+using Agora.Providers.Contracts;
+using Agora.Providers.Models;
+using Agora.Providers.Concretes;
+using Agora.Rag.Contracts;
+using Agora.Rag.Models;
+using Agora.Rag.Concretes;
 
 namespace Agora.Api;
 

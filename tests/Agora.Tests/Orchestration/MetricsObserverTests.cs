@@ -1,6 +1,10 @@
 using Agora;
-using Agora.Orchestration;
-using Agora.Providers;
+using Agora.Orchestration.Contracts;
+using Agora.Orchestration.Models;
+using Agora.Orchestration.Concretes;
+using Agora.Providers.Contracts;
+using Agora.Providers.Models;
+using Agora.Providers.Concretes;
 using Xunit;
 
 namespace Agora.Tests.Orchestration;

@@ -1,5 +1,7 @@
 using Agora.HumanInTheLoop;
-using Agora.Runs;
+using Agora.Runs.Contracts;
+using Agora.Runs.Models;
+using Agora.Runs.Concretes;
 using Xunit;
 
 namespace Agora.Tests.Runs;

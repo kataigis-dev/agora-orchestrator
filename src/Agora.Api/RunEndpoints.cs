@@ -1,5 +1,7 @@
 using Agora.Configuration;
-using Agora.Runs;
+using Agora.Runs.Contracts;
+using Agora.Runs.Models;
+using Agora.Runs.Concretes;
 
 namespace Agora.Api;
 
@@ -60,7 +62,7 @@ public static class RunEndpoints
             if (rag is null)
                 return Results.BadRequest(new { error = "config has no enabled 'rag' section" });
             var ingestCfg = runtimes.Config.Rag?.Ingest;
-            var ingestor = new Agora.Rag.Ingestor(rag.Embedder, rag.Store,
+            var ingestor = new Agora.Rag.Concretes.Ingestor(rag.Embedder, rag.Store,
                 chunkSize: ingestCfg?.ChunkSize ?? 800, overlap: ingestCfg?.ChunkOverlap ?? 120);
             var count = await ingestor.IngestPathsAsync(ingestCfg?.Sources ?? new List<string>());
             return Results.Ok(new IngestResponse(count));

@@ -1,7 +1,15 @@
-using Agora.Agents;
-using Agora.Orchestration;
-using Agora.Providers;
-using Agora.Rag;
+using Agora.Agents.Contracts;
+using Agora.Agents.Models;
+using Agora.Agents.Concretes;
+using Agora.Orchestration.Contracts;
+using Agora.Orchestration.Models;
+using Agora.Orchestration.Concretes;
+using Agora.Providers.Contracts;
+using Agora.Providers.Models;
+using Agora.Providers.Concretes;
+using Agora.Rag.Contracts;
+using Agora.Rag.Models;
+using Agora.Rag.Concretes;
 using Xunit;
 
 namespace Agora.Tests.Orchestration;

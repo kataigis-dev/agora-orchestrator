@@ -1,4 +1,6 @@
-using Agora.Specs;
+using Agora.Specs.Contracts;
+using Agora.Specs.Models;
+using Agora.Specs.Concretes;
 
 namespace Agora.Tests.Specs;
 

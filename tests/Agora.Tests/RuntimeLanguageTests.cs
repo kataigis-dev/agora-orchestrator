@@ -1,6 +1,10 @@
 using Agora;
-using Agora.Agents;
-using Agora.Providers;
+using Agora.Agents.Contracts;
+using Agora.Agents.Models;
+using Agora.Agents.Concretes;
+using Agora.Providers.Contracts;
+using Agora.Providers.Models;
+using Agora.Providers.Concretes;
 using Xunit;
 
 namespace Agora.Tests;

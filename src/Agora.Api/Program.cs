@@ -1,10 +1,23 @@
 using Agora.Api;
-using Agora.AgentFramework;
-using Agora.Agents;
+using Agora.AgentFramework.Agents;
+using Agora.AgentFramework.Providers;
+using Agora.AgentFramework.Rag;
+using Agora.AgentFramework.Specs;
+using Agora.AgentFramework.Mcp;
+using Agora.AgentFramework.Tools;
+using Agora.Agents.Contracts;
+using Agora.Agents.Models;
+using Agora.Agents.Concretes;
 using Agora.Configuration;
-using Agora.Providers;
-using Agora.Rag;
-using Agora.Runs;
+using Agora.Providers.Contracts;
+using Agora.Providers.Models;
+using Agora.Providers.Concretes;
+using Agora.Rag.Contracts;
+using Agora.Rag.Models;
+using Agora.Rag.Concretes;
+using Agora.Runs.Contracts;
+using Agora.Runs.Models;
+using Agora.Runs.Concretes;
 
 var builder = WebApplication.CreateBuilder(args);
 

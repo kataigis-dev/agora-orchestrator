@@ -1,4 +1,9 @@
-using Agora.AgentFramework;
+using Agora.AgentFramework.Agents;
+using Agora.AgentFramework.Providers;
+using Agora.AgentFramework.Rag;
+using Agora.AgentFramework.Specs;
+using Agora.AgentFramework.Mcp;
+using Agora.AgentFramework.Tools;
 using Agora.Cli;
 
 using var provider = new AgentFrameworkChatProvider();

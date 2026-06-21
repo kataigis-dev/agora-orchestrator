@@ -1,14 +1,26 @@
-using Agora.Agents;
+using Agora.Agents.Contracts;
+using Agora.Agents.Models;
+using Agora.Agents.Concretes;
 using Agora.Communication;
 using Agora.Configuration;
 using Agora.HumanInTheLoop;
 using Agora.Observability;
-using Agora.Orchestration;
-using Agora.Providers;
-using Agora.Rag;
+using Agora.Orchestration.Contracts;
+using Agora.Orchestration.Models;
+using Agora.Orchestration.Concretes;
+using Agora.Providers.Contracts;
+using Agora.Providers.Models;
+using Agora.Providers.Concretes;
+using Agora.Rag.Contracts;
+using Agora.Rag.Models;
+using Agora.Rag.Concretes;
 using Agora.Skills;
-using Agora.Specs;
-using Agora.Verification;
+using Agora.Specs.Contracts;
+using Agora.Specs.Models;
+using Agora.Specs.Concretes;
+using Agora.Verification.Contracts;
+using Agora.Verification.Models;
+using Agora.Verification.Concretes;
 
 namespace Agora;
 

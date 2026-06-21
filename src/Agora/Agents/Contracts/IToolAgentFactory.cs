@@ -1,0 +1,62 @@
+using Agora.Agents.Contracts;
+using Agora.Agents.Models;
+using Agora.Agents.Concretes;
+using Agora.Configuration;
+using Agora.HumanInTheLoop;
+using Agora.Providers.Contracts;
+using Agora.Providers.Models;
+using Agora.Providers.Concretes;
+using Agora.Rag.Contracts;
+using Agora.Rag.Models;
+using Agora.Rag.Concretes;
+using Agora.Skills;
+using Agora.Specs.Contracts;
+using Agora.Specs.Models;
+using Agora.Specs.Concretes;
+using Agora.Verification.Contracts;
+using Agora.Verification.Models;
+using Agora.Verification.Concretes;
+
+namespace Agora.Agents.Contracts;
+
+/// <summary>Everything a tool-capable agent backend needs to build an agent from config.</summary>
+public sealed record AgentBuildContext
+{
+    public required AgentCard Card { get; init; }
+    public required ModelSpec Spec { get; init; }
+    public IReadOnlyList<Skill> Skills { get; init; } = Array.Empty<Skill>();
+    public IReadOnlyList<string> Approvals { get; init; } = Array.Empty<string>();
+    public IApprovalHandler? ApprovalHandler { get; init; }
+    public IOutputInterpreter Interpreter { get; init; } = new SignalInterpreter();
+    public McpConfig? Mcp { get; init; }
+
+    /// <summary>Shared knowledge base read access for the <c>rag_search</c> tool.</summary>
+    public RagPipeline? Rag { get; init; }
+
+    /// <summary>Shared knowledge base write access for the <c>rag_write</c> tool.</summary>
+    public KnowledgeBase? KnowledgeBase { get; init; }
+
+    /// <summary>Callback for the <c>ask_agent</c> tool: <c>(targetAgentId, question) =&gt; answer</c>.
+    /// Null in answer-mode sub-calls so an interrogated agent cannot ask back (no recursion).</summary>
+    public Func<string, string, Task<string>>? AskAgent { get; init; }
+
+    /// <summary>Structured spec store for the <c>spec_*</c> tools, or null when SDD is disabled.</summary>
+    public ISpecStore? SpecStore { get; init; }
+
+    /// <summary>Whether the spec tools enforce "every requirement has an acceptance criterion".</summary>
+    public bool SpecRequireCriteria { get; init; } = true;
+
+    /// <summary>Runs allow-listed checks for the <c>run_check</c>/<c>spec_verify</c> tools, or null
+    /// when no <c>checks</c> are configured.</summary>
+    public ICheckRunner? CheckRunner { get; init; }
+}
+
+/// <summary>
+/// Builds a tool-capable IAgent (skills + MCP/function tools). Implemented by the framework layer
+/// (Agora.AgentFramework) so the core stays framework-free; tests inject a fake.
+/// </summary>
+public interface IToolAgentFactory
+{
+    /// <summary>Builds a tool-capable agent from the supplied build context.</summary>
+    IAgent Create(AgentBuildContext context);
+}

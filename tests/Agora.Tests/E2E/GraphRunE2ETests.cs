@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
 using Agora;
-using Agora.Providers;
+using Agora.Providers.Contracts;
+using Agora.Providers.Models;
+using Agora.Providers.Concretes;
 using Xunit;
 
 namespace Agora.Tests.E2E;

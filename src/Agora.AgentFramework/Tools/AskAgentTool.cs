@@ -1,0 +1,32 @@
+using Agora.AgentFramework.Tools;
+using Agora.AgentFramework.Mcp;
+using Agora.AgentFramework.Specs;
+using Agora.AgentFramework.Rag;
+using Agora.AgentFramework.Providers;
+using Agora.AgentFramework.Agents;
+using Microsoft.Extensions.AI;
+
+namespace Agora.AgentFramework.Tools;
+
+/// <summary>
+/// Built-in <c>ask_agent</c> tool: lets an agent ask another agent a question and get its
+/// answer synchronously. Created only when the agent allow-lists <c>ask_agent</c> and an
+/// ask callback is available (it is absent in answer-mode sub-calls, preventing recursion).
+/// </summary>
+internal static class AskAgentTool
+{
+    /// <summary>Creates the <c>ask_agent</c> tool when it is allow-listed and an ask callback exists;
+    /// otherwise returns null.</summary>
+    public static AITool? Create(IReadOnlyList<string> allowedTools, Func<string, string, Task<string>>? ask)
+    {
+        var set = allowedTools.ToHashSet(StringComparer.Ordinal);
+        if (!set.Contains("ask_agent") || ask is null)
+            return null;
+
+        return AIFunctionFactory.Create(
+            (string target, string question) => ask(target, question),
+            name: "ask_agent",
+            description: "Ask another agent (by id) a question and get its answer. Use this only AFTER "
+                + "rag_search fails to give you the context you need; prefer asking the agent that handed off to you.");
+    }
+}

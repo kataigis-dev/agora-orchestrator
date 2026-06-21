@@ -1,5 +1,12 @@
-using Agora.AgentFramework;
-using Agora.Providers;
+using Agora.AgentFramework.Agents;
+using Agora.AgentFramework.Providers;
+using Agora.AgentFramework.Rag;
+using Agora.AgentFramework.Specs;
+using Agora.AgentFramework.Mcp;
+using Agora.AgentFramework.Tools;
+using Agora.Providers.Contracts;
+using Agora.Providers.Models;
+using Agora.Providers.Concretes;
 using Microsoft.Extensions.AI;
 
 namespace Agora.Tests.AgentFramework;

@@ -1,6 +1,13 @@
-using Agora.AgentFramework;
+using Agora.AgentFramework.Agents;
+using Agora.AgentFramework.Providers;
+using Agora.AgentFramework.Rag;
+using Agora.AgentFramework.Specs;
+using Agora.AgentFramework.Mcp;
+using Agora.AgentFramework.Tools;
 using Agora.Configuration;
-using Agora.Rag;
+using Agora.Rag.Contracts;
+using Agora.Rag.Models;
+using Agora.Rag.Concretes;
 
 namespace Agora.Tests.AgentFramework;
 

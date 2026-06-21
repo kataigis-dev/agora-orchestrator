@@ -1,5 +1,9 @@
-using Agora.Specs;
-using Agora.Verification;
+using Agora.Specs.Contracts;
+using Agora.Specs.Models;
+using Agora.Specs.Concretes;
+using Agora.Verification.Contracts;
+using Agora.Verification.Models;
+using Agora.Verification.Concretes;
 
 namespace Agora.Tests.Verification;
 

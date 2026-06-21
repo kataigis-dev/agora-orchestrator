@@ -163,6 +163,7 @@ Full documentation in [`docs/`](docs/index.md):
 | [docs/rag.md](docs/rag.md) | RAG: ingest pipeline, chunking, embeddings, vector store |
 | [docs/spec.md](docs/spec.md) | Structured specs: requirement/task model, store (file/MCP), `spec_*` tools, validation, real check execution (`run_check`/`spec_verify`), and the traceability completion gate (`spec_gate`) |
 | [docs/h2c.md](docs/h2c.md) | H2C protocol: blocks, types, interpreter |
+| [docs/concetti/](docs/concetti/README.md) | 🇮🇹 Documentazione concettuale (in italiano): agenti, RAG, MCP, pattern di workflow agentici, sicurezza — con fonti Anthropic/Google/Microsoft/AWS |
 | [examples/README.md](examples/README.md) | Description of each example with commands |
 
 ## Build & test

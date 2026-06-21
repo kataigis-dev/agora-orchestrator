@@ -1,5 +1,7 @@
 using Agora.Configuration;
-using Agora.Verification;
+using Agora.Verification.Contracts;
+using Agora.Verification.Models;
+using Agora.Verification.Concretes;
 
 namespace Agora.Tests.Verification;
 

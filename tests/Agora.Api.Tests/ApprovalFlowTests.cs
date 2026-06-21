@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
-using Agora.Agents;
+using Agora.Agents.Contracts;
+using Agora.Agents.Models;
+using Agora.Agents.Concretes;
 using Agora.Configuration;
 using Agora.HumanInTheLoop;
 

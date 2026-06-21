@@ -1,4 +1,6 @@
-using Agora.Providers;
+using Agora.Providers.Contracts;
+using Agora.Providers.Models;
+using Agora.Providers.Concretes;
 
 namespace Agora.Tests.Providers;
 

@@ -1,6 +1,10 @@
 using Agora;
-using Agora.Providers;
-using Agora.Specs;
+using Agora.Providers.Contracts;
+using Agora.Providers.Models;
+using Agora.Providers.Concretes;
+using Agora.Specs.Contracts;
+using Agora.Specs.Models;
+using Agora.Specs.Concretes;
 
 namespace Agora.Tests.Orchestration;
 
