@@ -7,6 +7,7 @@ using Agora.Orchestration;
 using Agora.Providers;
 using Agora.Rag;
 using Agora.Skills;
+using Agora.Specs;
 
 namespace Agora;
 
@@ -34,9 +35,11 @@ public sealed class Runtime
     private readonly ContextMemory? _memory;
     private readonly IRouter? _router;
     private readonly ICheckpointStore? _checkpoints;
+    private readonly IExecutionObserver? _observer;
+    private readonly Func<SpecStoreSpec, ISpecStore?>? _specStoreResolver;
 
     /// <summary>Builds the runtime from a config and provider, wiring optional edge dependencies
-    /// (tool factory, HITL handlers, RAG resolvers, checkpoint store).</summary>
+    /// (tool factory, HITL handlers, RAG resolvers, checkpoint store, spec-store resolver).</summary>
     public Runtime(
         AgoraConfig config,
         IChatProvider provider,
@@ -47,10 +50,14 @@ public sealed class Runtime
         IConflictResolver? conflictResolver = null,
         Func<Configuration.VectorStoreConfig?, IVectorStore?>? storeResolver = null,
         Func<EmbedderSpec, IEmbedder?>? embedderResolver = null,
-        ICheckpointStore? checkpointStore = null)
+        ICheckpointStore? checkpointStore = null,
+        IExecutionObserver? observer = null,
+        Func<SpecStoreSpec, ISpecStore?>? specStoreResolver = null)
     {
         _config = config;
         _checkpoints = checkpointStore;
+        _observer = observer;
+        _specStoreResolver = specStoreResolver;
         _provider = provider is ResilientChatProvider ? provider : new ResilientChatProvider(provider);
         _specs = ModelResolver.Resolve(config);
         _configDir = configDir;
@@ -65,6 +72,7 @@ public sealed class Runtime
         _interpreter = _h2c ? new H2cInterpreter() : new SignalInterpreter();
         Rag = rag ?? BuildRag();
         KnowledgeBase = BuildKnowledgeBase();
+        SpecStore = BuildSpecStore();
         _memory = BuildMemory();
         _router = _config.Defaults.Model is string routerAlias && _specs.TryGetValue(routerAlias, out var routerSpec)
             ? new LlmRouter(_provider, routerSpec)
@@ -80,6 +88,9 @@ public sealed class Runtime
     /// <summary>Write path into the shared knowledge base (same store as <see cref="Rag"/>), or null when RAG is off.</summary>
     public KnowledgeBase? KnowledgeBase { get; }
 
+    /// <summary>Structured spec store (source of truth for the <c>spec_*</c> tools), or null when SDD is off.</summary>
+    public ISpecStore? SpecStore { get; }
+
     /// <summary>Loads the config at <paramref name="path"/> and builds a runtime from it.</summary>
     public static Runtime FromConfig(
         string path, IChatProvider provider, RagPipeline? rag = null,
@@ -87,12 +98,15 @@ public sealed class Runtime
         IConflictResolver? conflictResolver = null,
         Func<Configuration.VectorStoreConfig?, IVectorStore?>? storeResolver = null,
         Func<EmbedderSpec, IEmbedder?>? embedderResolver = null,
-        ICheckpointStore? checkpointStore = null)
+        ICheckpointStore? checkpointStore = null,
+        IExecutionObserver? observer = null,
+        Func<SpecStoreSpec, ISpecStore?>? specStoreResolver = null)
     {
         var full = Path.GetFullPath(path);
         return new Runtime(
             ConfigLoader.Load(full), provider, Path.GetDirectoryName(full), rag, toolAgentFactory,
-            approvalHandler, conflictResolver, storeResolver, embedderResolver, checkpointStore);
+            approvalHandler, conflictResolver, storeResolver, embedderResolver, checkpointStore, observer,
+            specStoreResolver);
     }
 
     /// <summary>Builds the RAG pipeline from config (with the optional LLM refiner), or null if absent.</summary>
@@ -117,6 +131,32 @@ public sealed class Runtime
             ? new LlmConflictJudge(_provider, spec)
             : new NoOpConflictJudge();
         return new KnowledgeBase(Rag.Embedder, Rag.Store, judge, _conflictResolver);
+    }
+
+    /// <summary>Builds the structured spec store from config: a core file store, or a non-core store
+    /// (e.g. RAG-over-MCP) via the edge-injected resolver. Null when SDD is absent/disabled.</summary>
+    private ISpecStore? BuildSpecStore()
+    {
+        if (_config.Spec is not { Enabled: true } spec)
+            return null;
+        var store = spec.Store ?? new SpecStoreConfig();
+        if (string.Equals(store.Type, "file", StringComparison.OrdinalIgnoreCase))
+        {
+            var path = store.Path ?? "spec.json";
+            if (!Path.IsPathRooted(path))
+                path = Path.Combine(_configDir ?? Directory.GetCurrentDirectory(), path);
+            return new FileSpecStore(path);
+        }
+        // Non-core stores (e.g. RAG over an MCP server) are built by the edge-injected resolver.
+        var serverName = store.Server
+            ?? throw new InvalidOperationException($"spec.store type '{store.Type}' requires a 'server'");
+        McpServerConfig? server = null;
+        _config.Mcp?.Servers.TryGetValue(serverName, out server);
+        var resolved = new SpecStoreSpec(
+            store.Type, serverName, server, store.WriteTool, store.ReadTool, store.WriteArg, store.QueryArg, store.Key);
+        return _specStoreResolver?.Invoke(resolved)
+            ?? throw new NotSupportedException(
+                $"spec store type '{store.Type}' has no built-in implementation and no resolver provided");
     }
 
     /// <summary>Builds context memory when enabled, reusing the RAG embedder/store or falling back to
@@ -144,7 +184,8 @@ public sealed class Runtime
     public async Task<RunResult> RunAsync(string userInput, string? runId = null, Action<string>? onChunk = null)
     {
         var id = runId ?? (_checkpoints is not null ? Guid.NewGuid().ToString("N") : "run");
-        var executor = BuildExecutor(id, onChunk);
+        var metrics = new MetricsExecutionObserver();
+        var executor = BuildExecutor(id, onChunk, Observe(metrics));
 
         EnrichedInput? enriched = null;
         var seedContext = "";
@@ -156,7 +197,7 @@ public sealed class Runtime
 
         using var _ = Tracing.BeginSpan("graph.run");
         var state = await executor.RunAsync(userInput, seedContext);
-        return BuildResult(state, id, enriched);
+        return BuildResult(state, id, enriched, metrics.Metrics);
     }
 
     /// <summary>Resumes a previously checkpointed run from where it left off.</summary>
@@ -168,13 +209,20 @@ public sealed class Runtime
             ?? throw new KeyNotFoundException($"no checkpoint found for run '{runId}'");
 
         using var _ = Tracing.BeginSpan("graph.resume");
-        var state = await BuildExecutor(runId).RunAsync(snapshot.UserInput, resumeFrom: snapshot);
-        return BuildResult(state, runId, enriched: null);
+        var metrics = new MetricsExecutionObserver();
+        var state = await BuildExecutor(runId, null, Observe(metrics))
+            .RunAsync(snapshot.UserInput, resumeFrom: snapshot);
+        return BuildResult(state, runId, enriched: null, metrics.Metrics);
     }
+
+    /// <summary>Composes the configured (or default console) presentation observer with the run's
+    /// metrics collector, so every graph run is measured without losing its rendering.</summary>
+    private IExecutionObserver Observe(MetricsExecutionObserver metrics)
+        => new CompositeExecutionObserver(_observer ?? new ConsoleExecutionObserver(), metrics);
 
     /// <summary>Builds and validates the graph and wraps it in an executor wired with handoff/memory/
     /// router/checkpoint settings.</summary>
-    private GraphExecutor BuildExecutor(string runId, Action<string>? onChunk = null)
+    private GraphExecutor BuildExecutor(string runId, Action<string>? onChunk, IExecutionObserver observer)
     {
         var graph = GraphBuilder.Build(_config);
         GraphBuilder.Validate(graph, _config.Agents.Keys.ToHashSet());
@@ -183,14 +231,14 @@ public sealed class Runtime
             : new MemoryOptions();
         return new GraphExecutor(graph, BuildAgent, handoff: _handoff,
             memory: _memory, memoryOptions: memoryOptions, router: _router,
-            checkpoints: _checkpoints, runId: runId, onChunk: onChunk);
+            checkpoints: _checkpoints, runId: runId, onChunk: onChunk, observer: observer);
     }
 
     /// <summary>Assembles a <see cref="RunResult"/> from the end state, taking the last agent's output.</summary>
-    private static RunResult BuildResult(State state, string runId, EnrichedInput? enriched)
+    private static RunResult BuildResult(State state, string runId, EnrichedInput? enriched, RunMetrics? metrics)
     {
         var output = state.LastAgent is not null ? state.Outputs.GetValueOrDefault(state.LastAgent, "") : "";
-        return new RunResult { Output = output, State = state, Enriched = enriched, RunId = runId };
+        return new RunResult { Output = output, State = state, Enriched = enriched, RunId = runId, Metrics = metrics };
     }
 
     /// <summary>Builds the runnable agent for an id (used as the executor's agent factory).</summary>
@@ -259,6 +307,8 @@ public sealed class Runtime
                 Rag = Rag,
                 KnowledgeBase = KnowledgeBase,
                 AskAgent = answerMode ? null : AskAgentAsync,
+                SpecStore = SpecStore,
+                SpecRequireCriteria = _config.Spec?.RequireCriteria ?? true,
             });
         }
 

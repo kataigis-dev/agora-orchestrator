@@ -15,7 +15,7 @@ code generation, document analysis, review, human approval, RAG ingest.
 ## Principles
 
 - Framework-free: the `Agora` core has no external dependencies
-- Config-driven: everything is declared in YAML (providers, models, agents, graph, MCP, skills, RAG)
+- Config-driven: everything is declared in YAML (providers, models, agents, graph, MCP, skills, RAG, spec)
 - Extensible: chat providers, MCP tools, skills, and custom graph executors
 - Two communication modes: H2C (formal) and natural (natural language + signals)
 
@@ -32,6 +32,7 @@ src/
 │   ├── Providers/           # Chat provider interfaces
 │   ├── HumanInTheLoop/      # Approval / conflict-resolution interfaces
 │   ├── Rag/                 # RAG pipeline (ingest, chunking, embedding, search)
+│   ├── Specs/               # Structured spec models, store, validator (SDD)
 │   └── Resilience/          # Retry, timeout
 ├── Agora.AgentFramework/    # Concrete implementations with Microsoft.Extensions.AI
 ├── Agora.Api/               # ASP.NET REST API server
@@ -48,6 +49,7 @@ examples/
 ├── agora-handoff.yaml       # Minimal handoff context
 ├── agora-memory.yaml        # RAG-backed context memory
 ├── agora-parallel.yaml      # Parallel fork/join
+├── agora-spec.yaml          # Structured spec-driven development
 └── agora-llama.yaml         # Local model via LLM studio
 docs/
 └── (documentation)
@@ -85,8 +87,10 @@ dotnet test tests/Agora.Api.Tests
 |---|---|
 | **GraphExecutor** | Runs a directed graph of agents, managing state, messages and transitions |
 | **Agent** | Base agent: prompt + configuration + optional tools/skills |
-| **ChatProvider** | Interface for chat providers (OpenAI, Ollama, custom) |
+| **ChatProvider** | Interface for chat providers (OpenAI, Ollama, custom); prompt-caching hints |
+| **MetricsExecutionObserver** | Aggregates run events into `RunMetrics` (steps, rework, token/cache usage) |
 | **H2cParser** | Parses the H2C protocol (structured `[TYPE:SUBTYPE]` blocks) |
 | **McpToolSession** | Connection to MCP servers via stdio or HTTP |
 | **RagPipeline** | Ingest, chunking, embedding, vector search |
+| **SpecStore** | Persists the structured `SpecDocument` (requirements/tasks); file or RAG-over-MCP |
 | **RetryPolicy** | Retry and timeout for API calls |

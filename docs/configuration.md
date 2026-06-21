@@ -114,12 +114,34 @@ mcp:
       url: http://localhost:3000/mcp   # HTTP transport
 ```
 
+### spec
+
+Structured spec-driven development: persists a machine-checkable `SpecDocument` (requirements +
+tasks) and exposes the `spec_*` tools. See [spec.md](spec.md) for the full reference.
+
+```yaml
+spec:
+  enabled: true
+  require_criteria: true       # reject requirements with no acceptance criterion
+  store:
+    type: file                 # canonical JSON source of truth
+    path: ./spec.json
+    # type: mcp                # or persist via a RAG store over MCP:
+    # server: memory           # an entry under mcp.servers
+    # write_tool: rag_write
+    # read_tool: rag_search
+    # write_arg: text
+    # query_arg: query
+    # key: "agora:spec-document"
+```
+
 ## Built-in tools
 
 Available to agents that list them in `tools` (no MCP server needed):
 `read_file`, `write_file`, `search_files`, `list_directory` (filesystem); `rag_search`, `rag_write`
-(shared knowledge base); `ask_agent` (ask another agent). Tools named in `approvals` are gated
-through a human (HITL).
+(shared knowledge base); `ask_agent` (ask another agent); `spec_get`, `spec_propose_requirement`,
+`spec_set_status`, `spec_add_task`, `spec_link_task` (structured spec — requires the `spec` section).
+Tools named in `approvals` are gated through a human (HITL).
 
 ## Natural communication
 

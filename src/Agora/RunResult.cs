@@ -17,4 +17,7 @@ public sealed record RunResult
 
     /// <summary>The run id checkpoints are stored under (when checkpointing is enabled).</summary>
     public string? RunId { get; init; }
+
+    /// <summary>Aggregate run metrics (steps, rework, token/cache usage); null for non-graph runs.</summary>
+    public RunMetrics? Metrics { get; init; }
 }

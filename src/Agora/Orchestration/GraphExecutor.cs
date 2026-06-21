@@ -101,6 +101,7 @@ public sealed class GraphExecutor
             var next = await NextNodeAsync(current, state);
 
             _observer.OnSignals(state.Signals.Keys.ToList());
+            _observer.OnUsage(Usage(result));
             foreach (var (key, value) in result.Artifacts)
                 _observer.OnArtifact(key, value);
             _observer.OnEdge(EdgeLabel(current, next, state), next, next == Graph.End);
@@ -197,6 +198,7 @@ public sealed class GraphExecutor
         foreach (var (node, result) in results)
         {
             state.Outputs[node] = result.Output;
+            _observer.OnUsage(Usage(result));
             foreach (var (key, value) in result.Artifacts)
                 if (!_handoff || key != HandoffKey)
                     state.Artifacts[key] = value;
@@ -279,6 +281,10 @@ public sealed class GraphExecutor
             _ => true,
         };
     }
+
+    /// <summary>Projects an agent result's token counts onto the observer's usage event.</summary>
+    private static TokenUsage Usage(AgentResult result) =>
+        new(result.InputTokens, result.OutputTokens, result.CacheReadTokens, result.CacheWriteTokens);
 
     /// <summary>Shortens a string to at most <paramref name="max"/> characters, appending an ellipsis.</summary>
     private static string Truncate(string s, int max) =>

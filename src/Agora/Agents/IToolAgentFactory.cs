@@ -3,6 +3,7 @@ using Agora.HumanInTheLoop;
 using Agora.Providers;
 using Agora.Rag;
 using Agora.Skills;
+using Agora.Specs;
 
 namespace Agora.Agents;
 
@@ -26,6 +27,12 @@ public sealed record AgentBuildContext
     /// <summary>Callback for the <c>ask_agent</c> tool: <c>(targetAgentId, question) =&gt; answer</c>.
     /// Null in answer-mode sub-calls so an interrogated agent cannot ask back (no recursion).</summary>
     public Func<string, string, Task<string>>? AskAgent { get; init; }
+
+    /// <summary>Structured spec store for the <c>spec_*</c> tools, or null when SDD is disabled.</summary>
+    public ISpecStore? SpecStore { get; init; }
+
+    /// <summary>Whether the spec tools enforce "every requirement has an acceptance criterion".</summary>
+    public bool SpecRequireCriteria { get; init; } = true;
 }
 
 /// <summary>

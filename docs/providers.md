@@ -102,6 +102,35 @@ parameters, the API key (read from the provider's `api_key_env`) and base URL.
 `Agora.AgentFramework.ChatClients.Build(spec)` then creates the concrete client. The provider is
 wrapped in `ResilientChatProvider`.
 
+## Prompt caching
+
+Providers expose prompt caching through **different mechanisms**, so Agora abstracts the *intent*
+rather than any one API. The core marks stable content; each provider adapter translates it.
+
+**The hint.** `ChatMessage` carries a `CacheStable` flag. The agent runners mark the system prompt /
+role instructions (stable across a run) as cacheable; the user turn is left volatile. The core stays
+provider-agnostic — it never names a caching API.
+
+**The mechanisms** (`Agora.Providers.PromptCaching.For(provider)`):
+
+| Mode | Providers | How the hint is translated |
+|---|---|---|
+| `Implicit` | OpenAI, OpenAI-compatible, Ollama | No-op. Caching is automatic on a stable prefix; the lever is keeping that prefix first and byte-identical (which the runners already do). |
+| `Breakpoint` | Anthropic | The adapter tags the message with `cache_control: { type: ephemeral }`. |
+| `Resource` | Google Gemini | Reserved: manage a `CachedContent` handle for the stable segment (not yet implemented). |
+| `None` | unknown / null | Ignored. |
+
+**Measuring it.** Cache usage is reported back through `CompletionResult.CacheReadTokens` /
+`CacheWriteTokens` (mapped from `UsageDetails.CachedInputTokenCount` and provider `AdditionalCounts`)
+and aggregated into `RunMetrics.CacheHitRate` — so you can verify caching is actually taking effect.
+See [observability.md](observability.md).
+
+> **Prerequisite for native Anthropic caching.** `ChatClients.Build` currently routes `anthropic`
+> through the OpenAI-compatible path, which does **not** carry `cache_control` to the wire. The
+> abstraction (marker + translation + usage accounting) is in place, but emitting the breakpoint
+> end-to-end needs a dedicated Anthropic `IChatClient` branch. Implicit caching (OpenAI/local) and
+> the usage accounting work today.
+
 ## Resilience
 
 `RetryPolicy` wraps each call:

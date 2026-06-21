@@ -79,7 +79,8 @@ internal static class CommandStrategy
             state.Provider ?? throw new InvalidOperationException("no chat provider supplied"),
             toolAgentFactory: state.ToolAgentFactory, approvalHandler: state.ApprovalHandler,
             conflictResolver: state.ConflictResolver, storeResolver: state.StoreResolver,
-            embedderResolver: state.EmbedderResolver, checkpointStore: checkpoints);
+            embedderResolver: state.EmbedderResolver, checkpointStore: checkpoints,
+            specStoreResolver: state.SpecStoreResolver);
         if (isGraph)
         {
             var result = runtime.RunAsync(Require(state.Options, "input"), state.Options.GetValueOrDefault("run-id"), onChunk)
@@ -105,7 +106,8 @@ internal static class CommandStrategy
             toolAgentFactory: state.ToolAgentFactory, approvalHandler: state.ApprovalHandler,
             conflictResolver: state.ConflictResolver, storeResolver: state.StoreResolver,
             embedderResolver: state.EmbedderResolver,
-            checkpointStore: new FileCheckpointStore(Require(state.Options, "checkpoint")));
+            checkpointStore: new FileCheckpointStore(Require(state.Options, "checkpoint")),
+            specStoreResolver: state.SpecStoreResolver);
         var result = runtime.ResumeAsync(Require(state.Options, "run-id")).GetAwaiter().GetResult();
         state.Out.WriteLine(result.Output);
         return 0;

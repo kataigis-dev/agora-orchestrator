@@ -22,9 +22,11 @@ public sealed class FakeChatProvider : IStreamingChatProvider
     {
         Calls.Add((messages, spec));
         var text = _responses.Count > 0 ? _responses.Dequeue() : _default;
+        // Simulate a cache hit on the stable (cacheable) prefix so caching can be exercised offline.
+        var cacheRead = messages.Any(m => m.CacheStable) ? 7 : 0;
         return Task.FromResult(new CompletionResult
         {
-            Text = text, InputTokens = 10, OutputTokens = 5, Model = spec.Model,
+            Text = text, InputTokens = 10, OutputTokens = 5, CacheReadTokens = cacheRead, Model = spec.Model,
         });
     }
 

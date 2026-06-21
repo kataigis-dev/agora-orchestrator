@@ -54,6 +54,18 @@ public sealed class ConsoleExecutionObserver : IExecutionObserver
     }
 
     /// <inheritdoc />
+    public void OnUsage(TokenUsage usage)
+    {
+        if (usage.Input == 0 && usage.Output == 0)
+            return;
+        var original = Console.ForegroundColor;
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        var cache = usage.CacheRead > 0 ? $", {usage.CacheRead} cached" : "";
+        Line($"  └─ tokens: {usage.Input} in / {usage.Output} out{cache}");
+        Console.ForegroundColor = original;
+    }
+
+    /// <inheritdoc />
     public void OnArtifact(string key, string value)
     {
         var original = Console.ForegroundColor;

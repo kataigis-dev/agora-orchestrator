@@ -5,7 +5,8 @@ namespace Agora.AgentFramework;
 
 /// <summary>Chat provider backed by Microsoft.Extensions.AI, dispatching to OpenAI-compatible
 /// endpoints or Ollama based on the model spec. Clients are reused via a <see cref="ChatClientCache"/>
-/// and released when the provider is disposed.</summary>
+/// and released when the provider is disposed. Translates Agora's <see cref="ChatMessage.CacheStable"/>
+/// prompt-caching hint into each provider's mechanism and reports cache token usage.</summary>
 public sealed class AgentFrameworkChatProvider : IStreamingChatProvider, IDisposable
 {
     private readonly ChatClientCache _clients = new();
@@ -15,9 +16,9 @@ public sealed class AgentFrameworkChatProvider : IStreamingChatProvider, IDispos
         IReadOnlyList<Agora.Providers.ChatMessage> messages, ModelSpec spec, CancellationToken cancellationToken = default)
     {
         IChatClient chatClient = _clients.Get(spec);
-        var response = await chatClient.GetResponseAsync(ToChatMessages(messages), Options(spec),
+        var response = await chatClient.GetResponseAsync(ToChatMessages(messages, spec), Options(spec),
             cancellationToken: cancellationToken);
-        return new CompletionResult { Text = response.Text ?? string.Empty, Model = spec.Model };
+        return Result(response.Text ?? string.Empty, spec, UsageMapping.From(response.Usage));
     }
 
     /// <inheritdoc />
@@ -27,20 +28,46 @@ public sealed class AgentFrameworkChatProvider : IStreamingChatProvider, IDispos
     {
         IChatClient chatClient = _clients.Get(spec);
         var text = new System.Text.StringBuilder();
+        var updates = new List<ChatResponseUpdate>();
         await foreach (var update in chatClient.GetStreamingResponseAsync(
-            ToChatMessages(messages), Options(spec), cancellationToken: cancellationToken))
+            ToChatMessages(messages, spec), Options(spec), cancellationToken: cancellationToken))
         {
+            updates.Add(update);
             if (string.IsNullOrEmpty(update.Text)) continue;
             text.Append(update.Text);
             onChunk(update.Text);
         }
-        return new CompletionResult { Text = text.ToString(), Model = spec.Model };
+        // Usage arrives as a trailing update; recover it from the assembled response.
+        var usage = UsageMapping.From(updates.ToChatResponse().Usage);
+        return Result(text.ToString(), spec, usage);
     }
 
-    /// <summary>Maps core chat messages to Microsoft.Extensions.AI messages.</summary>
+    /// <summary>Builds a completion result from text, model, and mapped token usage.</summary>
+    private static CompletionResult Result(
+        string text, ModelSpec spec, (int Input, int Output, int CacheRead, int CacheWrite) usage)
+        => new()
+        {
+            Text = text,
+            Model = spec.Model,
+            InputTokens = usage.Input,
+            OutputTokens = usage.Output,
+            CacheReadTokens = usage.CacheRead,
+            CacheWriteTokens = usage.CacheWrite,
+        };
+
+    /// <summary>Maps core chat messages to Microsoft.Extensions.AI messages, translating the
+    /// <see cref="ChatMessage.CacheStable"/> hint into the provider's caching mechanism.</summary>
     private static List<Microsoft.Extensions.AI.ChatMessage> ToChatMessages(
-        IReadOnlyList<Agora.Providers.ChatMessage> messages)
-        => messages.Select(m => new Microsoft.Extensions.AI.ChatMessage(MapRole(m.Role), m.Content)).ToList();
+        IReadOnlyList<Agora.Providers.ChatMessage> messages, ModelSpec spec)
+    {
+        return messages.Select(m =>
+        {
+            var mapped = new Microsoft.Extensions.AI.ChatMessage(MapRole(m.Role), m.Content);
+            if (m.CacheStable)
+                CacheTranslation.MarkStable(mapped, spec);
+            return mapped;
+        }).ToList();
+    }
 
     /// <summary>Builds chat options (temperature, max tokens) from the model spec.</summary>
     private static ChatOptions Options(ModelSpec spec)

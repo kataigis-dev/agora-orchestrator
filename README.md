@@ -129,6 +129,7 @@ agents:
 | `examples/agora-h2c.yaml` | H2C protocol with conditional graph |
 | `examples/agora-llama.yaml` | Local model via llama studio |
 | `examples/agora-generate-api.yaml` | Code generation with MCP + review loop |
+| `examples/agora-spec.yaml` | Structured spec-driven development (spec store + `spec_*` tools) |
 
 ## Project structure
 
@@ -156,9 +157,11 @@ Full documentation in [`docs/`](docs/index.md):
 | [docs/graph.md](docs/graph.md) | Graph: nodes, edges, signals, loops, visualization |
 | [docs/cli.md](docs/cli.md) | CLI: run/validate/ingest commands, options, exit codes |
 | [docs/api.md](docs/api.md) | REST API: endpoints, lifecycles, health check |
-| [docs/providers.md](docs/providers.md) | Chat providers: OpenAI, Ollama, custom, resilience |
+| [docs/providers.md](docs/providers.md) | Chat providers: OpenAI, Ollama, custom, prompt caching, resilience |
+| [docs/observability.md](docs/observability.md) | Execution observers, run metrics (steps, rework, token/cache usage) |
 | [docs/mcp.md](docs/mcp.md) | MCP: stdio/HTTP servers, tool discovery, approval gates |
 | [docs/rag.md](docs/rag.md) | RAG: ingest pipeline, chunking, embeddings, vector store |
+| [docs/spec.md](docs/spec.md) | Structured specs: requirement/task model, store (file/MCP), `spec_*` tools, validation |
 | [docs/h2c.md](docs/h2c.md) | H2C protocol: blocks, types, interpreter |
 | [examples/README.md](examples/README.md) | Description of each example with commands |
 

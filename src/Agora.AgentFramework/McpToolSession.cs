@@ -46,7 +46,7 @@ internal sealed class McpToolSession : IAsyncDisposable
     }
 
     /// <summary>Builds an HTTP or stdio transport for a server config.</summary>
-    private static IClientTransport BuildTransport(string name, McpServerConfig server) =>
+    internal static IClientTransport BuildTransport(string name, McpServerConfig server) =>
         server.Url is not null
             ? new HttpClientTransport(new HttpClientTransportOptions
             {

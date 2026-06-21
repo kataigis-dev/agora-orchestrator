@@ -1,0 +1,60 @@
+version: "1"
+communication: natural
+
+defaults: { model: balanced, temperature: 0.2 }
+
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+
+models:
+  balanced: { provider: openai, model: gpt-4o }
+
+# Structured spec-driven development. The spec is a machine-checkable artifact (requirements with
+# stable ids + acceptance criteria, and tasks that trace back to them), not free text. By default it
+# is persisted as canonical JSON next to this config (spec.json), the deterministic source of truth.
+spec:
+  enabled: true
+  require_criteria: true            # every requirement must carry at least one acceptance criterion
+  store:
+    type: file                      # deterministic JSON source of truth
+    path: ./spec.json
+    # --- RAG over MCP variant (durable / shareable spec): point at an MCP server that exposes a
+    # --- write tool and a read/search tool, then switch `type` to mcp.
+    # type: mcp
+    # server: memory                # references mcp.servers.memory below
+    # write_tool: rag_write
+    # read_tool: rag_search
+    # write_arg: text               # argument carrying the payload on the write tool
+    # query_arg: query              # argument carrying the lookup key on the read tool
+    # key: "agora:spec-document"
+
+# mcp:
+#   servers:
+#     memory:
+#       command: npx
+#       args: ["-y", "@modelcontextprotocol/server-memory"]
+
+agents:
+  pm:
+    model: balanced
+    role: "Product manager: turn the request into structured requirements with acceptance criteria."
+    system_prompt: |
+      Use spec_propose_requirement to record each requirement (priority must/should/could/wont and
+      one acceptance criterion per line). Then set status with spec_set_status. When done, signal
+      <<signal specced>>.
+    tools: [spec_get, spec_propose_requirement, spec_set_status]
+
+  architect:
+    model: balanced
+    role: "Architect: break approved requirements into implementation tasks that trace to them."
+    system_prompt: |
+      Read the spec with spec_get. For each approved requirement add tasks with spec_add_task,
+      linking the requirement ids the task implements. When every approved requirement is covered,
+      signal <<signal planned>>.
+    tools: [spec_get, spec_add_task, spec_link_task]
+
+graph:
+  entry: pm
+  edges:
+    - { from: pm, to: architect, type: conditional, when: specced }
+    - { from: architect, to: END, type: conditional, when: planned }

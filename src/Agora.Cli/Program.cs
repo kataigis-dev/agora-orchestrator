@@ -11,4 +11,5 @@ return CliRunner.Run(
     approvalHandler: new ConsoleApprovalHandler(),
     conflictResolver: new ConsoleConflictResolver(),
     storeResolver: AgentFrameworkVectorStores.TryCreate,
-    embedderResolver: AgentFrameworkEmbedders.TryCreate);
+    embedderResolver: AgentFrameworkEmbedders.TryCreate,
+    specStoreResolver: AgentFrameworkSpecStores.TryCreate);

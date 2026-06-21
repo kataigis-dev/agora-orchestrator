@@ -44,4 +44,7 @@ public sealed class AgoraConfig
 
     /// <summary>Optional RAG-backed context-memory configuration.</summary>
     public MemoryConfig? Memory { get; set; }
+
+    /// <summary>Optional structured spec-driven-development configuration.</summary>
+    public SpecConfig? Spec { get; set; }
 }

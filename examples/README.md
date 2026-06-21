@@ -72,6 +72,17 @@ Agent that requires approval before performing actions.
 dotnet run --project src/Agora.Cli -- run --config examples/agora-hitl.yaml --agent reviewer --input "Approve this change"
 ```
 
+### agora-spec.yaml — Structured spec-driven development
+
+A `pm` agent records structured requirements (stable ids + acceptance criteria) and approves them;
+an `architect` agent breaks each approved requirement into traceable tasks. The validated spec is
+persisted to `spec.json` (or, by switching `spec.store.type` to `mcp`, into a RAG store over MCP).
+Uses the `spec_*` tools. See [docs/spec.md](../docs/spec.md).
+
+```bash
+dotnet run --project src/Agora.Cli -- run --config examples/agora-spec.yaml --input "Build a URL shortener with auth" --graph
+```
+
 ## Generated projects
 
 ### generated-api/

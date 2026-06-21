@@ -41,6 +41,7 @@ public sealed class AgentFrameworkAgent : IAgent
             rawTools.Add(SkillTools.LoadSkill(_ctx.Skills));
         rawTools.AddRange(BuiltInFileTools.Create(_ctx.Card.Tools));
         rawTools.AddRange(RagTools.Create(_ctx.Card.Tools, _ctx.Rag, _ctx.KnowledgeBase, _ctx.Card.Id));
+        rawTools.AddRange(SpecTools.Create(_ctx.Card.Tools, _ctx.SpecStore, _ctx.SpecRequireCriteria));
         if (AskAgentTool.Create(_ctx.Card.Tools, _ctx.AskAgent) is { } askAgent)
             rawTools.Add(askAgent);
 
@@ -74,7 +75,12 @@ public sealed class AgentFrameworkAgent : IAgent
         var messages = new List<Microsoft.Extensions.AI.ChatMessage>();
         var instructions = _ctx.Card.ComposeInstructions();
         if (!string.IsNullOrEmpty(instructions))
-            messages.Add(new Microsoft.Extensions.AI.ChatMessage(ChatRole.System, instructions));
+        {
+            // The instructions are stable across the run → mark them as a cacheable prefix.
+            var system = new Microsoft.Extensions.AI.ChatMessage(ChatRole.System, instructions);
+            CacheTranslation.MarkStable(system, spec);
+            messages.Add(system);
+        }
         var userContent = string.IsNullOrEmpty(context) ? userInput : $"{context}\n\n{userInput}";
         messages.Add(new Microsoft.Extensions.AI.ChatMessage(ChatRole.User, userContent));
 
@@ -107,7 +113,17 @@ public sealed class AgentFrameworkAgent : IAgent
         }
 
         var (output, signals, artifacts) = _ctx.Interpreter.Interpret(response.Text ?? string.Empty);
-        return new AgentResult { Output = output, Signals = signals, Artifacts = artifacts };
+        var (input, generated, cacheRead, cacheWrite) = UsageMapping.From(response.Messages);
+        return new AgentResult
+        {
+            Output = output,
+            InputTokens = input,
+            OutputTokens = generated,
+            CacheReadTokens = cacheRead,
+            CacheWriteTokens = cacheWrite,
+            Signals = signals,
+            Artifacts = artifacts,
+        };
     }
 
     /// <summary>Routes a tool-approval request to the injected handler (fail-closed if none).</summary>

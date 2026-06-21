@@ -1,10 +1,18 @@
 namespace Agora.Orchestration;
 
+/// <summary>Token usage from a single agent call, surfaced to observers for metrics. <see cref="CacheRead"/>
+/// is the subset of <see cref="Input"/> served from the provider's prompt cache.</summary>
+public readonly record struct TokenUsage(int Input, int Output, int CacheRead, int CacheWrite);
+
 /// <summary>Receives execution events from <see cref="GraphExecutor"/> so presentation (console
 /// rendering, structured logging, …) is decoupled from orchestration. Implementations are best-effort
 /// and must not throw — the executor does not guard against observer failures.</summary>
 public interface IExecutionObserver
 {
+    /// <summary>Raised after each agent call with the tokens it consumed (default no-op so existing
+    /// observers need no change).</summary>
+    void OnUsage(TokenUsage usage) { }
+
     /// <summary>Raised once before the run begins, with the graph about to be executed.</summary>
     void OnGraphStart(Graph graph);
 

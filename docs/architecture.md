@@ -14,6 +14,7 @@ Agora Orchestrator is layered:
 ├───────────────────────────────┤
 │  IChatProvider  (OpenAI/Ollama)│  providers
 │  RagPipeline / KnowledgeBase   │  retrieval + writable KB
+│  ISpecStore (file / MCP)       │  structured specification
 │  ContextMemory                 │  context compression
 │  McpToolSession                │  external tools
 ├───────────────────────────────┤
@@ -51,10 +52,13 @@ a directed graph of agents:
 ### Execution observation
 
 The executor stays presentation-free: it emits run events (graph start, node start, parallel
-fork, signals, artifacts, edge taken, complete) to an injected `IExecutionObserver`. The default
-`ConsoleExecutionObserver` renders the colored CLI visualization; `NullExecutionObserver` silences
-it. This seam keeps orchestration testable (assert the event sequence) and lets you plug structured
-logging without touching the engine.
+fork, signals, token usage, artifacts, edge taken, complete) to an injected `IExecutionObserver`. The
+default `ConsoleExecutionObserver` renders the colored CLI visualization; `NullExecutionObserver`
+silences it; `MetricsExecutionObserver` aggregates the events into `RunMetrics` (steps, rework,
+token/cache usage) surfaced on `RunResult.Metrics`; `CompositeExecutionObserver` fans events out to
+several at once. This seam keeps orchestration testable (assert the event sequence) and lets you plug
+structured logging or measurement without touching the engine. See
+[observability.md](observability.md).
 
 ## Communication
 
@@ -75,6 +79,16 @@ Agents communicate in natural language and use `<<signal name>>` tokens for rout
 - **Handoff** (`handoff: true`) — pass only the declared `handoff` artifact to the next agent.
 - **Context memory** (`memory`) — store declared artifacts and recall only the top-K relevant ones
   per agent (compresses tokens). See the context-memory page.
+
+## Structured specification
+
+When the `spec` section is configured, the runtime builds an `ISpecStore` (the framework-free
+`FileSpecStore`, or a RAG-over-MCP `McpSpecStore` via the edge-injected resolver — the same pattern
+as the RAG vector-store/embedder resolvers). Agents that allow-list the `spec_*` tools produce and
+mutate a structured `SpecDocument` (requirements with stable ids + acceptance criteria, and tasks
+that trace back to them); every write is validated by `SpecValidator` before persisting. The store is
+the deterministic source of truth, kept separate from similarity-based RAG retrieval. See
+[spec.md](spec.md).
 
 ## Providers and models
 

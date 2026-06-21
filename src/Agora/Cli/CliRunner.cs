@@ -2,6 +2,7 @@ using Agora.Agents;
 using Agora.Configuration;
 using Agora.Providers;
 using Agora.Rag;
+using Agora.Specs;
 
 namespace Agora.Cli;
 
@@ -21,12 +22,13 @@ public static class CliRunner
         HumanInTheLoop.IApprovalHandler? approvalHandler = null,
         HumanInTheLoop.IConflictResolver? conflictResolver = null,
         Func<VectorStoreConfig?, IVectorStore?>? storeResolver = null,
-        Func<EmbedderSpec, IEmbedder?>? embedderResolver = null)
+        Func<EmbedderSpec, IEmbedder?>? embedderResolver = null,
+        Func<SpecStoreSpec, ISpecStore?>? specStoreResolver = null)
     {
         var action = args.ElementAtOrDefault(0);
         var options = ParseOptions(args?.Skip(1));
         var state = new ConfigState(options, provider, toolAgentFactory,
-            approvalHandler, conflictResolver, storeResolver, embedderResolver,
+            approvalHandler, conflictResolver, storeResolver, embedderResolver, specStoreResolver,
             @in ?? Console.In, @out ?? Console.Out, error ?? Console.Error);
         var command = action switch
         {
