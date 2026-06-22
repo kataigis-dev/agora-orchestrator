@@ -1,31 +1,37 @@
 using Agora.Orchestration.Contracts;
 using Agora.Orchestration.Models;
 using Agora.Orchestration.Concretes;
+using System.Text.Json.Serialization;
 namespace Agora.Orchestration.Models;
 
-/// <summary>The shared blackboard threaded through a graph run.</summary>
+/// <summary>
+/// The shared blackboard threaded through a graph run. It is the single serializable source of truth
+/// for a checkpoint: <see cref="StateSnapshot"/> wraps one of these with the run cursor, so a new field
+/// here needs no mirror there. The collection setters exist so it round-trips through JSON.
+/// </summary>
 public sealed class State
 {
     /// <summary>Creates a state seeded with the run's user input.</summary>
+    [JsonConstructor]
     public State(string userInput) => UserInput = userInput;
 
     /// <summary>The original user input / task for the run.</summary>
     public string UserInput { get; }
 
     /// <summary>Inter-agent messages exchanged during the run.</summary>
-    public List<Message> Messages { get; } = new();
+    public List<Message> Messages { get; set; } = new();
 
     /// <summary>Each agent's latest output, keyed by agent id.</summary>
-    public Dictionary<string, string> Outputs { get; } = new();
+    public Dictionary<string, string> Outputs { get; set; } = new();
 
     /// <summary>Signals from the most recent agent step, used for routing.</summary>
     public Dictionary<string, object> Signals { get; set; } = new();
 
     /// <summary>Per-edge loop counters enforcing <c>max_loops</c>.</summary>
-    public Dictionary<string, int> LoopCounters { get; } = new();
+    public Dictionary<string, int> LoopCounters { get; set; } = new();
 
     /// <summary>Shared artifacts accumulated across the run.</summary>
-    public Dictionary<string, object> Artifacts { get; } = new();
+    public Dictionary<string, object> Artifacts { get; set; } = new();
 
     /// <summary>Id of the agent that ran most recently.</summary>
     public string? LastAgent { get; set; }

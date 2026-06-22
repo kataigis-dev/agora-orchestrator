@@ -3,8 +3,11 @@ using Agora.Configuration;
 using Agora.HumanInTheLoop;
 using Agora.Providers.Models;
 using Agora.Rag.Concretes;
+using Agora.Rag.Contracts;
+using Agora.Rag.Models;
 using Agora.Skills;
 using Agora.Specs.Contracts;
+using Agora.Specs.Models;
 using Agora.Verification.Contracts;
 
 namespace Agora.Agents.Contracts;
@@ -42,11 +45,26 @@ public sealed record AgentBuildContext
 }
 
 /// <summary>
-/// Builds a tool-capable IAgent (skills + MCP/function tools). Implemented by the framework layer
-/// (Agora.AgentFramework) so the core stays framework-free; tests inject a fake.
+/// The single seam between the framework-free core and a concrete agent backend (e.g.
+/// <c>Agora.AgentFramework</c>). It bundles every config-driven construction the core delegates
+/// outward: building tool-capable agents, and resolving the non-core embedders, vector stores, and
+/// spec stores. A <c>TryCreate*</c> returning null means "the core already handles this type itself"
+/// (e.g. the <c>fake</c> embedder, the <c>memory</c>/<c>file</c> stores). Tests implement only
+/// <see cref="CreateToolAgent"/>; the resolvers default to core-handled.
 /// </summary>
-public interface IToolAgentFactory
+public interface IAgentBackend
 {
-    /// <summary>Builds a tool-capable agent from the supplied build context.</summary>
-    IAgent Create(AgentBuildContext context);
+    /// <summary>Builds a tool-capable agent (skills + MCP/function tools) from the build context.</summary>
+    IAgent CreateToolAgent(AgentBuildContext context);
+
+    /// <summary>Creates a non-core embedder for the spec, or null for core-handled types (<c>fake</c>).</summary>
+    IEmbedder? TryCreateEmbedder(EmbedderSpec spec) => null;
+
+    /// <summary>Creates a non-core vector store for the spec, or null for core-handled types
+    /// (<c>memory</c>/<c>file</c>).</summary>
+    IVectorStore? TryCreateVectorStore(VectorStoreConfig? spec) => null;
+
+    /// <summary>Creates a non-core spec store for the resolved spec, or null for core-handled types
+    /// (<c>file</c>).</summary>
+    ISpecStore? TryCreateSpecStore(SpecStoreSpec spec) => null;
 }

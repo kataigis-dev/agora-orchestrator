@@ -22,7 +22,7 @@ Agora.Api  ─┤── use ──▶  Agora ◀───────┤   chat 
   concrete implementations and pass them to the core (an *edge dependency-injection* pattern).
 
 > Key principle: the core depends only on **abstractions**; the implementations are injected from the
-> outside (`provider`, `toolAgentFactory`, the various `*Resolver`s). See
+> outside (`provider` and a single `IAgentBackend`). See
 > [12 — Security](12-security-governance.md) and
 > [16 — Microsoft Agent Framework](16-microsoft-agent-framework.md).
 
@@ -35,9 +35,9 @@ Let's follow: `agora run --config app.yaml --input "..." --graph`.
 ### 1. Entry point — `Agora.Cli/Program.cs`
 
 It builds the concrete implementations and passes them to `CliRunner.Run`:
-`AgentFrameworkChatProvider` (the LLM provider), `AgentFrameworkToolAgentFactory` (the factory of
-tool-capable agents), `ConsoleApprovalHandler` / `ConsoleConflictResolver` (HITL on the console), and the
-three *resolvers* for vector store / embedder / spec store.
+`AgentFrameworkChatProvider` (the LLM provider), `AgentFrameworkBackend` (the single `IAgentBackend` that
+builds tool-capable agents and resolves the non-core embedder / vector store / spec store), and
+`ConsoleApprovalHandler` / `ConsoleConflictResolver` (HITL on the console).
 
 ### 2. Parsing and dispatch — `CliRunner.Run` → `CommandStrategy`
 
@@ -65,11 +65,9 @@ exception and turns it into `ERROR: …` + exit code 1).
 |---|---|
 | `ModelResolver.Resolve(config)` | flattens models+providers+defaults into runnable `ModelSpec`s (one per alias) |
 | `new ResilientChatProvider(provider)` | wraps the provider with retry+timeout ([`RetryPolicy`](10-evaluation-observability.md)) |
-| `BuildRag()` → `RagFactory.Build` | builds the `RagPipeline` (embedder, vector store, refiner) if there is a `rag` section |
-| `BuildKnowledgeBase()` | the **write** path into the same knowledge base (`KnowledgeBase`) |
-| `BuildSpecStore()` | `FileSpecStore` (file) or an injected store (RAG-over-MCP) if there is a `spec` section |
+| `Retrieval.Build` | builds the retrieval subsystem in one place — the read `RagPipeline`, the `KnowledgeBase` write path, and `ContextMemory` — over **one shared** embedder + vector store, when `rag`/`memory` are configured |
+| `BuildSpecStore()` | `FileSpecStore` (file) or a backend-built store (RAG-over-MCP) if there is a `spec` section |
 | `BuildCheckRunner()` | `ProcessCheckRunner` if there is a `checks` section |
-| `BuildMemory()` | `ContextMemory` if memory mode is enabled |
 | router | an `LlmRouter` if `route` edges need routing |
 | `SkillLoader.Load` | loads the skills from `SKILL.md` files into a `SkillRegistry` |
 
@@ -108,9 +106,10 @@ At each step:
 3. **Routing** — picks the next node:
    - if the outgoing edges are `parallel` → `FanOutAsync` runs the branches **concurrently**
      (`Task.WhenAll`) and converges them on the single *join* node;
-   - otherwise `NextNodeAsync`: for `route` edges it asks `LlmRouter.ChooseAsync`; otherwise `NextNode`
-     applies the **signals** — it takes the first `conditional` edge whose `when` is *truthy* (respecting
-     `max_loops`), or the first unconditional edge, or `END`.
+   - otherwise `NextNodeAsync`: for `route` edges it asks `LlmRouter.ChooseAsync`; otherwise the pure
+     `EdgeResolver.Next` applies the **signals** — it takes the first `conditional` edge whose `when` is
+     *truthy* (respecting `max_loops`), or the first unconditional edge, or `END` — returning the updated
+     loop counters without mutating the state.
 4. **Passes the baton**: in normal mode it puts the node's output into the next node's *inbox*
    (`State.Messages`); in *handoff* mode it passes **only** the `handoff` artifact.
 5. **Events and checkpoint**: it notifies the observer (`OnSignals`, `OnUsage`, `OnArtifact`, `OnEdge`)
@@ -122,7 +121,7 @@ For the current node: it resolves the `ModelSpec`, composes the *system prompt* 
 preambles (`HandoffPreamble`, `H2cPreamble`, `LanguagePreamble`), and creates an `AgentCard` (identity +
 capabilities). Then:
 
-- if the agent declares **skills or tools** → `IToolAgentFactory.Create(AgentBuildContext)` →
+- if the agent declares **skills or tools** → `IAgentBackend.CreateToolAgent(AgentBuildContext)` →
   `AgentFrameworkAgent` (step 8b);
 - otherwise → a plain `Agent` (step 8a).
 
@@ -164,7 +163,7 @@ to the metrics (best-effort). `BuildResult` packs everything into a `RunResult` 
 |---|---|---|
 | **Single agent** (`run` without `--graph`) | `Runtime.RunAgentAsync` | builds **one** agent and runs it, with no graph or routing |
 | **`resume`** | `Runtime.ResumeAsync` | loads the last `StateSnapshot` from `FileCheckpointStore` and restarts from the saved node |
-| **`ingest`** | `CommandStrategy.Ingest` → `Ingestor.IngestPathsAsync` | indexes the RAG documents (chunk→embedding→vector store), no chat LLM |
+| **`ingest`** | `CommandStrategy.Ingest` → `Retrieval.IngestAsync` | indexes the RAG documents (chunk→embedding→vector store), no chat LLM |
 | **`validate`** | `CommandStrategy.Validate` → `ConfigLoader.Load` | only loads+validates the config, prints `OK`/`INVALID` |
 | **`eval`** | `ScenarioRunner.RunAsync` | replaces the real provider with a scripted `FakeChatProvider` and checks the expectations (a deterministic test) |
 | **REST API** | `Agora.Api` | see below |

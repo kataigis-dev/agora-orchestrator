@@ -1,20 +1,13 @@
 using Agora.AgentFramework.Agents;
 using Agora.AgentFramework.Providers;
-using Agora.AgentFramework.Rag;
-using Agora.AgentFramework.Specs;
-using Agora.AgentFramework.Mcp;
-using Agora.AgentFramework.Tools;
 using Agora.Cli;
 
 using var provider = new AgentFrameworkChatProvider();
-using var toolAgentFactory = new AgentFrameworkToolAgentFactory();
+using var backend = new AgentFrameworkBackend();
 
 return CliRunner.Run(
     args,
     provider,
-    toolAgentFactory: toolAgentFactory,
+    backend: backend,
     approvalHandler: new ConsoleApprovalHandler(),
-    conflictResolver: new ConsoleConflictResolver(),
-    storeResolver: AgentFrameworkVectorStores.TryCreate,
-    embedderResolver: AgentFrameworkEmbedders.TryCreate,
-    specStoreResolver: AgentFrameworkSpecStores.TryCreate);
+    conflictResolver: new ConsoleConflictResolver());

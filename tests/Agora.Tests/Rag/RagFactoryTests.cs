@@ -1,3 +1,4 @@
+using Agora.Agents.Contracts;
 using Agora.Configuration;
 using Agora.Rag.Contracts;
 using Agora.Rag.Models;
@@ -8,6 +9,21 @@ namespace Agora.Tests.Rag;
 
 public class RagFactoryTests
 {
+    /// <summary>Test backend that resolves only non-core stores/embedders via optional delegates.</summary>
+    private sealed class Backend : IAgentBackend
+    {
+        private readonly Func<VectorStoreConfig?, IVectorStore?>? _store;
+        private readonly Func<EmbedderSpec, IEmbedder?>? _embedder;
+        public Backend(Func<VectorStoreConfig?, IVectorStore?>? store = null, Func<EmbedderSpec, IEmbedder?>? embedder = null)
+        {
+            _store = store;
+            _embedder = embedder;
+        }
+        public IAgent CreateToolAgent(AgentBuildContext context) => throw new NotSupportedException();
+        public IVectorStore? TryCreateVectorStore(VectorStoreConfig? spec) => _store?.Invoke(spec);
+        public IEmbedder? TryCreateEmbedder(EmbedderSpec spec) => _embedder?.Invoke(spec);
+    }
+
     private static AgoraConfig Config(RagConfig? rag) => new()
     {
         Models = new() { ["m"] = new ModelConfig { Provider = "anthropic", Model = "x" } },
@@ -50,16 +66,16 @@ public class RagFactoryTests
     };
 
     [Fact]
-    public void Factory_UnknownStoreType_UsesResolver()
+    public void Factory_UnknownStoreType_UsesBackend()
     {
         var resolved = new InMemoryVectorStore();
         var pipeline = RagFactory.Build(Config(RagWithStore("qdrant")),
-            storeResolver: spec => spec?.Type == "qdrant" ? resolved : null);
+            backend: new Backend(store: spec => spec?.Type == "qdrant" ? resolved : null));
         Assert.Same(resolved, pipeline!.Store);
     }
 
     [Fact]
-    public void Factory_UnknownStoreType_NoResolver_Throws()
+    public void Factory_UnknownStoreType_NoBackend_Throws()
         => Assert.Throws<NotSupportedException>(() => RagFactory.Build(Config(RagWithStore("qdrant"))));
 
     private static AgoraConfig ConfigWithEmbedder(EmbedderConfig embedder, string? apiKeyEnv) => new()
@@ -84,7 +100,7 @@ public class RagFactoryTests
                 new EmbedderConfig { Type = "openai", Provider = "openai", Model = "text-embedding-3-small" },
                 "EMB_KEY_TEST");
 
-            var pipeline = RagFactory.Build(cfg, embedderResolver: spec => { captured = spec; return fake; });
+            var pipeline = RagFactory.Build(cfg, backend: new Backend(embedder: spec => { captured = spec; return fake; }));
 
             Assert.Same(fake, pipeline!.Embedder);
             Assert.Equal("openai", captured!.Type);
@@ -96,7 +112,7 @@ public class RagFactoryTests
     }
 
     [Fact]
-    public void Factory_RealEmbedder_NoResolver_Throws()
+    public void Factory_RealEmbedder_NoBackend_Throws()
         => Assert.Throws<NotSupportedException>(() =>
             RagFactory.Build(ConfigWithEmbedder(new EmbedderConfig { Type = "openai" }, null)));
 }

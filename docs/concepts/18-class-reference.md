@@ -12,7 +12,7 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 
 | Type | Role |
 |---|---|
-| C `Runtime` | The *composition root*: from the config it resolves the models, builds RAG/knowledge base/memory/spec store/check runner and the graph, and exposes the methods to run an agent or a graph |
+| C `Runtime` | The *composition root*: from the config it resolves the models, builds the retrieval subsystem (RAG/knowledge base/memory)/spec store/check runner and the graph, and exposes the methods to run an agent or a graph |
 | R `RunResult` | The outcome of a run: final output + the full `State` + `RunMetrics` + an optional `RunId` |
 | C `AgoraInfo` | Package/build information for the framework |
 
@@ -56,7 +56,7 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 
 ## `Agora/Agents` — the agent
 
-**Contracts** · I `IAgent` (a runnable agent: input+context → `AgentResult`) · I `IOutputInterpreter` (raw text → text, signals, artifacts) · C `SignalInterpreter` ("natural" implementation: uses `SignalParser`) · I `IToolAgentFactory` (builds a tool-capable agent; implemented in the framework layer) · R `AgentBuildContext` (everything the backend needs to build an agent from config).
+**Contracts** · I `IAgent` (a runnable agent: input+context → `AgentResult`) · I `IOutputInterpreter` (raw text → text, signals, artifacts) · C `SignalInterpreter` ("natural" implementation: uses `SignalParser`) · I `IAgentBackend` (the single seam to the framework layer: builds tool-capable agents and resolves the non-core embedder/vector store/spec store) · R `AgentBuildContext` (everything the backend needs to build an agent from config).
 
 **Models** · R `AgentCard` (an agent's immutable identity + capabilities) · R `AgentResult` (the outcome of a run: clean output + signals + artifacts + tokens).
 
@@ -66,9 +66,9 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 
 **Contracts** · I `IExecutionObserver` (receives execution events for rendering/logging/metrics) · C `NullExecutionObserver` (ignores every event) · I `ICheckpointStore` (persists per-step snapshots → resume) · C `InMemoryCheckpointStore` (in-process, for tests) · C `FileCheckpointStore` (one JSON snapshot per run id on disk) · I `IRouter` (picks the node among `route` edges) · R `RouteOption` (one branch the router can choose).
 
-**Models** · C `Graph` (a validated, immutable graph: nodes + edges) · R `Node` (a node: agent/human/end) · R `Edge` (a directed edge) · R `Message` (a message between agents on the shared blackboard) · C `State` (the **shared blackboard** of the run) · C `StateSnapshot` (a JSON-serializable snapshot for resume) · R `RunMetrics` (an aggregate summary of a run: steps, rework, tokens, traceability) · R `TraceabilitySummary` (a summary of spec completeness in the run).
+**Models** · C `Graph` (a validated, immutable graph: nodes + edges) · R `Node` (a node: agent/human/end) · R `Edge` (a directed edge) · R `Message` (a message between agents on the shared blackboard) · C `State` (the **shared, JSON-serializable blackboard** of the run) · C `StateSnapshot` (a checkpoint: the run cursor — current node + step count — wrapping the `State` it was taken at) · R `RunMetrics` (an aggregate summary of a run: steps, rework, tokens, traceability) · R `TraceabilitySummary` (a summary of spec completeness in the run).
 
-**Concretes** · C `GraphExecutor` (runs the graph: nodes, state, routing, parallel, checkpoint) · C `GraphBuilder` (builds and validates a `Graph` from the config) · C `LlmRouter` (asks an LLM which branch to take) · C `ConsoleExecutionObserver` (colored console rendering) · C `MetricsExecutionObserver` (aggregates events into `RunMetrics`) · C `CompositeExecutionObserver` (fans every event out to multiple observers) · C `ExecutionError` (a runtime error of the graph) · C `GraphError` (a missing/malformed graph definition).
+**Concretes** · C `GraphExecutor` (runs the graph: nodes, state, routing, parallel, checkpoint) · C `EdgeResolver` (the pure signal-based next-node decision: returns the next node + updated loop counters without mutating state) · C `GraphBuilder` (builds and validates a `Graph` from the config) · C `LlmRouter` (asks an LLM which branch to take) · C `ConsoleExecutionObserver` (colored console rendering) · C `MetricsExecutionObserver` (aggregates events into `RunMetrics`) · C `CompositeExecutionObserver` (fans every event out to multiple observers) · C `ExecutionError` (a runtime error of the graph) · C `GraphError` (a missing/malformed graph definition).
 
 ## `Agora/Communication` — H2C and natural protocols
 
@@ -85,9 +85,9 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 
 **Contracts** · I `IEmbedder` (text → vectors) · I `IVectorStore` (chunk storage: upsert/query/delete) · I `IRefiner` (rewrites/decomposes the query before search) · I `IConflictJudge` (decides whether a new entry conflicts with the existing one) · R `ConflictAssessment` (the outcome of comparing a new entry against related ones) · E `ConflictVerdict` (the judge's verdict categories: none/duplicate/conflict).
 
-**Models** · R `Chunk` (a stored unit of text) · R `EnrichedInput` (original input + refined query + retrieved chunks) · R `RefinedQuery` (a refined retrieval query + sub-queries) · R `EmbedderSpec` (a resolved embedder request handed to the edge resolver).
+**Models** · R `Chunk` (a stored unit of text) · R `EnrichedInput` (original input + refined query + retrieved chunks) · R `RefinedQuery` (a refined retrieval query + sub-queries) · R `EmbedderSpec` (a resolved embedder request handed to the agent backend).
 
-**Concretes** · C `RagPipeline` (refines the query, retrieves context, produces an `EnrichedInput`) · C `RagFactory` (assembles the pipeline from config) · C `KnowledgeBase` (the **write** path into the shared base: embeds, finds related, judges conflicts) · C `ContextMemory` (RAG-backed working memory to compress context) · R `MemoryOptions` (memory tuning) · C `Ingestor` (reads files, chunks, embeds and upserts) · C `TextChunker` (splits text into overlapping windows) · C `InMemoryVectorStore` (in-process store with cosine similarity) · C `FileVectorStore` (persistent JSON-file store) · C `VectorMath` (vector-similarity utilities) · C `FakeEmbedder` (deterministic embedder for tests) · C `LlmRefiner` (refines the query via an LLM) · C `NoOpRefiner` (pass-through) · C `LlmConflictJudge` (judges conflicts via an LLM) · C `NoOpConflictJudge` (never reports conflicts) · R `WriteResult` (the outcome of a KB write) · E `WriteOutcome` (outcome categories: created/updated/skipped/conflict).
+**Concretes** · C `Retrieval` (the retrieval subsystem as one deep module: owns the shared embedder + vector store and, over them, the pipeline, knowledge base, and memory — concentrating the "reads and writes share one store" rule) · C `RagPipeline` (refines the query, retrieves context, produces an `EnrichedInput`) · C `RagFactory` (assembles the pipeline + shared stores from config) · C `KnowledgeBase` (the **write** path into the shared base: embeds, finds related, judges conflicts) · C `ContextMemory` (RAG-backed working memory to compress context) · R `MemoryOptions` (memory tuning) · C `Ingestor` (reads files, chunks, embeds and upserts) · C `TextChunker` (splits text into overlapping windows) · C `InMemoryVectorStore` (in-process store with cosine similarity) · C `FileVectorStore` (persistent JSON-file store) · C `VectorMath` (vector-similarity utilities) · C `FakeEmbedder` (deterministic embedder for tests) · C `LlmRefiner` (refines the query via an LLM) · C `NoOpRefiner` (pass-through) · C `LlmConflictJudge` (judges conflicts via an LLM) · C `NoOpConflictJudge` (never reports conflicts) · R `WriteResult` (the outcome of a KB write) · E `WriteOutcome` (outcome categories: created/updated/skipped/conflict).
 
 ## `Agora/Specs` — the structured specification (SDD)
 
@@ -166,7 +166,8 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 | C `CliRunner` | The CLI entry point: parses the arguments, picks the command, runs it with the injected dependencies |
 | C `CommandStrategy` | The handlers behind each verb (`init`/`run`/`resume`/`ingest`/`validate`/`eval`) |
 | R `ConfigState` | Parsed CLI options + I/O streams + edge dependencies |
-| C `ConfigWizard` | An interactive step-by-step builder of the YAML config (the `init` verb) |
+| C `ConfigWizard` | An interactive step-by-step builder of the YAML config (the `init` verb); composes a `Prompter` |
+| C `Prompter` | Console question/answer primitives (ask/required/list/subset/int/choice/yes-no) over the injected I/O, each re-prompting on invalid input |
 | C `ConsoleApprovalHandler` | Prompts a human on the console to approve/reject a tool call |
 | C `ConsoleConflictResolver` | Prompts a human on the console to resolve a KB conflict |
 
@@ -174,7 +175,7 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 
 ## `Agora.AgentFramework` — concrete implementations (infrastructure layer)
 
-**Agents** · C `AgentFrameworkAgent` (a tool-capable `IAgent`, based on Microsoft Agent Framework) · C `AgentFrameworkToolAgentFactory` (builds these agents; injected into the Runtime).
+**Agents** · C `AgentFrameworkAgent` (a tool-capable `IAgent`, based on Microsoft Agent Framework) · C `AgentFrameworkBackend` (the single `IAgentBackend`: builds these agents and resolves the non-core embedders/vector stores/spec stores; injected into the Runtime).
 
 **Providers** · C `AgentFrameworkChatProvider` (a chat provider on Microsoft.Extensions.AI → OpenAI-compatible endpoints) · C `ChatClients` (builds the chat client suited to a `ModelSpec`) · C `ChatClientCache` (a cache of one client per spec, to reuse connections) · C `CacheTranslation` (translates Agora's caching hint into the provider's native mechanism) · C `UsageMapping` (maps MEAI's token usage onto Agora's counts) · C `CopilotChatClient` (a client for the GitHub Copilot endpoint) · C `CopilotTokenProvider` (exchanges the OAuth token for the Copilot session token) · C `CopilotAuthHandler` (an HTTP handler that stamps every Copilot request with fresh headers and token).
 

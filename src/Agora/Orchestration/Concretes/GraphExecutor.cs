@@ -244,47 +244,26 @@ public sealed class GraphExecutor
     {
         var routeEdges = _graph.Edges.Where(e => e.Source == source && e.Type == "route").ToList();
         if (routeEdges.Count == 0 || _router is null)
-            return NextNode(source, state);
+        {
+            // Signal routing is a pure decision; apply its (possibly updated) loop counters to state.
+            var decision = EdgeResolver.Next(_graph.Edges, source, state.Signals, state.LoopCounters);
+            ApplyLoopCounters(state, decision.LoopCounters);
+            return decision.Next;
+        }
 
         var options = routeEdges.Select(e => new RouteOption(e.Target, e.When ?? e.Target)).ToList();
         return await _router.ChooseAsync(state.Outputs.GetValueOrDefault(source, ""), options);
     }
 
-    /// <summary>Picks the next node by signals: takes the first matching conditional edge (honoring
-    /// <c>max_loops</c>) or the first unconditional edge; returns END if none apply.</summary>
-    private string NextNode(string source, State state)
+    /// <summary>Copies the resolver's (possibly updated) loop counters back into the shared state;
+    /// a no-op when the resolver returned the same instance (no conditional max_loops edge taken).</summary>
+    private static void ApplyLoopCounters(State state, IReadOnlyDictionary<string, int> counters)
     {
-        foreach (var edge in _graph.Edges)
-        {
-            if (edge.Source != source) continue;
-            if (edge.Type == "conditional")
-            {
-                if (!IsTruthy(state.Signals, edge.When)) continue;
-                if (edge.MaxLoops is int max)
-                {
-                    var key = $"{edge.Source}->{edge.Target}";
-                    var count = state.LoopCounters.GetValueOrDefault(key, 0);
-                    if (count >= max) continue;
-                    state.LoopCounters[key] = count + 1;
-                }
-                return edge.Target;
-            }
-            return edge.Target;
-        }
-        return Graph.End;
-    }
-
-    /// <summary>True when the named signal is present and truthy (non-false bool, non-empty string).</summary>
-    private static bool IsTruthy(IReadOnlyDictionary<string, object> signals, string? key)
-    {
-        if (key is null || !signals.TryGetValue(key, out var value))
-            return false;
-        return value switch
-        {
-            bool b => b,
-            string s => !string.IsNullOrEmpty(s),
-            _ => true,
-        };
+        if (ReferenceEquals(counters, state.LoopCounters))
+            return;
+        state.LoopCounters.Clear();
+        foreach (var (key, value) in counters)
+            state.LoopCounters[key] = value;
     }
 
     /// <summary>Projects an agent result's token counts onto the observer's usage event.</summary>

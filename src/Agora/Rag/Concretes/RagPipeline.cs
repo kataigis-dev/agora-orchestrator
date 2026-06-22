@@ -21,11 +21,14 @@ public sealed class RagPipeline
         _scoreThreshold = scoreThreshold;
     }
 
-    /// <summary>The embedder, exposed so the knowledge base can share the same instance.</summary>
-    public IEmbedder Embedder { get; }
+    /// <summary>The embedder, used for the pipeline's own retrieval. Not part of the public surface —
+    /// the <see cref="Retrieval"/> module owns sharing one embedder across pipeline, knowledge base,
+    /// and memory.</summary>
+    internal IEmbedder Embedder { get; }
 
-    /// <summary>The vector store, exposed so the knowledge base can share the same instance.</summary>
-    public IVectorStore Store { get; }
+    /// <summary>The vector store, used for the pipeline's own retrieval. Not part of the public surface
+    /// (see <see cref="Retrieval"/>).</summary>
+    internal IVectorStore Store { get; }
 
     /// <summary>Refines the query, retrieves and de-duplicates the top chunks across all sub-queries,
     /// and returns them bundled with the original input.</summary>

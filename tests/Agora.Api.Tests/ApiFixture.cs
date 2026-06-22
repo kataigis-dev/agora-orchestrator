@@ -16,7 +16,7 @@ namespace Agora.Api.Tests;
 public sealed class ApiFixture : WebApplicationFactory<Program>
 {
     public AgoraConfig Config { get; init; } = DefaultConfig();
-    public IToolAgentFactory? ToolAgentFactory { get; init; }
+    public IAgentBackend? Backend { get; init; }
     public Func<IEnumerable<string>>? Responses { get; init; }
 
     public static AgoraConfig DefaultConfig() => new()
@@ -34,10 +34,10 @@ public sealed class ApiFixture : WebApplicationFactory<Program>
             services.AddSingleton(Config);
             services.RemoveAll<IChatProvider>();
             services.AddSingleton<IChatProvider>(_ => new FakeChatProvider(Responses?.Invoke()));
-            if (ToolAgentFactory is not null)
+            if (Backend is not null)
             {
-                services.RemoveAll<IToolAgentFactory>();
-                services.AddSingleton(ToolAgentFactory);
+                services.RemoveAll<IAgentBackend>();
+                services.AddSingleton<IAgentBackend>(Backend);
             }
         });
     }

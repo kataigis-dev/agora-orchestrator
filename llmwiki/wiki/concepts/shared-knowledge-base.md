@@ -37,9 +37,8 @@ public interface IVectorStore // async: no sync-over-async with remote DBs
 | `FileVectorStore` | core | JSON on disk (`vector_store: { type: file, path: … }`) |
 | `QdrantVectorStore` | `Agora.AgentFramework` | Qdrant server over **gRPC** (`vector_store: { type: qdrant, url, collection }`) |
 
-Non-core types (e.g. `qdrant`) are unknown to the core: they are resolved by an **edge-injected
-resolver** (`AgentFrameworkVectorStores.TryCreate`, passed to `RagFactory`/`Runtime` as
-`storeResolver`), keeping the core framework-free.
+Non-core types (e.g. `qdrant`) are unknown to the core: they are resolved by the injected
+**`IAgentBackend`** (`AgentFrameworkBackend.TryCreateVectorStore`), keeping the core framework-free.
 
 `Chunk` carries a stable `Id` assigned by the store; `Score` is the transient similarity of the last
 query. `Id` + `Delete` allow **replacing** a superseded entry instead of appending.

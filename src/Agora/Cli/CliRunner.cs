@@ -26,17 +26,14 @@ public static class CliRunner
         TextWriter? @out = null,
         TextWriter? error = null,
         TextReader? @in = null,
-        IToolAgentFactory? toolAgentFactory = null,
+        IAgentBackend? backend = null,
         HumanInTheLoop.IApprovalHandler? approvalHandler = null,
-        HumanInTheLoop.IConflictResolver? conflictResolver = null,
-        Func<VectorStoreConfig?, IVectorStore?>? storeResolver = null,
-        Func<EmbedderSpec, IEmbedder?>? embedderResolver = null,
-        Func<SpecStoreSpec, ISpecStore?>? specStoreResolver = null)
+        HumanInTheLoop.IConflictResolver? conflictResolver = null)
     {
         var action = args.ElementAtOrDefault(0);
         var options = ParseOptions(args?.Skip(1));
-        var state = new ConfigState(options, provider, toolAgentFactory,
-            approvalHandler, conflictResolver, storeResolver, embedderResolver, specStoreResolver,
+        var state = new ConfigState(options, provider, backend,
+            approvalHandler, conflictResolver,
             @in ?? Console.In, @out ?? Console.Out, error ?? Console.Error);
         var command = action switch
         {

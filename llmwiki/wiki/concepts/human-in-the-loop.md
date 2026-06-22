@@ -50,7 +50,7 @@ public interface IApprovalHandler
 
 ## Flow
 
-1. The agent (via `IToolAgentFactory`) is about to run a tool.
+1. The agent (built via `IAgentBackend`) is about to run a tool.
 2. If the tool name is in the agent's `approvals` list, `IApprovalHandler.RequestAsync` is called.
 3. If the handler returns `true` → the tool runs.
 4. If it returns `false` → the tool is skipped (no exception).

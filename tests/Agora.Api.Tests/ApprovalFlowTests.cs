@@ -9,9 +9,9 @@ namespace Agora.Api.Tests;
 
 public class ApprovalFlowTests
 {
-    private sealed class ApprovingFactory : IToolAgentFactory
+    private sealed class ApprovingFactory : IAgentBackend
     {
-        public IAgent Create(AgentBuildContext context) => new ApprovalAgent(context);
+        public IAgent CreateToolAgent(AgentBuildContext context) => new ApprovalAgent(context);
 
         private sealed class ApprovalAgent : IAgent
         {
@@ -54,7 +54,7 @@ public class ApprovalFlowTests
     [Fact]
     public async Task Run_PausesForApproval_ThenResumesOnApprove()
     {
-        using var factory = new ApiFixture { Config = ConfigWithApprovalAgent(), ToolAgentFactory = new ApprovingFactory() };
+        using var factory = new ApiFixture { Config = ConfigWithApprovalAgent(), Backend = new ApprovingFactory() };
         var client = factory.CreateClient();
 
         var runId = (await (await client.PostAsJsonAsync("/runs", new StartRunRequest("agent", "editor", "go")))

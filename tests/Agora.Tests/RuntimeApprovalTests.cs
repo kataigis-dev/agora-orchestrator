@@ -12,10 +12,10 @@ namespace Agora.Tests;
 
 public class RuntimeApprovalTests
 {
-    private sealed class CapturingFactory : IToolAgentFactory
+    private sealed class CapturingFactory : IAgentBackend
     {
         public AgentBuildContext? Last { get; private set; }
-        public IAgent Create(AgentBuildContext context)
+        public IAgent CreateToolAgent(AgentBuildContext context)
         {
             Last = context;
             return new Stub();
@@ -51,7 +51,7 @@ public class RuntimeApprovalTests
     {
         var factory = new CapturingFactory();
         var handler = new FakeApprovalHandler();
-        var runtime = Runtime.FromConfig(WriteConfig(), new FakeChatProvider(), toolAgentFactory: factory, approvalHandler: handler);
+        var runtime = Runtime.FromConfig(WriteConfig(), new FakeChatProvider(), backend: factory, approvalHandler: handler);
 
         runtime.BuildAgent("writer");
 
@@ -62,7 +62,7 @@ public class RuntimeApprovalTests
     [Fact]
     public void BuildAgent_ApprovalsDeclared_NoHandler_Throws()
     {
-        var runtime = Runtime.FromConfig(WriteConfig(), new FakeChatProvider(), toolAgentFactory: new CapturingFactory());
+        var runtime = Runtime.FromConfig(WriteConfig(), new FakeChatProvider(), backend: new CapturingFactory());
         var ex = Assert.Throws<InvalidOperationException>(() => runtime.BuildAgent("writer"));
         Assert.Contains("IApprovalHandler", ex.Message);
     }

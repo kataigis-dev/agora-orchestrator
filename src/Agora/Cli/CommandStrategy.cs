@@ -81,10 +81,8 @@ internal static class CommandStrategy
         Action<string>? onChunk = stream ? chunk => state.Out.Write(chunk) : null;
         var runtime = Runtime.FromConfig(Require(state.Options, "config"),
             state.Provider ?? throw new InvalidOperationException("no chat provider supplied"),
-            toolAgentFactory: state.ToolAgentFactory, approvalHandler: state.ApprovalHandler,
-            conflictResolver: state.ConflictResolver, storeResolver: state.StoreResolver,
-            embedderResolver: state.EmbedderResolver, checkpointStore: checkpoints,
-            specStoreResolver: state.SpecStoreResolver);
+            backend: state.Backend, approvalHandler: state.ApprovalHandler,
+            conflictResolver: state.ConflictResolver, checkpointStore: checkpoints);
         if (isGraph)
         {
             var result = runtime.RunAsync(Require(state.Options, "input"), state.Options.GetValueOrDefault("run-id"), onChunk)
@@ -107,11 +105,9 @@ internal static class CommandStrategy
     {
         var runtime = Runtime.FromConfig(Require(state.Options, "config"),
             state.Provider ?? throw new InvalidOperationException("no chat provider supplied"),
-            toolAgentFactory: state.ToolAgentFactory, approvalHandler: state.ApprovalHandler,
-            conflictResolver: state.ConflictResolver, storeResolver: state.StoreResolver,
-            embedderResolver: state.EmbedderResolver,
-            checkpointStore: new FileCheckpointStore(Require(state.Options, "checkpoint")),
-            specStoreResolver: state.SpecStoreResolver);
+            backend: state.Backend, approvalHandler: state.ApprovalHandler,
+            conflictResolver: state.ConflictResolver,
+            checkpointStore: new FileCheckpointStore(Require(state.Options, "checkpoint")));
         var result = runtime.ResumeAsync(Require(state.Options, "run-id")).GetAwaiter().GetResult();
         state.Out.WriteLine(result.Output);
         return 0;
@@ -122,16 +118,16 @@ internal static class CommandStrategy
     {
         var runtime = Runtime.FromConfig(Require(state.Options, "config"),
             state.Provider ?? throw new InvalidOperationException("no chat provider supplied"),
-            storeResolver: state.StoreResolver, embedderResolver: state.EmbedderResolver);
+            backend: state.Backend);
         if (runtime.Rag is null)
         {
             state.Error.WriteLine("ERROR: config has no enabled 'rag' section");
             return 1;
         }
         var ingestCfg = runtime.Config.Rag?.Ingest;
-        var ingestor = new Ingestor(runtime.Rag.Embedder, runtime.Rag.Store,
-            chunkSize: ingestCfg?.ChunkSize ?? 800, overlap: ingestCfg?.ChunkOverlap ?? 120);
-        var count = ingestor.IngestPathsAsync(ingestCfg?.Sources ?? new List<string>())
+        var count = runtime.Retrieval!.IngestAsync(
+                ingestCfg?.Sources ?? new List<string>(),
+                chunkSize: ingestCfg?.ChunkSize ?? 800, overlap: ingestCfg?.ChunkOverlap ?? 120)
             .GetAwaiter().GetResult();
         state.Out.WriteLine($"ingested {count} chunks");
         return 0;

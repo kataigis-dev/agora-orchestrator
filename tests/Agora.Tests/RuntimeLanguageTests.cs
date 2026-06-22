@@ -11,10 +11,10 @@ namespace Agora.Tests;
 
 public class RuntimeLanguageTests
 {
-    private sealed class CapturingFactory : IToolAgentFactory
+    private sealed class CapturingFactory : IAgentBackend
     {
         public AgentBuildContext? Last { get; private set; }
-        public IAgent Create(AgentBuildContext context)
+        public IAgent CreateToolAgent(AgentBuildContext context)
         {
             Last = context;
             return new Stub();
@@ -34,7 +34,7 @@ public class RuntimeLanguageTests
         try
         {
             var factory = new CapturingFactory();
-            Runtime.FromConfig(path, new FakeChatProvider(new[] { "x" }), toolAgentFactory: factory)
+            Runtime.FromConfig(path, new FakeChatProvider(new[] { "x" }), backend: factory)
                 .BuildAgent("writer");
             return factory.Last!;
         }

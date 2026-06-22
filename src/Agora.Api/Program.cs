@@ -25,17 +25,18 @@ var builder = WebApplication.CreateBuilder(args);
 var configPath = GetConfigPath(args) ?? Environment.GetEnvironmentVariable("AGORA_CONFIG");
 var configDir = configPath is null ? null : Path.GetDirectoryName(Path.GetFullPath(configPath));
 
-// Shared singletons. Tests override IChatProvider / IToolAgentFactory / AgoraConfig.
+// Shared singletons. Tests override IChatProvider / IAgentBackend / AgoraConfig.
 builder.Services.AddSingleton<IChatProvider>(_ => new AgentFrameworkChatProvider());
-builder.Services.AddSingleton<IToolAgentFactory>(_ => new AgentFrameworkToolAgentFactory());
+builder.Services.AddSingleton<IAgentBackend>(_ => new AgentFrameworkBackend());
 builder.Services.AddSingleton(_ =>
     configPath is null ? new AgoraConfig() : ConfigLoader.Load(Path.GetFullPath(configPath)));
 builder.Services.AddSingleton(sp =>
 {
     var cfg = sp.GetRequiredService<AgoraConfig>();
     var provider = sp.GetRequiredService<IChatProvider>();
-    var rag = RagFactory.Build(cfg, provider);
-    return new AgoraRuntimeFactory(cfg, configDir, provider, sp.GetRequiredService<IToolAgentFactory>(), rag);
+    var backend = sp.GetRequiredService<IAgentBackend>();
+    var retrieval = Retrieval.Build(cfg, provider, backend);
+    return new AgoraRuntimeFactory(cfg, configDir, provider, backend, retrieval);
 });
 builder.Services.AddSingleton<IRunStore, InMemoryRunStore>();
 builder.Services.AddSingleton<ApprovalGate>();

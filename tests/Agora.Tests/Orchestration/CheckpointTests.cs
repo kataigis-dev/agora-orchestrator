@@ -76,14 +76,10 @@ public class CheckpointTests
             ["planner"] = new(@default: "SHOULD-NOT-RUN"),
             ["writer"] = new(new[] { "FINAL" }),
         };
-        var snapshot = new StateSnapshot
-        {
-            Current = "writer",
-            Steps = 1,
-            UserInput = "task",
-            Outputs = { ["planner"] = "PLAN" },
-            Messages = { new Message("planner", "writer", "PLAN") },
-        };
+        var seed = new State("task");
+        seed.Outputs["planner"] = "PLAN";
+        seed.Messages.Add(new Message("planner", "writer", "PLAN"));
+        var snapshot = new StateSnapshot { Current = "writer", Steps = 1, State = seed };
 
         var state = await new GraphExecutor(Graph2(), Factory(providers)).RunAsync("task", resumeFrom: snapshot);
 

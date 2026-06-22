@@ -11,10 +11,10 @@ namespace Agora.Tests;
 
 public class RuntimeAskAgentTests
 {
-    private sealed class CapturingFactory : IToolAgentFactory
+    private sealed class CapturingFactory : IAgentBackend
     {
         public List<AgentBuildContext> Contexts { get; } = new();
-        public IAgent Create(AgentBuildContext context)
+        public IAgent CreateToolAgent(AgentBuildContext context)
         {
             Contexts.Add(context);
             return new StubAgent();
@@ -43,7 +43,7 @@ public class RuntimeAskAgentTests
             """;
         var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".yaml");
         File.WriteAllText(path, yaml);
-        return Runtime.FromConfig(path, provider, toolAgentFactory: factory);
+        return Runtime.FromConfig(path, provider, backend: factory);
     }
 
     [Fact]

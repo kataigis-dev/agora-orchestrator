@@ -6,8 +6,11 @@ using System.Text.Json;
 namespace Agora.Orchestration.Models;
 
 /// <summary>
-/// A JSON-serializable snapshot of a graph run: enough to resume from the node about to execute.
-/// Signals (a <c>string|bool</c> map) round-trip through JSON and are normalized back on load.
+/// A JSON-serializable checkpoint: the run cursor (<see cref="Current"/> / <see cref="Steps"/>) plus
+/// the <see cref="State"/> it was captured at. The state is the single source of truth — the snapshot
+/// adds only the cursor, so a new state field flows through here automatically with no mirror to keep
+/// in sync. Object-valued signals/artifacts come back as <see cref="JsonElement"/> after a round-trip
+/// and are restored to their primitive types on <see cref="ToState"/>.
 /// </summary>
 public sealed class StateSnapshot
 {
@@ -16,43 +19,32 @@ public sealed class StateSnapshot
 
     /// <summary>Number of steps already executed.</summary>
     public int Steps { get; set; }
-    public string UserInput { get; set; } = "";
-    public List<Message> Messages { get; set; } = new();
-    public Dictionary<string, string> Outputs { get; set; } = new();
-    public Dictionary<string, int> LoopCounters { get; set; } = new();
-    public Dictionary<string, string> Artifacts { get; set; } = new();
-    public Dictionary<string, object> Signals { get; set; } = new();
-    public string? LastAgent { get; set; }
+
+    /// <summary>The run state captured at the snapshot.</summary>
+    public State State { get; set; } = new("");
 
     /// <summary>Captures a snapshot from live state, the next node, and the step count.</summary>
-    public static StateSnapshot From(State state, string current, int steps) => new()
-    {
-        Current = current,
-        Steps = steps,
-        UserInput = state.UserInput,
-        Messages = state.Messages.ToList(),
-        Outputs = new Dictionary<string, string>(state.Outputs),
-        LoopCounters = new Dictionary<string, int>(state.LoopCounters),
-        Artifacts = state.Artifacts.ToDictionary(kv => kv.Key, kv => kv.Value?.ToString() ?? ""),
-        Signals = new Dictionary<string, object>(state.Signals),
-        LastAgent = state.LastAgent,
-    };
+    public static StateSnapshot From(State state, string current, int steps)
+        => new() { Current = current, Steps = steps, State = state };
 
-    /// <summary>Rebuilds live <see cref="State"/> from the snapshot, restoring signal value types.</summary>
+    /// <summary>Returns the captured state, restoring signal/artifact value types after a JSON round-trip.</summary>
     public State ToState()
     {
-        var state = new State(UserInput) { LastAgent = LastAgent };
-        state.Messages.AddRange(Messages);
-        foreach (var (key, value) in Outputs) state.Outputs[key] = value;
-        foreach (var (key, value) in LoopCounters) state.LoopCounters[key] = value;
-        foreach (var (key, value) in Artifacts) state.Artifacts[key] = value;
-        foreach (var (key, value) in Signals) state.Signals[key] = Normalize(value);
-        return state;
+        NormalizeMap(State.Signals);
+        NormalizeMap(State.Artifacts);
+        return State;
     }
 
-    /// <summary>After a JSON round-trip signal values arrive as <see cref="JsonElement"/>; this restores
-    /// the original bool/string/number type.</summary>
-    private static object Normalize(object value) => value switch
+    /// <summary>Restores each value's primitive type when it arrived as a <see cref="JsonElement"/>.</summary>
+    private static void NormalizeMap(IDictionary<string, object> map)
+    {
+        foreach (var key in map.Keys.ToList())
+            map[key] = NormalizeValue(map[key]);
+    }
+
+    /// <summary>After a JSON round-trip an <c>object</c> value arrives as <see cref="JsonElement"/>;
+    /// this restores the original bool/string/number type.</summary>
+    private static object NormalizeValue(object value) => value switch
     {
         JsonElement je => je.ValueKind switch
         {

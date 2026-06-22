@@ -78,10 +78,12 @@ public sealed record Edge(
 
 ## Next-node resolution
 
-`GraphExecutor.NextNode` scans the edges from the current node:
+`EdgeResolver.Next` (a pure function the executor calls) scans the edges from the current node:
 1. `sequential`/`handoff` → target selected
 2. `conditional` → target selected only if the `when` signal is in `State.Signals` and `max_loops`
    (if set) has not been reached
 3. If no conditional edge matches → the first non-conditional edge from the same node, else `END`
 
-`route` edges are resolved by the LLM router; `parallel` edges fork concurrent branches.
+It returns the next node plus the updated `max_loops` counters **without mutating** the state — the
+executor threads them back in. `route` edges are resolved by the LLM router; `parallel` edges fork
+concurrent branches.

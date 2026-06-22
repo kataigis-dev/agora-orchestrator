@@ -1,5 +1,23 @@
 # Research Log
 
+## 2026-06-23 — Architecture deepening: backend seam, retrieval module, pure routing
+
+Five refactors turning shallow modules/leaky seams into deep ones (273 → 301 tests green):
+- **One framework seam**: the four parallel injections (`IToolAgentFactory` + the vector-store /
+  embedder / spec-store resolver delegates) collapse into a single **`IAgentBackend`**, with one
+  adapter `AgentFrameworkBackend`. Removed `IToolAgentFactory`/`AgentFrameworkToolAgentFactory`
+- **Retrieval as one module**: new **`Retrieval`** owns the shared embedder + vector store and, over
+  them, the pipeline, knowledge base, and memory — concentrating the "reads and writes share one
+  store" rule and the build order that `Runtime` used to hand-wire. `RagPipeline.Embedder/Store` are
+  no longer public; ingest goes through `Retrieval.IngestAsync`
+- **Pure routing**: signal-based next-node logic extracted to **`EdgeResolver.Next`**, a pure function
+  `(edges, signals, loopCounters) → (next, loopCounters')`; `GraphExecutor.NextNode` no longer mutates
+  the state's loop counters as a side effect
+- **State/snapshot**: `State` is now JSON-serializable and **`StateSnapshot`** wraps it with the run
+  cursor instead of mirroring every field — no more hand-written `From`/`ToState` duplication
+- **Console prompter**: the wizard's prompt primitives extracted to a testable **`Prompter`** over the
+  injected I/O; `ConfigWizard` composes it. +28 tests (`EdgeResolver`/`Retrieval`/`Prompter`)
+
 ## 2026-06-20 — Improvements: embedder from config, efficient conflict-judge, memory, eval
 
 Started the improvement program (10 tracked items). Completed so far:

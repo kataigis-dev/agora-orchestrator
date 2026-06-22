@@ -36,58 +36,48 @@ public sealed class Runtime
     private readonly IChatProvider _provider;
     private readonly Dictionary<string, ModelSpec> _specs;
     private readonly string? _configDir;
-    private readonly IToolAgentFactory? _toolAgentFactory;
+    private readonly IAgentBackend? _backend;
     private readonly IApprovalHandler? _approvalHandler;
     private readonly IConflictResolver? _conflictResolver;
-    private readonly Func<Configuration.VectorStoreConfig?, IVectorStore?>? _storeResolver;
-    private readonly Func<EmbedderSpec, IEmbedder?>? _embedderResolver;
     private readonly SkillRegistry _skillRegistry;
     private readonly IOutputInterpreter _interpreter;
     private readonly bool _h2c;
     private readonly bool _handoff;
-    private readonly ContextMemory? _memory;
+    private readonly Retrieval? _retrieval;
     private readonly IRouter? _router;
     private readonly ICheckpointStore? _checkpoints;
     private readonly IExecutionObserver? _observer;
-    private readonly Func<SpecStoreSpec, ISpecStore?>? _specStoreResolver;
 
     /// <summary>Builds the runtime from a config and provider, wiring optional edge dependencies
-    /// (tool factory, HITL handlers, RAG resolvers, checkpoint store, spec-store resolver).</summary>
+    /// (the agent backend, HITL handlers, checkpoint store).</summary>
     public Runtime(
         AgoraConfig config,
         IChatProvider provider,
         string? configDir = null,
-        RagPipeline? rag = null,
-        IToolAgentFactory? toolAgentFactory = null,
+        Retrieval? retrieval = null,
+        IAgentBackend? backend = null,
         IApprovalHandler? approvalHandler = null,
         IConflictResolver? conflictResolver = null,
-        Func<Configuration.VectorStoreConfig?, IVectorStore?>? storeResolver = null,
-        Func<EmbedderSpec, IEmbedder?>? embedderResolver = null,
         ICheckpointStore? checkpointStore = null,
-        IExecutionObserver? observer = null,
-        Func<SpecStoreSpec, ISpecStore?>? specStoreResolver = null)
+        IExecutionObserver? observer = null)
     {
         _config = config;
         _checkpoints = checkpointStore;
         _observer = observer;
-        _specStoreResolver = specStoreResolver;
         _provider = provider is ResilientChatProvider ? provider : new ResilientChatProvider(provider);
         _specs = ModelResolver.Resolve(config);
         _configDir = configDir;
-        _toolAgentFactory = toolAgentFactory;
+        _backend = backend;
         _approvalHandler = approvalHandler;
         _conflictResolver = conflictResolver;
-        _storeResolver = storeResolver;
-        _embedderResolver = embedderResolver;
         _skillRegistry = SkillLoader.Load(config.Skills?.Directories ?? new List<string>());
         _h2c = string.Equals(config.Communication, "h2c", StringComparison.OrdinalIgnoreCase);
         _handoff = config.Handoff == true;
         _interpreter = _h2c ? new H2cInterpreter() : new SignalInterpreter();
-        Rag = rag ?? BuildRag();
-        KnowledgeBase = BuildKnowledgeBase();
+        // One module owns the embedder/store and the pipeline → knowledge base → memory build order.
+        _retrieval = retrieval ?? global::Agora.Rag.Concretes.Retrieval.Build(_config, _provider, _backend, _conflictResolver);
         SpecStore = BuildSpecStore();
         CheckRunner = BuildCheckRunner();
-        _memory = BuildMemory();
         _router = _config.Defaults.Model is string routerAlias && _specs.TryGetValue(routerAlias, out var routerSpec)
             ? new LlmRouter(_provider, routerSpec)
             : null;
@@ -96,11 +86,15 @@ public sealed class Runtime
     /// <summary>The loaded configuration.</summary>
     public AgoraConfig Config => _config;
 
+    /// <summary>The retrieval subsystem (read pipeline + knowledge base + context memory), or null when
+    /// both RAG and memory are disabled.</summary>
+    public Retrieval? Retrieval => _retrieval;
+
     /// <summary>The RAG read pipeline, or null when RAG is disabled.</summary>
-    public RagPipeline? Rag { get; }
+    public RagPipeline? Rag => _retrieval?.Pipeline;
 
     /// <summary>Write path into the shared knowledge base (same store as <see cref="Rag"/>), or null when RAG is off.</summary>
-    public KnowledgeBase? KnowledgeBase { get; }
+    public KnowledgeBase? KnowledgeBase => _retrieval?.KnowledgeBase;
 
     /// <summary>Structured spec store (source of truth for the <c>spec_*</c> tools), or null when SDD is off.</summary>
     public ISpecStore? SpecStore { get; }
@@ -110,44 +104,16 @@ public sealed class Runtime
 
     /// <summary>Loads the config at <paramref name="path"/> and builds a runtime from it.</summary>
     public static Runtime FromConfig(
-        string path, IChatProvider provider, RagPipeline? rag = null,
-        IToolAgentFactory? toolAgentFactory = null, IApprovalHandler? approvalHandler = null,
+        string path, IChatProvider provider, Retrieval? retrieval = null,
+        IAgentBackend? backend = null, IApprovalHandler? approvalHandler = null,
         IConflictResolver? conflictResolver = null,
-        Func<Configuration.VectorStoreConfig?, IVectorStore?>? storeResolver = null,
-        Func<EmbedderSpec, IEmbedder?>? embedderResolver = null,
         ICheckpointStore? checkpointStore = null,
-        IExecutionObserver? observer = null,
-        Func<SpecStoreSpec, ISpecStore?>? specStoreResolver = null)
+        IExecutionObserver? observer = null)
     {
         var full = Path.GetFullPath(path);
         return new Runtime(
-            ConfigLoader.Load(full), provider, Path.GetDirectoryName(full), rag, toolAgentFactory,
-            approvalHandler, conflictResolver, storeResolver, embedderResolver, checkpointStore, observer,
-            specStoreResolver);
-    }
-
-    /// <summary>Builds the RAG pipeline from config (with the optional LLM refiner), or null if absent.</summary>
-    private RagPipeline? BuildRag()
-    {
-        var rag = _config.Rag;
-        if (rag is null)
-            return null;
-        var refineModel = rag.Refine?.Model;
-        ModelSpec? refineSpec = refineModel is not null && _specs.TryGetValue(refineModel, out var spec) ? spec : null;
-        return RagFactory.Build(_config, _provider, refineSpec, _storeResolver, _embedderResolver);
-    }
-
-    /// <summary>Builds the writable knowledge base over the RAG embedder/store, using an LLM conflict
-    /// judge when a default model is configured; null when RAG is off.</summary>
-    private KnowledgeBase? BuildKnowledgeBase()
-    {
-        if (Rag is null)
-            return null;
-        // Reuse the read pipeline's embedder + store so reads and writes share one knowledge base.
-        IConflictJudge judge = _config.Defaults.Model is string alias && _specs.TryGetValue(alias, out var spec)
-            ? new LlmConflictJudge(_provider, spec)
-            : new NoOpConflictJudge();
-        return new KnowledgeBase(Rag.Embedder, Rag.Store, judge, _conflictResolver);
+            ConfigLoader.Load(full), provider, Path.GetDirectoryName(full), retrieval, backend,
+            approvalHandler, conflictResolver, checkpointStore, observer);
     }
 
     /// <summary>Builds the structured spec store from config: a core file store, or a non-core store
@@ -171,9 +137,9 @@ public sealed class Runtime
         _config.Mcp?.Servers.TryGetValue(serverName, out server);
         var resolved = new SpecStoreSpec(
             store.Type, serverName, server, store.WriteTool, store.ReadTool, store.WriteArg, store.QueryArg, store.Key);
-        return _specStoreResolver?.Invoke(resolved)
+        return _backend?.TryCreateSpecStore(resolved)
             ?? throw new NotSupportedException(
-                $"spec store type '{store.Type}' has no built-in implementation and no resolver provided");
+                $"spec store type '{store.Type}' has no built-in implementation and no backend provided");
     }
 
     /// <summary>Builds the check runner from config (real process execution of allow-listed commands);
@@ -182,19 +148,6 @@ public sealed class Runtime
         => _config.Checks is { } checks
             ? new ProcessCheckRunner(checks, _configDir ?? Directory.GetCurrentDirectory())
             : null;
-
-    /// <summary>Builds context memory when enabled, reusing the RAG embedder/store or falling back to
-    /// an offline store; null when memory is disabled.</summary>
-    private ContextMemory? BuildMemory()
-    {
-        if (_config.Memory?.Enabled != true)
-            return null;
-        // Reuse the RAG embedder/store when available (entries are source-tagged to stay
-        // distinct from KB facts); otherwise fall back to an offline in-memory store.
-        var embedder = Rag?.Embedder ?? new FakeEmbedder();
-        var store = Rag?.Store ?? new InMemoryVectorStore();
-        return new ContextMemory(embedder, store);
-    }
 
     /// <summary>Runs a single agent (no graph) on the input, optionally streaming its output.</summary>
     public async Task<AgentResult> RunAgentAsync(string agentId, string userInput, Action<string>? onChunk = null)
@@ -235,7 +188,7 @@ public sealed class Runtime
         using var _ = Tracing.BeginSpan("graph.resume");
         var metrics = new MetricsExecutionObserver();
         var state = await BuildExecutor(runId, null, Observe(metrics))
-            .RunAsync(snapshot.UserInput, resumeFrom: snapshot);
+            .RunAsync(snapshot.State.UserInput, resumeFrom: snapshot);
         return BuildResult(state, runId, enriched: null, await WithTraceability(metrics.Metrics));
     }
 
@@ -282,7 +235,7 @@ public sealed class Runtime
             ? new MemoryOptions(m.TopK, m.MaxChars, m.RememberOutputs)
             : new MemoryOptions();
         return new GraphExecutor(graph, BuildAgent, handoff: _handoff,
-            memory: _memory, memoryOptions: memoryOptions, router: _router,
+            memory: _retrieval?.Memory, memoryOptions: memoryOptions, router: _router,
             checkpoints: _checkpoints, runId: runId, onChunk: onChunk, observer: observer);
     }
 
@@ -340,14 +293,14 @@ public sealed class Runtime
 
         if (agentConfig.Skills.Count > 0 || agentConfig.Tools.Count > 0)
         {
-            if (_toolAgentFactory is null)
+            if (_backend is null)
                 throw new InvalidOperationException(
-                    $"agent '{agentId}' declares skills/tools but no IToolAgentFactory was provided");
+                    $"agent '{agentId}' declares skills/tools but no IAgentBackend was provided");
             if (agentConfig.Approvals.Count > 0 && _approvalHandler is null)
                 throw new InvalidOperationException(
                     $"agent '{agentId}' declares approvals but no IApprovalHandler was provided");
             var skills = _skillRegistry.ForAgent(agentConfig.Skills);
-            return _toolAgentFactory.Create(new AgentBuildContext
+            return _backend.CreateToolAgent(new AgentBuildContext
             {
                 Card = card,
                 Spec = spec,

@@ -58,13 +58,13 @@ public static class RunEndpoints
 
         app.MapPost("/ingest", async (AgoraRuntimeFactory runtimes) =>
         {
-            var rag = runtimes.Rag;
-            if (rag is null)
+            var retrieval = runtimes.Retrieval;
+            if (retrieval?.Pipeline is null)
                 return Results.BadRequest(new { error = "config has no enabled 'rag' section" });
             var ingestCfg = runtimes.Config.Rag?.Ingest;
-            var ingestor = new Agora.Rag.Concretes.Ingestor(rag.Embedder, rag.Store,
+            var count = await retrieval.IngestAsync(
+                ingestCfg?.Sources ?? new List<string>(),
                 chunkSize: ingestCfg?.ChunkSize ?? 800, overlap: ingestCfg?.ChunkOverlap ?? 120);
-            var count = await ingestor.IngestPathsAsync(ingestCfg?.Sources ?? new List<string>());
             return Results.Ok(new IngestResponse(count));
         });
     }

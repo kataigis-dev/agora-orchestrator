@@ -26,7 +26,7 @@ public class RagRunE2ETests
         var pipeline = new RagPipeline(new NoOpRefiner(), embedder, store, topK: 2, scoreThreshold: 0.0);
 
         var provider = new FakeChatProvider(new[] { "ANSWER" });
-        var runtime = Runtime.FromConfig(Path.Combine(examples, "agora-rag.yaml"), provider, pipeline);
+        var runtime = Runtime.FromConfig(Path.Combine(examples, "agora-rag.yaml"), provider, Retrieval.ForPipeline(pipeline));
 
         var result = await runtime.RunAsync("What is Agora?");
 

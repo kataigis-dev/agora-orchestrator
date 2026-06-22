@@ -28,10 +28,10 @@ public class RuntimeToolAgentTests : IDisposable
             Directory.Delete(_skillsDir, recursive: true);
     }
 
-    private sealed class FakeToolAgentFactory : IToolAgentFactory
+    private sealed class FakeToolAgentFactory : IAgentBackend
     {
         public AgentBuildContext? Last { get; private set; }
-        public IAgent Create(AgentBuildContext context)
+        public IAgent CreateToolAgent(AgentBuildContext context)
         {
             Last = context;
             return new StubAgent();
@@ -44,7 +44,7 @@ public class RuntimeToolAgentTests : IDisposable
             => Task.FromResult(new AgentResult { Output = "stub" });
     }
 
-    private Runtime Build(FakeChatProvider provider, IToolAgentFactory? factory)
+    private Runtime Build(FakeChatProvider provider, IAgentBackend? factory)
     {
         var yaml = $$"""
             providers:
@@ -59,7 +59,7 @@ public class RuntimeToolAgentTests : IDisposable
             """;
         var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".yaml");
         File.WriteAllText(path, yaml);
-        return Runtime.FromConfig(path, provider, toolAgentFactory: factory);
+        return Runtime.FromConfig(path, provider, backend: factory);
     }
 
     [Fact]
@@ -87,6 +87,6 @@ public class RuntimeToolAgentTests : IDisposable
     {
         var ex = Assert.Throws<InvalidOperationException>(
             () => Build(new FakeChatProvider(new[] { "x" }), factory: null).BuildAgent("tooled"));
-        Assert.Contains("no IToolAgentFactory", ex.Message);
+        Assert.Contains("no IAgentBackend", ex.Message);
     }
 }

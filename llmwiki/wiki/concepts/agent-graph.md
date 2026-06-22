@@ -34,7 +34,7 @@ public sealed class Graph
 `GraphExecutor` runs the graph in a loop:
 1. Enter the current node → run the agent
 2. Collect output and signals
-3. Resolve the next node via `NextNode(current, state)` (or the LLM router for `route` edges)
+3. Resolve the next node via the pure `EdgeResolver.Next` (or the LLM router for `route` edges)
 4. Repeat until `END` or `max_steps` (default 100) is exceeded
 
 ## Shared state (`State`)

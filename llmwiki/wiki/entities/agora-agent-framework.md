@@ -22,7 +22,7 @@ Satellite project providing the concrete integrations with LLM providers and ext
 | `AgentFrameworkEmbedders` | Resolves config-driven embedders (`type: openai`/`ollama`) |
 | `AgentFrameworkVectorStores` | Resolves config-driven vector stores (`type: qdrant`) |
 | `QdrantVectorStore` | `IVectorStore` over a Qdrant server (gRPC) |
-| `AgentFrameworkToolAgentFactory` | `IToolAgentFactory` — builds tool-enabled agents |
+| `AgentFrameworkBackend` | `IAgentBackend` — the single backend: builds tool-enabled agents and resolves non-core embedders / vector stores / spec stores |
 | `BuiltInFileTools`, `RagTools`, `AskAgentTool` | Built-in tools (filesystem, rag_search/rag_write, ask_agent) |
 | `McpToolSession` | MCP session with an external server (stdio/HTTP) |
 | `SkillTools` | Exposes skills as a `load_skill` tool |

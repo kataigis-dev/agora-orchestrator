@@ -41,7 +41,7 @@ public class RuntimeRagTests
         File.WriteAllText(path, Config);
         var provider = new FakeChatProvider(new[] { "ANSWER" });
         var rag = await PipelineWithChunk("Agora is a multi-agent framework", "kb.md");
-        var rt = Runtime.FromConfig(path, provider, rag);
+        var rt = Runtime.FromConfig(path, provider, Retrieval.ForPipeline(rag));
 
         var result = await rt.RunAsync("what is agora");
 
@@ -58,7 +58,7 @@ public class RuntimeRagTests
         var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".yaml");
         File.WriteAllText(path, Config);
         var rag = await PipelineWithChunk("seed entry", "kb.md");
-        var rt = Runtime.FromConfig(path, new FakeChatProvider(new[] { "ANSWER" }), rag);
+        var rt = Runtime.FromConfig(path, new FakeChatProvider(new[] { "ANSWER" }), Retrieval.ForPipeline(rag));
 
         Assert.NotNull(rt.KnowledgeBase);
         await rt.KnowledgeBase!.WriteAsync("Agora supports MCP tools", "agent:x");

@@ -7,7 +7,7 @@ using Agora.Providers.Concretes;
 
 namespace Agora.Agents.Concretes;
 
-/// <summary>Runs a single agent's prompt loop (no tools/skills — see IToolAgentFactory for those).</summary>
+/// <summary>Runs a single agent's prompt loop (no tools/skills — see IAgentBackend for those).</summary>
 public sealed class Agent : IAgent
 {
     private readonly AgentCard _card;
