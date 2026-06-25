@@ -1,0 +1,16 @@
+{
+  "id": "is-prime-bool-trap",
+  "input": "Implement a Python function is_prime(n). Besides normal integers, it must REJECT boolean inputs (True/False) by raising TypeError, because in Python bool is a subtype of int and True == 1.",
+  "config": "evals/configs/codegen-lean.yaml",
+  "graph": false,
+  "agent": "writer",
+  "reference": "A correct answer guards against bool explicitly, e.g. `if isinstance(n, bool): raise TypeError(...)` placed before any integer logic.",
+  "deterministic": [
+    { "kind": "regex", "value": "def\\s+is_prime" }
+  ],
+  "rubric": {
+    "correctness": "Explicitly rejects bool inputs (e.g. isinstance(n, bool) -> raise TypeError) AND remains correct for ordinary integers (n < 2, 2, 3, large primes).",
+    "completeness": "Handles both the bool-rejection requirement and the ordinary integer cases."
+  },
+  "expectedScore": 0.5
+}

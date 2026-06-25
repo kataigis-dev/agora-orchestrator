@@ -1,3 +1,4 @@
+using Agora.Agents.Models;
 using Agora.Orchestration.Contracts;
 using Agora.Orchestration.Models;
 using Agora.Orchestration.Concretes;
@@ -51,6 +52,25 @@ public sealed record RunMetrics
     /// Lets a run be measured on whether its committed scope was actually traced and verified, not only
     /// on whether the graph reached END.</summary>
     public TraceabilitySummary? Traceability { get; init; }
+
+    /// <summary>Projects a single (non-graph) agent run into run metrics: one step, no rework or forks,
+    /// carrying the agent's own token counts. The single-agent counterpart to
+    /// <see cref="MetricsExecutionObserver"/>, which assembles a graph run from execution events — both
+    /// produce the same <see cref="RunMetrics"/> shape so every run is measured the same way.</summary>
+    public static RunMetrics ForAgent(AgentResult result, TimeSpan duration, string agentId) => new()
+    {
+        Steps = 1,
+        Completed = true,
+        Duration = duration,
+        NodeVisits = new Dictionary<string, int> { [agentId] = 1 },
+        ReworkCount = 0,
+        ParallelForks = 0,
+        Signals = result.Signals.Keys.ToDictionary(k => k, _ => 1),
+        InputTokens = result.InputTokens,
+        OutputTokens = result.OutputTokens,
+        CacheReadTokens = result.CacheReadTokens,
+        CacheWriteTokens = result.CacheWriteTokens,
+    };
 
     /// <summary>A compact one-line summary for logs.</summary>
     public string ToSummary()

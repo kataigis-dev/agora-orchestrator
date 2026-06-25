@@ -1,0 +1,16 @@
+{
+  "id": "json-format",
+  "input": "Return ONLY a JSON object (no prose, no code fences) with exactly two keys: \"name\" set to \"is_prime\" and \"pure\" set to the boolean true.",
+  "config": "evals/configs/codegen-lean.yaml",
+  "graph": false,
+  "agent": "writer",
+  "deterministic": [
+    { "kind": "regex", "value": "^\\s*\\{" },
+    { "kind": "regex", "value": "\\}\\s*$" },
+    { "kind": "contains", "value": "\"name\"" }
+  ],
+  "rubric": {
+    "correctness": "The JSON has exactly the keys name=\"is_prime\" and pure=true (a real boolean, not the string \"true\")."
+  },
+  "expectedScore": 1.0
+}

@@ -39,7 +39,7 @@ Completion/verdicts are signalled by the subtype, e.g. `[STATE:DONE]`, `[TEST:PA
 - recognizes a `handoff` field as the handoff artifact (used in handoff mode).
 
 `H2cParser` extracts the blocks; surrounding prose is ignored and malformed blocks are skipped.
-A system-prompt preamble (`H2cPreamble`) instructs the agent to reply in H2C.
+A system-prompt preamble (assembled by `AgentInstructions`) instructs the agent to reply in H2C.
 
 ## H2C vs Natural
 

@@ -1,6 +1,8 @@
+using System.Globalization;
 using System.Text.Json;
 using Agora.Configuration;
 using Agora.Eval;
+using Agora.Eval.Quality;
 using Agora.Orchestration.Contracts;
 using Agora.Orchestration.Models;
 using Agora.Orchestration.Concretes;
@@ -17,11 +19,14 @@ internal static class CommandStrategy
     /// <summary>Prints usage and returns a non-zero exit code (no/unknown verb).</summary>
     public static Func<ConfigState, int> EmptyArgs => (state) =>
     {
-        state.Error.WriteLine("usage: agora <init|run|resume|ingest|validate|eval> [options]");
-        state.Error.WriteLine("  init     [--output <file>]   guided config builder");
-        state.Error.WriteLine("  run      --config <file> --input <text> [--agent <id>] [--graph] [--stream] [--checkpoint <dir>] [--run-id <id>]");
-        state.Error.WriteLine("  resume   --config <file> --checkpoint <dir> --run-id <id>");
-        state.Error.WriteLine("  eval     --config <file> --scenario <file.json>");
+        state.Error.WriteLine("usage: agora <init|run|resume|ingest|validate|eval|eval-quality> [options]");
+        state.Error.WriteLine("  init         [--output <file>]   guided config builder");
+        state.Error.WriteLine("  run          --config <file> --input <text> [--agent <id>] [--graph] [--stream] [--checkpoint <dir>] [--run-id <id>]");
+        state.Error.WriteLine("  resume       --config <file> --checkpoint <dir> --run-id <id>");
+        state.Error.WriteLine("  serve-mcp    --config <file>   local read-only MCP stdio server exposing rag_search");
+        state.Error.WriteLine("  purge-kb-log --config <file> [--before <ISO-8601 date>]   purge the KB mutation audit log");
+        state.Error.WriteLine("  eval         --config <file> --scenario <file.json>");
+        state.Error.WriteLine("  eval-quality --suite <dir|file> --judge-config <file> [--out <report.json>]   (live; set AGORA_EVAL_LIVE=1)");
         return 1;
     };
 
@@ -35,14 +40,14 @@ internal static class CommandStrategy
     /// <summary>Runs an eval scenario (<c>--scenario</c>) against a config and reports PASS/FAIL.</summary>
     public static Func<ConfigState, int> Eval => (state) =>
     {
-        var scenarioPath = Require(state.Options, "scenario");
+        var scenarioPath = state.Require("scenario");
         if (!File.Exists(scenarioPath))
             throw new ConfigException($"scenario file not found: {scenarioPath}");
         var scenario = JsonSerializer.Deserialize<Scenario>(
             File.ReadAllText(scenarioPath),
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
         ?? throw new ConfigException("scenario file is empty or invalid");
-        var result = ScenarioRunner.RunAsync(Require(state.Options, "config"), scenario)
+        var result = ScenarioRunner.RunAsync(state.Require("config"), scenario)
             .GetAwaiter().GetResult();
         if (result.Passed)
         {
@@ -55,12 +60,38 @@ internal static class CommandStrategy
         return 1;
     };
 
+    /// <summary>Runs the LLM-judge quality suite (<c>--suite</c>) against a real provider and a judge model
+    /// (<c>--judge-config</c>), printing per-scenario scores and optionally a JSON report (<c>--out</c>).
+    /// Opt-in: refuses unless <c>AGORA_EVAL_LIVE</c> is set, so CI stays offline by default.</summary>
+    public static Func<ConfigState, int> EvalQuality => (state) =>
+    {
+        if (Environment.GetEnvironmentVariable("AGORA_EVAL_LIVE") is not ("1" or "true"))
+        {
+            state.Error.WriteLine("eval-quality runs real models; set AGORA_EVAL_LIVE=1 to enable it.");
+            return 2;
+        }
+        var sut = state.RequireProvider();
+        var scenarios = QualitySuiteLoader.Load(state.Require("suite"));
+        var judge = QualityJudgeFactory.FromConfig(state.Require("judge-config"), sut);
+
+        var suite = QualityRunner.RunSuiteAsync(scenarios, sut, judge, state.Backend).GetAwaiter().GetResult();
+        state.Out.WriteLine(QualityReport.Human(suite));
+        if (state.Options.TryGetValue("out", out var outPath))
+        {
+            File.WriteAllText(outPath, QualityReport.Json(suite));
+            state.Error.WriteLine($"report: {outPath}");
+        }
+        return suite.ErrorCases > 0 ? 1 : 0;
+    };
+
     /// <summary>Loads and validates a config, printing OK on success or INVALID on failure.</summary>
     public static Func<ConfigState, int> Validate => (state) =>
     {
         try
         {
-            ConfigLoader.Load(Require(state.Options, "config"));
+            var config = ConfigLoader.Load(state.Require("config"));
+            // Fail loud: a writable KB (rag_write) needs a real embedder and a resolvable judge model.
+            RagWriteValidator.Validate(config);
         }
         catch (ConfigException e)
         {
@@ -79,46 +110,69 @@ internal static class CommandStrategy
             ? new FileCheckpointStore(cpDir) : null;
         var stream = state.Options.ContainsKey("stream");
         Action<string>? onChunk = stream ? chunk => state.Out.Write(chunk) : null;
-        var runtime = Runtime.FromConfig(Require(state.Options, "config"),
-            state.Provider ?? throw new InvalidOperationException("no chat provider supplied"),
-            backend: state.Backend, approvalHandler: state.ApprovalHandler,
-            conflictResolver: state.ConflictResolver, checkpointStore: checkpoints);
-        if (isGraph)
-        {
-            var result = runtime.RunAsync(Require(state.Options, "input"), state.Options.GetValueOrDefault("run-id"), onChunk)
+        var runtime = state.BuildRuntime(checkpoints);
+        state.RequireInteractiveForRagWrite(runtime.Config);
+        var result = isGraph
+            ? runtime.RunAsync(state.Require("input"), state.Options.GetValueOrDefault("run-id"), onChunk)
+                .GetAwaiter().GetResult()
+            : runtime.RunAgentAsync(state.Require("agent"), state.Require("input"), onChunk)
                 .GetAwaiter().GetResult();
-            if (stream) state.Out.WriteLine(); else state.Out.WriteLine(result.Output);
-            if (checkpoints is not null)
-                state.Error.WriteLine($"run-id: {result.RunId}");
-        }
-        else
-        {
-            var result = runtime.RunAgentAsync(Require(state.Options, "agent"), Require(state.Options, "input"), onChunk)
-                .GetAwaiter().GetResult();
-            if (stream) state.Out.WriteLine(); else state.Out.WriteLine(result.Output);
-        }
+        if (stream) state.Out.WriteLine(); else state.Out.WriteLine(result.Output);
+        if (isGraph && checkpoints is not null)
+            state.Error.WriteLine($"run-id: {result.RunId}");
+        if (result.Metrics is { } metrics)
+            state.Error.WriteLine(metrics.ToSummary());
         return 0;
     };
 
     /// <summary>Resumes a previously checkpointed graph run by <c>--run-id</c>.</summary>
     public static Func<ConfigState, int> Resume = (state) =>
     {
-        var runtime = Runtime.FromConfig(Require(state.Options, "config"),
-            state.Provider ?? throw new InvalidOperationException("no chat provider supplied"),
-            backend: state.Backend, approvalHandler: state.ApprovalHandler,
-            conflictResolver: state.ConflictResolver,
-            checkpointStore: new FileCheckpointStore(Require(state.Options, "checkpoint")));
-        var result = runtime.ResumeAsync(Require(state.Options, "run-id")).GetAwaiter().GetResult();
+        var runtime = state.BuildRuntime(new FileCheckpointStore(state.Require("checkpoint")));
+        state.RequireInteractiveForRagWrite(runtime.Config);
+        var result = runtime.ResumeAsync(state.Require("run-id")).GetAwaiter().GetResult();
         state.Out.WriteLine(result.Output);
+        if (result.Metrics is { } metrics)
+            state.Error.WriteLine(metrics.ToSummary());
+        return 0;
+    };
+
+    /// <summary>Runs a local, read-only MCP stdio server exposing only <c>rag_search</c> over the config's
+    /// knowledge base (the same read pipeline the CLI uses). No write tool is exposed and no network port is
+    /// opened; the server runs until the client closes the stdio transport.</summary>
+    public static Func<ConfigState, int> ServeMcp => (state) =>
+    {
+        var runtime = state.BuildRuntime();
+        if (runtime.Rag is null)
+        {
+            state.Error.WriteLine("ERROR: config has no enabled 'rag' section to serve");
+            return 1;
+        }
+        var server = state.RequireMcpServer();
+        server.ServeAsync(async (query, ct) => (await runtime.Rag.RunAsync(query, ct)).AsContext())
+            .GetAwaiter().GetResult();
+        return 0;
+    };
+
+    /// <summary>Purges the KB mutation audit log (next to the config): all records, or those older than
+    /// <c>--before</c> (ISO-8601). The log retains deleted KB content, so this is its retention/erasure path.</summary>
+    public static Func<ConfigState, int> PurgeKbLog => (state) =>
+    {
+        var configDir = Path.GetDirectoryName(Path.GetFullPath(state.Require("config"))) ?? ".";
+        var log = new FileKbMutationLog(FileKbMutationLog.DefaultPath(configDir));
+        Func<KbMutation, bool> remove = state.Options.TryGetValue("before", out var raw)
+            ? m => m.Timestamp < DateTimeOffset.Parse(
+                raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal)
+            : _ => true;
+        var removed = log.PurgeAsync(remove).GetAwaiter().GetResult();
+        state.Out.WriteLine($"purged {removed} KB mutation log record(s)");
         return 0;
     };
 
     /// <summary>Ingests the config's RAG sources into its vector store and reports the chunk count.</summary>
     public static Func<ConfigState, int> Ingest => (state) =>
     {
-        var runtime = Runtime.FromConfig(Require(state.Options, "config"),
-            state.Provider ?? throw new InvalidOperationException("no chat provider supplied"),
-            backend: state.Backend);
+        var runtime = state.BuildRuntime();
         if (runtime.Rag is null)
         {
             state.Error.WriteLine("ERROR: config has no enabled 'rag' section");
@@ -146,10 +200,4 @@ internal static class CommandStrategy
             return 1;
         }
     }
-
-    /// <summary>Returns a required option's value, or throws if it's missing.</summary>
-    private static string Require(Dictionary<string, string> options, string name)
-        => options.TryGetValue(name, out var value)
-            ? value
-            : throw new ConfigException($"missing required option --{name}");
 }

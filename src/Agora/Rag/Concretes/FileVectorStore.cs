@@ -14,6 +14,9 @@ public sealed class FileVectorStore : IVectorStore
 {
     private readonly string _path;
     private readonly List<(Chunk Chunk, float[] Vector)> _items = new();
+    // The in-memory list and the whole-file rewrite are not thread-safe; parallel graph branches can
+    // mutate concurrently. Serialise every load/mutate/save (and snapshot reads) through this lock.
+    private readonly SemaphoreSlim _lock = new(1, 1);
 
     /// <summary>Opens the store at <paramref name="path"/>, loading any existing data.</summary>
     public FileVectorStore(string path)
@@ -26,35 +29,56 @@ public sealed class FileVectorStore : IVectorStore
     public async Task UpsertAsync(
         IReadOnlyList<Chunk> chunks, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken = default)
     {
-        for (var i = 0; i < chunks.Count; i++)
+        await _lock.WaitAsync(cancellationToken);
+        try
         {
-            var id = string.IsNullOrEmpty(chunks[i].Id) ? Guid.NewGuid().ToString("N") : chunks[i].Id;
-            var stored = (chunks[i] with { Id = id }, vectors[i]);
-            var existing = _items.FindIndex(item => item.Chunk.Id == id);
-            if (existing >= 0) _items[existing] = stored;
-            else _items.Add(stored);
+            for (var i = 0; i < chunks.Count; i++)
+            {
+                var id = string.IsNullOrEmpty(chunks[i].Id) ? Guid.NewGuid().ToString("N") : chunks[i].Id;
+                var stored = (chunks[i] with { Id = id }, vectors[i]);
+                var existing = _items.FindIndex(item => item.Chunk.Id == id);
+                if (existing >= 0) _items[existing] = stored;
+                else _items.Add(stored);
+            }
+            await SaveAsync(cancellationToken);
         }
-        await SaveAsync(cancellationToken);
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<Chunk>> QueryAsync(
+    public async Task<IReadOnlyList<Chunk>> QueryAsync(
         IReadOnlyList<float> vector, int topK, double scoreThreshold = 0.0, CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<Chunk> hits = _items
+        // Snapshot under the lock so a concurrent mutation can't throw "collection modified" mid-scan.
+        List<(Chunk Chunk, float[] Vector)> snapshot;
+        await _lock.WaitAsync(cancellationToken);
+        try { snapshot = _items.ToList(); }
+        finally { _lock.Release(); }
+
+        return snapshot
             .Select(item => item.Chunk with { Score = VectorMath.CosineSimilarity(vector, item.Vector) })
             .Where(c => c.Score >= scoreThreshold)
             .OrderByDescending(c => c.Score)
             .Take(topK)
             .ToList();
-        return Task.FromResult(hits);
     }
 
     /// <inheritdoc />
     public async Task DeleteAsync(IReadOnlyList<string> ids, CancellationToken cancellationToken = default)
     {
-        if (_items.RemoveAll(item => ids.Contains(item.Chunk.Id)) > 0)
-            await SaveAsync(cancellationToken);
+        await _lock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_items.RemoveAll(item => ids.Contains(item.Chunk.Id)) > 0)
+                await SaveAsync(cancellationToken);
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     /// <summary>Loads persisted chunks and vectors from disk, if the file exists.</summary>
@@ -67,14 +91,19 @@ public sealed class FileVectorStore : IVectorStore
             _items.Add((new Chunk(r.Text, r.Source, Id: r.Id), r.Vector));
     }
 
-    /// <summary>Serializes all chunks and vectors to the backing JSON file, creating its directory.</summary>
+    /// <summary>Serializes all chunks and vectors to the backing JSON file, creating its directory.
+    /// Writes to a temp file then atomically replaces the target, so a crash mid-write never leaves a
+    /// partially-written (corrupt) file. Callers hold <see cref="_lock"/>, so the temp path is exclusive.</summary>
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
-        var dir = Path.GetDirectoryName(Path.GetFullPath(_path));
+        var fullPath = Path.GetFullPath(_path);
+        var dir = Path.GetDirectoryName(fullPath);
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
         var records = _items.Select(i => new Record(i.Chunk.Id, i.Chunk.Text, i.Chunk.Source, i.Vector)).ToList();
-        await File.WriteAllTextAsync(_path, JsonSerializer.Serialize(records), cancellationToken);
+        var temp = fullPath + ".tmp";
+        await File.WriteAllTextAsync(temp, JsonSerializer.Serialize(records), cancellationToken);
+        File.Move(temp, fullPath, overwrite: true);
     }
 
     private sealed record Record(string Id, string Text, string Source, float[] Vector);

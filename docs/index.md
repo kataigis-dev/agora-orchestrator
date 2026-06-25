@@ -36,11 +36,9 @@ src/
 │   ├── Verification/        # Real build/test execution + acceptance verification
 │   └── Resilience/          # Retry, timeout
 ├── Agora.AgentFramework/    # Concrete implementations with Microsoft.Extensions.AI
-├── Agora.Api/               # ASP.NET REST API server
-└── Agora.Cli/               # CLI executable
+└── Agora.Cli/               # CLI executable (run, validate, ingest, serve-mcp, purge-kb-log)
 tests/
-├── Agora.Tests/             # Core unit tests
-└── Agora.Api.Tests/         # API integration tests
+└── Agora.Tests/             # Core unit tests
 examples/
 ├── agora.yaml               # Minimal config
 ├── agora-h2c.yaml           # H2C with a conditional graph
@@ -84,7 +82,6 @@ dotnet run --project src/Agora.Cli -- ingest --config examples/agora-rag.yaml
 
 # Tests
 dotnet test tests/Agora.Tests
-dotnet test tests/Agora.Api.Tests
 ```
 
 ## Main components

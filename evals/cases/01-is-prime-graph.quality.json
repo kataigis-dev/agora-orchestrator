@@ -1,0 +1,15 @@
+{
+  "id": "is-prime-graph",
+  "input": "Implement a Python function is_prime(n) that returns True if and only if n is prime. It must be correct for n < 2, for 2 and 3, and for large primes.",
+  "config": "evals/configs/codegen-graph.yaml",
+  "graph": true,
+  "deterministic": [
+    { "kind": "regex", "value": "def\\s+is_prime" }
+  ],
+  "rubric": {
+    "correctness": "Returns False for n < 2, True for 2 and 3, rejects even numbers, and correctly identifies large primes (e.g. trial division up to sqrt(n)).",
+    "completeness": "Covers every stated case: n < 2, 2 and 3, and large primes.",
+    "relevance": "Delivers an is_prime function and nothing unrelated."
+  },
+  "expectedScore": 1.0
+}

@@ -19,21 +19,6 @@ public class ContextMemoryTests
     }
 
     [Fact]
-    public async Task Recall_FiltersOutNonMemoryEntries()
-    {
-        var store = new InMemoryVectorStore();
-        var embedder = new FakeEmbedder(64);
-        await store.UpsertAsync(new[] { new Chunk("a knowledge base fact", "kb.md") },
-            await embedder.EmbedAsync(new[] { "a knowledge base fact" }));
-        var mem = Mem(store);
-        await mem.RememberAsync("a memory entry", "planner");
-
-        var recalled = await mem.RecallAsync("fact entry", topK: 5);
-        Assert.Contains("a memory entry", recalled);
-        Assert.DoesNotContain("knowledge base fact", recalled);
-    }
-
-    [Fact]
     public async Task Recall_Empty_WhenNothingRemembered()
         => Assert.Equal("", await Mem(new InMemoryVectorStore()).RecallAsync("anything", topK: 5));
 

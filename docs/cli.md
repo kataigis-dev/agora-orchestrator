@@ -68,6 +68,33 @@ dotnet run --project src/Agora.Cli -- ingest --config examples/agora-rag.yaml
 
 Processes the configured sources (files, directories) and populates the vector store.
 
+### serve-mcp
+
+Runs a local, **read-only** MCP **stdio** server exposing only `rag_search` over the config's knowledge
+base (the same read pipeline the CLI uses):
+
+```bash
+dotnet run --project src/Agora.Cli -- serve-mcp --config examples/agora-rag.yaml
+```
+
+No write tool is exposed (`rag_write` stays on the CLI + human path) and no network port is opened — the
+client owns the child-process lifecycle. See [mcp.md](mcp.md) for client configuration.
+
+### purge-kb-log
+
+Purges the append-only KB mutation audit log (next to the config), which retains deleted knowledge-base
+content — its retention / GDPR-erasure path:
+
+```bash
+# Remove all records
+dotnet run --project src/Agora.Cli -- purge-kb-log --config agora.yaml
+
+# Remove only records older than a date
+dotnet run --project src/Agora.Cli -- purge-kb-log --config agora.yaml --before 2026-01-01
+```
+
+Prints how many records were removed.
+
 ### eval
 
 Runs a deterministic eval scenario (scripted replay, no real model calls):

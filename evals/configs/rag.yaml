@@ -1,0 +1,44 @@
+version: "1"
+
+# RAG config for groundedness / abstention cases. Requires:
+#   1) an embedding model served by your LM Studio (set the model name below to match), and
+#   2) an ingest pass first:  agora ingest --config evals/configs/rag.yaml
+# score_threshold is deliberately left at the project default (0.0) so the eval also exercises
+# issue 02 (a flat 0.0 floor admits off-topic chunks). Tighten it and re-run to see the effect.
+communication: natural
+
+defaults: { model: balanced, temperature: 0.2, max_tokens: 1024, timeout: 180 }
+
+providers:
+  lmstudio:
+    base_url: http://127.0.0.1:1234/v1
+    api_key_env: LMSTUDIO_API_KEY
+
+models:
+  balanced: { provider: lmstudio, model: google/gemma-4-e4b }
+
+rag:
+  enabled: true
+  refine: { strategy: none }
+  retrieval:
+    embedder: { type: openai, provider: lmstudio, model: text-embedding-nomic-embed-text-v1.5 }
+    # File store (not memory): ingest and eval-quality are separate processes and must share the index.
+    vector_store: { type: file, path: ./evals/.vectorstore/primality.json }
+    top_k: 4
+    score_threshold: 0.0
+  ingest:
+    sources: [ ./evals/corpus ]
+    chunk_size: 400
+    chunk_overlap: 60
+
+agents:
+  answerer:
+    model: balanced
+    role: >
+      Answer ONLY from the provided context. If the context does not contain the answer, say so
+      explicitly ("the provided context does not cover this") instead of guessing.
+
+graph:
+  entry: answerer
+  edges:
+    - { from: answerer, to: END, type: sequential }

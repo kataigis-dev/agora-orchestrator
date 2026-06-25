@@ -28,21 +28,29 @@ public static class CliRunner
         TextReader? @in = null,
         IAgentBackend? backend = null,
         HumanInTheLoop.IApprovalHandler? approvalHandler = null,
-        HumanInTheLoop.IConflictResolver? conflictResolver = null)
+        HumanInTheLoop.IConflictResolver? conflictResolver = null,
+        bool? interactive = null,
+        IRagMcpServer? mcpServer = null)
     {
         var action = args.ElementAtOrDefault(0);
         var options = ParseOptions(args?.Skip(1));
+        // Agora is CLI-only with a human always present. "Interactive" defaults to a real TTY (stdin not
+        // redirected); tests override it explicitly. The run/resume verbs refuse rag_write when false.
+        var isInteractive = interactive ?? !Console.IsInputRedirected;
         var state = new ConfigState(options, provider, backend,
             approvalHandler, conflictResolver,
-            @in ?? Console.In, @out ?? Console.Out, error ?? Console.Error);
+            @in ?? Console.In, @out ?? Console.Out, error ?? Console.Error, isInteractive, mcpServer);
         var command = action switch
         {
             "init" => CommandStrategy.Init,
             "eval" => CommandStrategy.Eval,
+            "eval-quality" => CommandStrategy.EvalQuality,
             "validate" => CommandStrategy.Validate,
             "run" => CommandStrategy.Run,
             "resume" => CommandStrategy.Resume,
             "ingest" => CommandStrategy.Ingest,
+            "serve-mcp" => CommandStrategy.ServeMcp,
+            "purge-kb-log" => CommandStrategy.PurgeKbLog,
             _ => CommandStrategy.EmptyArgs
         };
 

@@ -31,7 +31,7 @@ list on the agent; built-in tools are registered before MCP tools.
 
 | Tool | Purpose |
 |---|---|
-| `read_file`, `write_file`, `search_files`, `list_directory` | Filesystem (`System.IO`) |
+| `read_file`, `write_file`, `search_files`, `list_directory` | Filesystem (`System.IO`), sandboxed to the workspace root |
 | `rag_search`, `rag_write` | Read/write the shared knowledge base |
 | `ask_agent` | Ask another agent and get its answer (after `rag_search`) |
 
@@ -40,6 +40,11 @@ agents:
   builder:
     tools: [read_file, write_file, rag_search, rag_write]
 ```
+
+The filesystem tools are **sandboxed**: every path is resolved against a single root directory (the
+config file's directory by default) and any path that escapes it — via `..`, an absolute path, or a
+different drive — is rejected before any file access. This bounds a non-deterministic agent (or a
+prompt-injection payload) to the workspace; it cannot read or write arbitrary files on the host.
 
 ### MCP tools
 
@@ -82,11 +87,13 @@ agents:
 ```
 
 - **CLI** — `ConsoleApprovalHandler` prompts on the console (`approve? [y/N]`).
-- **API** — pending approvals are returned by `GET /runs/{id}` and resolved with
-  `POST /runs/{id}/approvals`.
+
+Agora is CLI-only with a human always present, so approvals are answered interactively at the console;
+there is no headless/networked approval surface.
 
 A second HITL channel, `IConflictResolver`, resolves knowledge-base write conflicts
-(keep existing / keep new / merge).
+(keep existing / keep new / merge). It blocks synchronously on a human; a non-interactive run that could
+reach `rag_write` is refused rather than silently degraded.
 
 ## Context passing
 

@@ -95,10 +95,12 @@ Combining the four sources, the **guardrails** of an agentic system include:
 
 ## Link to the project
 
-Agora Orchestrator applies several of these guardrails: per-agent tool allow-lists, HITL approvals, and —
-for check execution — commands only from configuration, **with no shell**, with token-by-token
-substitution and timeouts. See [`../spec.md`](../spec.md) and
-[15 — Mapping onto Agora](15-agora-mapping.md).
+Agora Orchestrator applies several of these guardrails: per-agent tool allow-lists, HITL approvals,
+**filesystem sandboxing** (the built-in `read_file`/`write_file`/`search_files`/`list_directory` tools
+are confined to a workspace root — paths escaping it via `..`, an absolute path, or a different drive
+are rejected before any access), and — for check execution — commands only from configuration, **with
+no shell**, with token-by-token substitution and timeouts. See [`../spec.md`](../spec.md),
+[`../agents.md`](../agents.md) and [15 — Mapping onto Agora](15-agora-mapping.md).
 
 ---
 

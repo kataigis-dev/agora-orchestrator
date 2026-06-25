@@ -50,15 +50,32 @@ public class KnowledgeBaseTests
     }
 
     [Fact]
-    public async Task Resolved_ReplacesConflictWithMergedText()
+    public async Task Resolved_RoutesToHuman_WithSuggestedMergePrefilled()
     {
+        // The judge proposes a merge but never applies it: a Resolved verdict goes to the human, who
+        // here accepts the suggestion (Merge with no text → the judge's reconciliation is used).
+        var resolver = new FakeConflictResolver(ConflictResolution.Merge, mergedText: null);
+        var kb = Build(new StubJudge(new ConflictAssessment(ConflictVerdict.Resolved, ResolvedText: "reconciled")),
+            resolver, out var store);
+        await kb.WriteAsync("seed");
+        var result = await kb.WriteAsync("conflicting fact");
+
+        Assert.Equal("reconciled", Assert.Single(resolver.Requests).SuggestedMerge);
+        Assert.Equal(WriteOutcome.UserResolved, result.Outcome);
+        Assert.Equal("reconciled", result.StoredText);
+        Assert.Equal(1, await CountAsync(store)); // seed superseded only after the human confirmed
+    }
+
+    [Fact]
+    public async Task Resolved_NoResolver_Rejected_NothingDeleted()
+    {
+        // No human available → a conflict is never auto-applied; the existing entry is left untouched.
         var kb = Build(new StubJudge(new ConflictAssessment(ConflictVerdict.Resolved, ResolvedText: "reconciled")),
             null, out var store);
         await kb.WriteAsync("seed");
         var result = await kb.WriteAsync("conflicting fact");
-        Assert.Equal(WriteOutcome.AutoResolved, result.Outcome);
-        Assert.Equal("reconciled", result.StoredText);
-        Assert.Equal(1, await CountAsync(store)); // seed superseded by the reconciled entry
+        Assert.Equal(WriteOutcome.Rejected, result.Outcome);
+        Assert.Equal(1, await CountAsync(store)); // seed untouched — no autonomous delete/replace
     }
 
     [Fact]
@@ -104,5 +121,21 @@ public class KnowledgeBaseTests
         var result = await kb.WriteAsync("conflicting fact");
         Assert.Equal(WriteOutcome.Rejected, result.Outcome);
         Assert.Equal(1, await CountAsync(store));
+    }
+
+    [Fact]
+    public async Task ConcurrentWrites_AreSerialised_AllPersisted()
+    {
+        // N parallel writes share one KnowledgeBase (as graph branches do). Each distinct text gets a
+        // distinct assessment-cache key, so without the lock the plain Dictionary and the store's List
+        // would race (throw / lose entries). The lock makes the final state deterministic.
+        var kb = Build(new StubJudge(new ConflictAssessment(ConflictVerdict.NoConflict)), null, out var store);
+
+        var results = await Task.WhenAll(
+            Enumerable.Range(0, 20).Select(i => kb.WriteAsync($"fact number {i}")));
+
+        // Every write stored its entry (the first to land is Added, the rest NoConflict — never Rejected).
+        Assert.All(results, r => Assert.NotEqual(WriteOutcome.Rejected, r.Outcome));
+        Assert.Equal(20, await CountAsync(store)); // none lost to a race
     }
 }

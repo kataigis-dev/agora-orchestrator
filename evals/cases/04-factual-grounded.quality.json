@@ -1,0 +1,12 @@
+{
+  "id": "factual-grounded",
+  "input": "Why is it enough to test divisors only up to the square root of n when checking if n is prime?",
+  "config": "evals/configs/rag.yaml",
+  "graph": true,
+  "reference": "If n = a * b then at least one factor is <= sqrt(n), so any composite n has a divisor at or below sqrt(n); finding none up to sqrt(n) proves n is prime. This makes the test O(sqrt(n)).",
+  "rubric": {
+    "correctness": "Correctly explains that a composite n must have a factor <= sqrt(n) (if n = a*b, one of a,b is <= sqrt(n)).",
+    "relevance": "Directly answers the sqrt(n) question without drifting off-topic."
+  },
+  "expectedScore": 1.0
+}

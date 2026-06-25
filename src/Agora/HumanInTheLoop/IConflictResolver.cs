@@ -26,6 +26,11 @@ public sealed record ConflictResolutionRequest
 
     /// <summary>The judge's explanation of the conflict.</summary>
     public string Explanation { get; init; } = "";
+
+    /// <summary>The judge's proposed reconciliation, offered to the human as the default merge text.
+    /// Empty when the judge proposed none (e.g. an unresolved conflict). The judge only suggests —
+    /// the human decides whether to accept it.</summary>
+    public string SuggestedMerge { get; init; } = "";
 }
 
 /// <summary>A human's decision on how to resolve a knowledge-base conflict.</summary>

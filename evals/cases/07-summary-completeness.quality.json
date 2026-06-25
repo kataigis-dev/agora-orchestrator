@@ -1,0 +1,13 @@
+{
+  "id": "summary-completeness",
+  "input": "List exactly three edge cases that a correct is_prime(n) function must handle. Give a short bullet list.",
+  "config": "evals/configs/codegen-lean.yaml",
+  "graph": false,
+  "agent": "writer",
+  "reference": "Three valid edge cases: (1) n < 2 (including 0, 1, and negatives) returns False; (2) the small primes 2 and 3 return True; (3) even numbers > 2 are rejected early. (Bool inputs are also an acceptable third item.)",
+  "rubric": {
+    "completeness": "Lists three genuinely distinct, correct edge cases (e.g. n < 2; 2 and 3; even numbers > 2).",
+    "correctness": "Each listed edge case is factually correct for primality."
+  },
+  "expectedScore": 1.0
+}

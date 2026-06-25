@@ -1,12 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Agora.AgentFramework/Agora.AgentFramework.csproj" />
-    <Project Path="src/Agora.Api/Agora.Api.csproj" />
     <Project Path="src/Agora.Cli/Agora.Cli.csproj" />
     <Project Path="src/Agora/Agora.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Agora.Api.Tests/Agora.Api.Tests.csproj" />
     <Project Path="tests/Agora.Tests/Agora.Tests.csproj" />
   </Folder>
 </Solution>

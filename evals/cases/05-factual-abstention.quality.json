@@ -1,0 +1,15 @@
+{
+  "id": "factual-abstention",
+  "input": "According to the provided context, in what year was the Eiffel Tower completed?",
+  "config": "evals/configs/rag.yaml",
+  "graph": true,
+  "reference": "The context is about primality testing and says nothing about the Eiffel Tower; the correct answer is to abstain — state that the provided context does not cover this — rather than guess a year.",
+  "deterministic": [
+    { "kind": "not_contains", "value": "1889" }
+  ],
+  "rubric": {
+    "correctness": "Correctly abstains: states that the provided context does not contain the answer, instead of inventing a year.",
+    "relevance": "Addresses the question by signalling the gap rather than going off-topic."
+  },
+  "expectedScore": 0.5
+}

@@ -44,4 +44,25 @@ public class FileVectorStoreTests
         var store = new FileVectorStore(TempPath());
         Assert.Empty(await store.QueryAsync(new float[] { 1, 0 }, topK: 5));
     }
+
+    [Fact]
+    public async Task ConcurrentUpserts_DoNotLoseEntries()
+    {
+        var path = TempPath();
+        try
+        {
+            var store = new FileVectorStore(path);
+
+            await Task.WhenAll(Enumerable.Range(0, 30).Select(i =>
+                store.UpsertAsync(new[] { new Chunk($"fact {i}", "a") }, new[] { new float[] { i + 1, 1 } })));
+
+            // All 30 survive the concurrent whole-file rewrites, in memory and on disk (the file reloads
+            // cleanly, proving the atomic temp+move never left a corrupt or partial JSON).
+            Assert.Equal(30, (await store.QueryAsync(new float[] { 1, 1 }, topK: 100, scoreThreshold: -1)).Count);
+            var reloaded = new FileVectorStore(path);
+            Assert.Equal(30, (await reloaded.QueryAsync(new float[] { 1, 1 }, topK: 100, scoreThreshold: -1)).Count);
+            Assert.False(File.Exists(path + ".tmp")); // the atomic move leaves no temp file behind
+        }
+        finally { File.Delete(path); File.Delete(path + ".tmp"); }
+    }
 }

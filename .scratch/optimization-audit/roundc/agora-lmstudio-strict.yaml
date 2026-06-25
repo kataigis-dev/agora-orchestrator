@@ -1,0 +1,42 @@
+version: "1"
+
+# F7 demo variant: a STRICT critic (stronger model + explicit checklist) so the fix-loop
+# fires honestly on a genuinely-missing requirement, letting us measure inbox growth across
+# loop iterations. Token NOT stored here — read from $LMSTUDIO_API_KEY at run time.
+communication: h2c
+
+defaults: { model: balanced, temperature: 0.2, max_tokens: 1024, timeout: 180 }
+
+providers:
+  lmstudio:
+    base_url: http://127.0.0.1:1234/v1
+    api_key_env: LMSTUDIO_API_KEY
+
+models:
+  balanced: { provider: lmstudio, model: google/gemma-4-e4b }
+  fast:     { provider: lmstudio, model: google/gemma-4-e2b }
+
+agents:
+  planner:
+    model: balanced
+    role: "Decompose the task into a short plan. Emit an [ARCH:PLAN] block."
+  writer:
+    model: balanced
+    role: "Implement the plan and any [STATE:FIX] feedback. Emit a [BUILD:DONE] block with the code."
+  critic:
+    model: balanced
+    role: >
+      You are a STRICT verifier. Check the writer's code against EVERY requirement stated in the
+      task. Pay special attention to the boolean case: in Python isinstance(True, int) is True, so
+      a plain isinstance(n, int) check does NOT reject booleans — if the task requires rejecting
+      bools, that code is WRONG. If ANY requirement is unmet, emit [STATE:FIX] with a 'reason'
+      field naming exactly what is missing. Emit [STATE:DONE] ONLY when every requirement is
+      unambiguously satisfied.
+
+graph:
+  entry: planner
+  edges:
+    - { from: planner, to: writer,  type: handoff }
+    - { from: writer,  to: critic,  type: sequential }
+    - { from: critic,  to: writer,  type: conditional, when: fix,  max_loops: 2 }
+    - { from: critic,  to: END,     type: conditional, when: done }

@@ -19,6 +19,10 @@ defaults:
 providers:
   anthropic:
     api_key_env: ANTHROPIC_API_KEY
+  # Local embeddings for the writable KB's conflict check (keeps documents on-prem; no API key).
+  # Requires a running Ollama with an embedding model:  ollama pull nomic-embed-text
+  ollama:
+    base_url: http://localhost:11434
 
 models:
   fast:     { provider: anthropic, model: claude-haiku-4-5-20251001 }
@@ -30,13 +34,14 @@ memory:
   top_k: 6
 
 # Shared knowledge base: agents write specs, architecture, tasks, results (rag_write) and
-# query it (rag_search). The 'fake' embedder is offline; switch to openai/ollama for real
-# retrieval. The 'file' store persists to disk. Index docs with:  agora ingest --config agora.yaml
+# query it (rag_search). Because agents WRITE to the KB, a real (semantic) embedder is required —
+# the conflict check needs meaningful similarity, so the offline 'fake' embedder is rejected here.
+# The 'file' store persists to disk. Index docs with:  agora ingest --config agora.yaml
 rag:
   enabled: true
   refine: { strategy: none }
   retrieval:
-    embedder: { type: fake }
+    embedder: { type: ollama, model: nomic-embed-text }
     vector_store: { type: file, path: ./kb.json }
     top_k: 6
     score_threshold: 0.0

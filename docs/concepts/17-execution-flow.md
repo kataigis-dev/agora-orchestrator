@@ -8,18 +8,19 @@ Agora*. For a description of all the classes one by one see
 ## Big picture: three projects
 
 ```
-Agora.Cli  ─┐                          ┌─ Agora.AgentFramework  (concrete implementations:
-Agora.Api  ─┤── use ──▶  Agora ◀───────┤   chat providers, embedders, vector stores, MCP clients)
-            │          (the core,       └─ injects the "edge" dependencies into the Runtime
-            │       framework-free)
+Agora.Cli  ──── use ──▶  Agora ◀───────── Agora.AgentFramework  (concrete implementations:
+                       (the core,           chat providers, embedders, vector stores, MCP clients)
+                    framework-free)         └─ injects the "edge" dependencies into the Runtime
 ```
 
 - **`Agora`** (core): all the logic, but **with no external dependencies** — it defines *interfaces*
   (`IChatProvider`, `IEmbedder`, `ISpecStore`…) and knows nothing about OpenAI or MCP.
 - **`Agora.AgentFramework`**: the **concrete implementations** of those interfaces
   (Microsoft.Extensions.AI, MCP clients, Qdrant…).
-- **`Agora.Cli` / `Agora.Api`**: the two **entry points** (command line and REST). They build the
-  concrete implementations and pass them to the core (an *edge dependency-injection* pattern).
+- **`Agora.Cli`**: the single **entry point** (command line; Agora is CLI-only with a human always
+  present). It builds the concrete implementations and passes them to the core (an *edge
+  dependency-injection* pattern). Read-only retrieval can also be exposed to other tools via a local
+  MCP stdio server (`agora serve-mcp`).
 
 > Key principle: the core depends only on **abstractions**; the implementations are injected from the
 > outside (`provider` and a single `IAgentBackend`). See
@@ -66,12 +67,14 @@ exception and turns it into `ERROR: …` + exit code 1).
 | `ModelResolver.Resolve(config)` | flattens models+providers+defaults into runnable `ModelSpec`s (one per alias) |
 | `new ResilientChatProvider(provider)` | wraps the provider with retry+timeout ([`RetryPolicy`](10-evaluation-observability.md)) |
 | `Retrieval.Build` | builds the retrieval subsystem in one place — the read `RagPipeline`, the `KnowledgeBase` write path, and `ContextMemory` — over **one shared** embedder + vector store, when `rag`/`memory` are configured |
-| `BuildSpecStore()` | `FileSpecStore` (file) or a backend-built store (RAG-over-MCP) if there is a `spec` section |
+| `SpecStoreFactory.Build` | `FileSpecStore` (file) or a backend-built store (RAG-over-MCP) if there is a `spec` section |
 | `BuildCheckRunner()` | `ProcessCheckRunner` if there is a `checks` section |
 | router | an `LlmRouter` if `route` edges need routing |
 | `SkillLoader.Load` | loads the skills from `SKILL.md` files into a `SkillRegistry` |
 
-It also picks the output interpreter: `H2cInterpreter` (H2C mode) or `SignalInterpreter` (natural).
+It also builds `AgentInstructions` from config, which owns both sides of the communication setup: the
+system-prompt prefix (language + protocol + handoff) and the matching output interpreter (`H2cInterpreter`
+in H2C mode, `SignalInterpreter` in natural mode).
 
 ### 5. Starting the graph — `Runtime.RunAsync`
 
@@ -117,9 +120,9 @@ At each step:
 
 ### 7. Building the agent — `Runtime.BuildAgent`
 
-For the current node: it resolves the `ModelSpec`, composes the *system prompt* by prepending the active
-preambles (`HandoffPreamble`, `H2cPreamble`, `LanguagePreamble`), and creates an `AgentCard` (identity +
-capabilities). Then:
+For the current node: it resolves the `ModelSpec`, composes the *system prompt* by prepending the
+`AgentInstructions` prefix (language + protocol + handoff, assembled in one place), and creates an
+`AgentCard` (identity + capabilities). Then:
 
 - if the agent declares **skills or tools** → `IAgentBackend.CreateToolAgent(AgentBuildContext)` →
   `AgentFrameworkAgent` (step 8b);
@@ -146,7 +149,7 @@ Richer, because the agent can **use tools** (function calling):
    to the model go through `RetryPolicy`.
 4. **Approval loop**: as long as the model asks to run gated tools, `ApprovalFor` queries the
    `IApprovalHandler` (e.g. `ConsoleApprovalHandler`) and re-runs, up to a maximum number of rounds.
-5. `Interpret` + `UsageMapping.From` → `AgentResult`.
+5. `Interpret` + per-provider `ICacheAdapter.MapUsage` (summed over the response's messages) → `AgentResult`.
 
 ### 9. Closing — `WithTraceability` → `BuildResult`
 
@@ -164,18 +167,17 @@ to the metrics (best-effort). `BuildResult` packs everything into a `RunResult` 
 | **Single agent** (`run` without `--graph`) | `Runtime.RunAgentAsync` | builds **one** agent and runs it, with no graph or routing |
 | **`resume`** | `Runtime.ResumeAsync` | loads the last `StateSnapshot` from `FileCheckpointStore` and restarts from the saved node |
 | **`ingest`** | `CommandStrategy.Ingest` → `Retrieval.IngestAsync` | indexes the RAG documents (chunk→embedding→vector store), no chat LLM |
-| **`validate`** | `CommandStrategy.Validate` → `ConfigLoader.Load` | only loads+validates the config, prints `OK`/`INVALID` |
+| **`validate`** | `CommandStrategy.Validate` → `ConfigLoader.Load` + `RagWriteValidator` | loads+validates the config (incl. the writable-KB checks), prints `OK`/`INVALID` |
 | **`eval`** | `ScenarioRunner.RunAsync` | replaces the real provider with a scripted `FakeChatProvider` and checks the expectations (a deterministic test) |
-| **REST API** | `Agora.Api` | see below |
+| **`purge-kb-log`** | `CommandStrategy.PurgeKbLog` → `FileKbMutationLog.PurgeAsync` | purges the KB mutation audit log (all records, or those older than `--before`) |
+| **`serve-mcp`** | `CommandStrategy.ServeMcp` | runs a local **read-only** MCP stdio server exposing only `rag_search` over the KB; opens no network port |
 
-### The API path
+### Read-only retrieval over MCP
 
-`Agora.Api` exposes the same runs over HTTP. `AgoraRuntimeFactory` holds the dependencies built at startup
-and creates a fresh `Runtime` for each run. `RunEndpoints` maps the endpoints (start, status, approvals,
-ingest); a run queued in `RunQueue` is drained by `RunExecutor` on a **background thread**. HITL approvals
-are **asynchronous**: `PendingApprovalHandler` parks the request in an `ApprovalGate`, the status endpoint
-surfaces it, and a decision `POST` unblocks it. Each run's state lives in an `IRunStore`
-(`InMemoryRunStore`).
+Agora is **CLI-only with a human always present** — there is no REST server. The only external exposure
+is read-only: `agora serve-mcp` launches a local MCP **stdio** server (a child process the client owns)
+that exposes only `rag_search` over the knowledge base. No write tool is exposed — `rag_write` never
+leaves the CLI + human path — and no network port is opened.
 
 ---
 

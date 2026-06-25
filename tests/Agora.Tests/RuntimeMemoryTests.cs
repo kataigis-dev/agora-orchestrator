@@ -41,4 +41,27 @@ public class RuntimeMemoryTests
         Assert.Contains("Relevant context:", writerMsg);
         File.Delete(path);
     }
+
+    [Fact]
+    public async Task TwoRuns_DoNotShareMemory()
+    {
+        var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".yaml");
+        File.WriteAllText(path, Config);
+        // Run 1 declares an artifact; run 2's planner declares none. With per-run memory, run 2's
+        // writer recalls an empty memory and must not see run 1's artifact.
+        var provider = new FakeChatProvider(new[]
+        {
+            "planning <<artifact plan=use JWT auth>>", "FINAL",
+            "second run, no artifact", "FINAL2",
+        });
+
+        var rt = Runtime.FromConfig(path, provider);
+        await rt.RunAsync("build login");
+        await rt.RunAsync("build dashboard");
+
+        // Run 2's writer is the 4th call; its recalled context must not leak run 1's artifact.
+        var run2WriterMsg = provider.Calls[3].Messages[^1].Content;
+        Assert.DoesNotContain("plan: use JWT auth", run2WriterMsg);
+        File.Delete(path);
+    }
 }

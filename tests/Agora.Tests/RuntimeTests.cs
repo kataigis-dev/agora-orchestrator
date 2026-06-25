@@ -65,4 +65,21 @@ public class RuntimeTests
     {
         Assert.Throws<KeyNotFoundException>(() => Build(new FakeChatProvider()).BuildAgent("ghost"));
     }
+
+    [Fact]
+    public async Task RunAgent_ReturnsMetrics_LikeAGraphRun()
+    {
+        var provider = new FakeChatProvider(new[] { "planned!" });
+        var result = await Build(provider).RunAgentAsync("planner", "do a thing");
+
+        Assert.NotNull(result.Metrics);
+        Assert.Equal(1, result.Metrics!.Steps);
+        Assert.True(result.Metrics.Completed);
+        Assert.Equal(0, result.Metrics.ReworkCount);
+        Assert.Equal(10, result.Metrics.InputTokens);   // FakeChatProvider reports 10in / 5out
+        Assert.Equal(5, result.Metrics.OutputTokens);
+        Assert.Equal(7, result.Metrics.CacheReadTokens); // cache hit on the stable system prefix
+        Assert.Equal("planned!", result.State.Outputs["planner"]);
+        Assert.Equal("planner", result.State.LastAgent);
+    }
 }

@@ -52,7 +52,7 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 
 **Models** · R `ChatMessage` (one message in a request) · R `CompletionResult` (generated text + token counts, incl. cache) · R `ModelSpec` (already-resolved model parameters and credentials).
 
-**Concretes** · C `ModelResolver` (flattens models+providers+defaults into `ModelSpec`s) · C `ResilientChatProvider` (wraps a provider with retry+timeout) · C `FakeChatProvider` (deterministic provider for tests/offline) · C `PromptCaching` (maps the provider to its prompt-caching mechanism) · E `CachingMode` (how a provider exposes caching).
+**Concretes** · C `ModelResolver` (flattens models+providers+defaults into `ModelSpec`s) · C `ResilientChatProvider` (wraps a provider with retry+timeout) · C `FakeChatProvider` (deterministic provider for tests/offline). Prompt caching is owned per provider by an `ICacheAdapter` (`AnthropicCacheAdapter` / `ImplicitCacheAdapter`, resolved by `CacheAdapters.For`) in `Agora.AgentFramework.Providers`.
 
 ## `Agora/Agents` — the agent
 
@@ -77,9 +77,7 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 | C `H2cInterpreter` | H2C mode: derives routing signals from H2C blocks |
 | C `H2cParser` | A lenient parser/serializer for the H2C block grammar |
 | R `H2cBlock` | An H2C block: `[Type:Subtype]` with `key:value` fields |
-| C `H2cPreamble` | A system-prompt preamble instructing the agent to use the H2C protocol |
-| C `HandoffPreamble` | A preamble for handoff mode: pass only the essential to the next agent |
-| C `LanguagePreamble` | A preamble fixing the language agents must use when generating documents |
+| C `AgentInstructions` | Owns the communication setup: assembles the system-prompt prefix (language + protocol + handoff, in order) and selects the matching `IOutputInterpreter` for the configured protocol |
 
 ## `Agora/Rag` — retrieval and knowledge base
 
@@ -95,7 +93,7 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 
 **Models** · R `SpecDocument` (the specification: requirements + traceable tasks) · R `Requirement` (a requirement with a stable id R1..Rn and acceptance criteria) · R `AcceptanceCriterion` (a criterion with a stable id R1.A1 + a check) · R `SpecCheck` (a verification descriptor bound to a criterion) · E `RequirementPriority` (MoSCoW) · E `RequirementStatus` (lifecycle: proposed→approved→implemented→verified/rejected) · E `CheckKind` (how a criterion is verified: Manual/Test/Command/FileExists) · R `TaskItem` (a unit of work T1..Tn that traces back to requirements) · E `TaskState` (a task's progress state) · R `TaskEvidence` (evidence backing a task's completion) · R `SpecStoreSpec` (a resolved request to build a non-core spec store) · R `TraceabilityReport` (the traceability matrix + the deterministic completion verdict) · R `RequirementCoverage` (one row of the matrix: a requirement's coverage/verification) · R `TraceabilityGap` (a completeness gap: error blocks, warning informs).
 
-**Concretes** · C `FileSpecStore` (a canonical JSON file store) · C `SpecSerializer` (canonical JSON (de)serialization, shared by every store) · C `SpecValidator` (validates the structural invariants on every write) · E `SpecSeverity` (the severity of an issue) · R `SpecIssue` (a problem found during validation) · C `TraceabilityValidator` (computes requirement↔task↔check traceability and the completion verdict).
+**Concretes** · C `FileSpecStore` (a canonical JSON file store) · C `SpecStoreFactory` (resolves the spec store from config — the core file store, or a non-core store via the backend; the spec-store counterpart to `RagFactory`) · C `SpecSerializer` (canonical JSON (de)serialization, shared by every store) · C `SpecValidator` (validates the structural invariants on every write) · E `SpecSeverity` (the severity of an issue) · R `SpecIssue` (a problem found during validation) · C `TraceabilityValidator` (computes requirement↔task↔check traceability and the completion verdict).
 
 ## `Agora/Verification` — real check execution
 
@@ -177,7 +175,7 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 
 **Agents** · C `AgentFrameworkAgent` (a tool-capable `IAgent`, based on Microsoft Agent Framework) · C `AgentFrameworkBackend` (the single `IAgentBackend`: builds these agents and resolves the non-core embedders/vector stores/spec stores; injected into the Runtime).
 
-**Providers** · C `AgentFrameworkChatProvider` (a chat provider on Microsoft.Extensions.AI → OpenAI-compatible endpoints) · C `ChatClients` (builds the chat client suited to a `ModelSpec`) · C `ChatClientCache` (a cache of one client per spec, to reuse connections) · C `CacheTranslation` (translates Agora's caching hint into the provider's native mechanism) · C `UsageMapping` (maps MEAI's token usage onto Agora's counts) · C `CopilotChatClient` (a client for the GitHub Copilot endpoint) · C `CopilotTokenProvider` (exchanges the OAuth token for the Copilot session token) · C `CopilotAuthHandler` (an HTTP handler that stamps every Copilot request with fresh headers and token).
+**Providers** · C `AgentFrameworkChatProvider` (a chat provider on Microsoft.Extensions.AI → OpenAI-compatible endpoints) · C `ChatClients` (builds the chat client suited to a `ModelSpec`) · C `ChatClientCache` (a cache of one client per spec, to reuse connections) · I `ICacheAdapter` (per-provider prompt-cache seam: marks cache-stable content on the wire and maps usage back) with `AnthropicCacheAdapter` / `ImplicitCacheAdapter`, resolved by `CacheAdapters.For` · C `AnthropicChatClient` (hand-rolled client for the native Anthropic Messages API) · C `CopilotChatClient` (a client for the GitHub Copilot endpoint) · C `CopilotTokenProvider` (exchanges the OAuth token for the Copilot session token) · C `CopilotAuthHandler` (an HTTP handler that stamps every Copilot request with fresh headers and token).
 
 **Rag** · C `AgentFrameworkEmbedder` (`IEmbedder` over an MEAI/OpenAI `IEmbeddingGenerator`) · C `AgentFrameworkEmbedders` (resolves non-core embedders from config) · C `AgentFrameworkVectorStores` (resolves non-core vector stores from config) · C `QdrantVectorStore` (`IVectorStore` over a Qdrant server via gRPC).
 
@@ -185,24 +183,11 @@ Legend: **I** interface · **R** record · **E** enum · **C** class.
 
 **Mcp** · C `McpToolSession` (opens the configured MCP servers and exposes their tools, filtered to the agent's allow-list).
 
-**Tools** · C `BuiltInFileTools` (`read_file`/`write_file`/`search_files`/`list_directory`) · C `RagTools` (`rag_search`/`rag_write`) · C `SkillTools` (exposes the skills as a `load_skill` function) · C `AskAgentTool` (`ask_agent`: asking another agent) · C `SpecTools` (`spec_get`/`spec_gate`/`spec_propose_requirement`/`spec_bind_check`/…) · C `CheckTools` (`run_check`/`spec_verify`: verdicts that assert reality).
+**Tools** · C `BuiltInFileTools` (`read_file`/`write_file`/`search_files`/`list_directory`, sandboxed to a workspace root — paths that escape it are rejected) · C `RagTools` (`rag_search`/`rag_write`) · C `SkillTools` (exposes the skills as a `load_skill` function) · C `AskAgentTool` (`ask_agent`: asking another agent) · C `SpecTools` (`spec_get`/`spec_gate`/`spec_propose_requirement`/`spec_bind_check`/…) · C `CheckTools` (`run_check`/`spec_verify`: verdicts that assert reality).
 
-## `Agora.Api` — the REST server
-
-| Type | Role |
-|---|---|
-| C `AgoraRuntimeFactory` | Holds the dependencies built at startup and creates a fresh `Runtime` for each run |
-| C `RunEndpoints` | Maps the run-lifecycle HTTP endpoints (start, status, approvals, ingest) |
-| C `RunQueue` | An unbounded queue of run ids awaiting background execution |
-| C `RunExecutor` | Drains the queue, running each run on a background thread |
-| R `StartRunRequest` | The body to start a run (mode agent/graph, optional agent id, input) |
-| R `StartRunResponse` | The response when a run is accepted (carries its id) |
-| R `RunStatusResponse` | A run's current status, output/error and pending approvals |
-| R `AgentInfo` | A summary of a configured agent (the `/agents` endpoint) |
-| R `PendingApprovalDto` | A pending approval surfaced in a run's status |
-| R `ApprovalDecision` | A decision (approve/reject) for a single approval |
-| R `ApprovalsRequest` | A body submitting a batch of approval decisions |
-| R `IngestResponse` | The ingest endpoint's response with the number of indexed chunks |
+> Agora is CLI-only with a human always present; there is no REST server. Read-only retrieval can be
+> exposed to other tools via a local MCP stdio server (`agora serve-mcp`, `rag_search` only) — see
+> [docs/mcp.md](../mcp.md). Knowledge-base writes (`rag_write`) never leave the CLI + human path.
 
 ---
 

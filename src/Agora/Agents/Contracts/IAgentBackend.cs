@@ -23,6 +23,10 @@ public sealed record AgentBuildContext
     public IOutputInterpreter Interpreter { get; init; } = new SignalInterpreter();
     public McpConfig? Mcp { get; init; }
 
+    /// <summary>Root directory the built-in filesystem tools are sandboxed to (read/write/search/list
+    /// cannot escape it). Empty means the current working directory.</summary>
+    public string FilesystemRoot { get; init; } = "";
+
     /// <summary>Shared knowledge base read access for the <c>rag_search</c> tool.</summary>
     public RagPipeline? Rag { get; init; }
 

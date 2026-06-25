@@ -26,6 +26,8 @@ public sealed class ConsoleConflictResolver : IConflictResolver
             _output.WriteLine($"    - {existing}");
         if (request.Explanation.Length > 0)
             _output.WriteLine($"  reason: {request.Explanation}");
+        if (request.SuggestedMerge.Length > 0)
+            _output.WriteLine($"  judge's suggested merge: {request.SuggestedMerge}");
 
         _output.Write("resolve? [e]xisting / [n]ew / [m]erge: ");
         var choice = _input.ReadLine()?.Trim().ToLowerInvariant() ?? "";
@@ -34,8 +36,12 @@ public sealed class ConsoleConflictResolver : IConflictResolver
             return Task.FromResult(new ConflictDecision { Resolution = ConflictResolution.KeepNew });
         if (choice.StartsWith("m"))
         {
-            _output.Write("merged text: ");
-            var merged = _input.ReadLine()?.Trim() ?? "";
+            // Offer the judge's suggestion as the default: an empty line accepts it.
+            _output.Write(request.SuggestedMerge.Length > 0
+                ? "merged text [Enter = accept suggestion]: "
+                : "merged text: ");
+            var entered = _input.ReadLine()?.Trim() ?? "";
+            var merged = entered.Length > 0 ? entered : request.SuggestedMerge;
             return Task.FromResult(new ConflictDecision
             {
                 Resolution = ConflictResolution.Merge,

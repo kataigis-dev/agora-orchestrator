@@ -15,14 +15,11 @@ public sealed record MemoryOptions(int TopK = 5, int MaxChars = 0, bool Remember
 /// RAG-backed working memory for context compression. Agents' declared artifacts are
 /// <see cref="RememberAsync"/>-ed (append-only, no conflict check), and only the top-K most
 /// relevant entries are <see cref="RecallAsync"/>-ed into the next agent's context — capping
-/// token usage on long graphs while keeping what matters. Entries are tagged with a
-/// <see cref="SourcePrefix"/> so they stay distinct from knowledge-base facts in a shared store.
+/// token usage on long graphs while keeping what matters. Memory has its own vector store,
+/// separate from the knowledge base, so run-time context and durable KB facts never mix.
 /// </summary>
 public sealed class ContextMemory
 {
-    /// <summary>Source prefix tagging memory entries so they stay distinct from knowledge-base facts.</summary>
-    public const string SourcePrefix = "memory:";
-
     private readonly IEmbedder _embedder;
     private readonly IVectorStore _store;
 
@@ -39,7 +36,7 @@ public sealed class ContextMemory
         if (string.IsNullOrWhiteSpace(text))
             return;
         var vector = (await _embedder.EmbedAsync(new[] { text }, cancellationToken))[0];
-        await _store.UpsertAsync(new[] { new Chunk(text, SourcePrefix + agentId) }, new[] { vector }, cancellationToken);
+        await _store.UpsertAsync(new[] { new Chunk(text, agentId) }, new[] { vector }, cancellationToken);
     }
 
     /// <summary>Returns a formatted block of the top-K memory entries most relevant to the query,
@@ -50,11 +47,8 @@ public sealed class ContextMemory
         if (string.IsNullOrWhiteSpace(query) || topK <= 0)
             return "";
         var vector = (await _embedder.EmbedAsync(new[] { query }, cancellationToken))[0];
-        // Over-fetch then keep only memory entries, so a shared store's KB facts don't crowd them out.
-        var hits = (await _store.QueryAsync(vector, Math.Max(topK * 4, 20), 0.0, cancellationToken))
-            .Where(c => c.Source.StartsWith(SourcePrefix, StringComparison.Ordinal))
-            .Take(topK)
-            .ToList();
+        // The memory store holds only memory entries, so a plain top-K query suffices.
+        var hits = await _store.QueryAsync(vector, topK, 0.0, cancellationToken);
         if (hits.Count == 0)
             return "";
 

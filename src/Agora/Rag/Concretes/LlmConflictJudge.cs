@@ -65,30 +65,33 @@ public sealed partial class LlmConflictJudge : IConflictJudge
         var explanation = Section(text, "EXPLANATION") ?? "";
         var conflicting = ConflictingEntries(Section(text, "CONFLICTS_WITH"), existing);
 
-        if (verdict.Contains("UNRESOLVED"))
+        // Fail-narrow (D10): a conflict verdict that names no existing entry has nothing to act on —
+        // never delete or escalate against entries the judge didn't explicitly identify. An empty
+        // candidate set is treated as no conflict (the new entry is simply added).
+        if (conflicting.Count > 0 && verdict.Contains("UNRESOLVED"))
             return new ConflictAssessment(ConflictVerdict.Unresolved,
                 Explanation: explanation.Length > 0 ? explanation : verdict, Conflicting: conflicting);
 
-        if (verdict.Contains("RESOLVED"))
+        if (conflicting.Count > 0 && verdict.Contains("RESOLVED"))
             return new ConflictAssessment(ConflictVerdict.Resolved,
                 ResolvedText: Section(text, "RESOLUTION") ?? "",
                 Explanation: explanation, Conflicting: conflicting);
 
-        // NO_CONFLICT, or anything we cannot classify → treat as no conflict.
+        // NO_CONFLICT, an unclassifiable reply, or a conflict verdict naming no entry → no conflict.
         return new ConflictAssessment(ConflictVerdict.NoConflict, Explanation: explanation);
     }
 
-    /// <summary>Maps the "CONFLICTS_WITH" 1-based indices to existing chunks; falls back
-    /// to all existing entries when the model gave no usable list.</summary>
+    /// <summary>Maps the "CONFLICTS_WITH" 1-based indices to existing chunks. Fail-narrow: an empty,
+    /// "NONE", or unparseable list names nothing and yields an empty set — never falls back to "all".</summary>
     private static IReadOnlyList<Chunk> ConflictingEntries(string? raw, IReadOnlyList<Chunk> existing)
     {
         if (string.IsNullOrWhiteSpace(raw))
-            return existing;
+            return Array.Empty<Chunk>();
         var picked = new List<Chunk>();
         foreach (var token in raw.Split(new[] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries))
             if (int.TryParse(token, out var n) && n >= 1 && n <= existing.Count)
                 picked.Add(existing[n - 1]);
-        return picked.Count > 0 ? picked : existing;
+        return picked;
     }
 
     /// <summary>Extracts the value after "MARKER:" — the rest of that line plus any following

@@ -62,6 +62,8 @@ public sealed class GraphExecutor
         var state = resumeFrom?.ToState() ?? new State(userInput);
         if (resumeFrom is null && !string.IsNullOrEmpty(seedContext))
             state.Messages.Add(new Message("rag", _graph.Entry, seedContext));
+        else if (resumeFrom is not null && _memory is not null)
+            await ReseedMemoryAsync(state);
 
         _observer.OnGraphStart(_graph);
 
@@ -158,6 +160,15 @@ public sealed class GraphExecutor
         var agent = _agentFactory(nodeId);
         var context = await BuildContextAsync(nodeId, state);
         return await agent.RunAsync(state.UserInput, context, onChunk);
+    }
+
+    /// <summary>Re-seeds the per-run context memory on resume. The memory store is in-memory and starts
+    /// empty after a restart, so the checkpoint's artifacts — the single source of truth — are replayed
+    /// into it, mirroring how <see cref="RememberAsync"/> stored them during the original run.</summary>
+    private async Task ReseedMemoryAsync(State state)
+    {
+        foreach (var (key, value) in state.Artifacts)
+            await _memory!.RememberAsync($"{key}: {value}", state.LastAgent ?? "resume");
     }
 
     /// <summary>Writes a node's artifacts (and, when enabled, its truncated output) to context memory.</summary>

@@ -1,4 +1,5 @@
 using Agora.AgentFramework.Agents;
+using Agora.AgentFramework.Mcp;
 using Agora.AgentFramework.Providers;
 using Agora.Cli;
 
@@ -10,4 +11,5 @@ return CliRunner.Run(
     provider,
     backend: backend,
     approvalHandler: new ConsoleApprovalHandler(),
-    conflictResolver: new ConsoleConflictResolver());
+    conflictResolver: new ConsoleConflictResolver(),
+    mcpServer: new RagMcpStdioServer());

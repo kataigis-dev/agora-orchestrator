@@ -140,11 +140,9 @@ agents:
 src/
 ├── Agora/                    # Core library (no external deps)
 ├── Agora.AgentFramework/     # OpenAI, Ollama, MCP integration
-├── Agora.Api/                # REST API server
-└── Agora.Cli/                # CLI executable
+└── Agora.Cli/                # CLI executable (run, validate, ingest, serve-mcp, purge-kb-log)
 tests/
-├── Agora.Tests/              # Core library tests
-└── Agora.Api.Tests/          # API integration tests
+└── Agora.Tests/              # Core library tests
 ```
 
 ## Wiki
@@ -159,7 +157,6 @@ Full documentation in [`docs/`](docs/index.md):
 | [docs/agents.md](docs/agents.md) | Agents, MCP tools, skills, human approval |
 | [docs/graph.md](docs/graph.md) | Graph: nodes, edges, signals, loops, visualization |
 | [docs/cli.md](docs/cli.md) | CLI: run/validate/ingest commands, options, exit codes |
-| [docs/api.md](docs/api.md) | REST API: endpoints, lifecycles, health check |
 | [docs/providers.md](docs/providers.md) | Chat providers: OpenAI, Ollama, custom, prompt caching, resilience |
 | [docs/observability.md](docs/observability.md) | Execution observers, run metrics (steps, rework, token/cache usage) |
 | [docs/mcp.md](docs/mcp.md) | MCP: stdio/HTTP servers, tool discovery, approval gates |
@@ -174,7 +171,6 @@ Full documentation in [`docs/`](docs/index.md):
 ```bash
 dotnet build
 dotnet test tests/Agora.Tests
-dotnet test tests/Agora.Api.Tests
 ```
 
 ## Acknowledgments

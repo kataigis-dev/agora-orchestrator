@@ -1,0 +1,17 @@
+version: "1"
+
+# Native Claude judge (now supported end-to-end via the AnthropicChatClient — issue 06/F9).
+# Recommended strong judge. The harness forces temperature 0. Keep it DIFFERENT from the
+# system-under-test model (no self-judging).
+
+defaults: { model: judge }
+
+providers:
+  anthropic: { api_key_env: ANTHROPIC_API_KEY }
+
+models:
+  judge: { provider: anthropic, model: claude-opus-4-8 }
+
+# The agent block only satisfies config validation; the harness uses defaults.model (above), not this agent.
+agents:
+  judge: { model: judge, role: "LLM-as-judge evaluator." }

@@ -55,4 +55,28 @@ public class CliRunnerTests
         Assert.Equal(0, code);
         Assert.Contains("CLI OUTPUT", outw.ToString());
     }
+
+    [Fact]
+    public void Run_WithoutProvider_ReturnsError()
+    {
+        var errw = new StringWriter();
+        // No provider supplied: BuildRuntime's RequireProvider guard fires before the config is read.
+        var code = CliRunner.Run(
+            new[] { "run", "--config", "any.yaml", "--agent", "writer", "--input", "hi" },
+            provider: null, new StringWriter(), errw);
+        Assert.Equal(1, code);
+        Assert.Contains("no chat provider supplied", errw.ToString());
+    }
+
+    [Fact]
+    public void Run_WithoutConfig_ReturnsError()
+    {
+        var errw = new StringWriter();
+        // Missing --config: BuildRuntime's Require fires (a provider is present, so the guard is the config).
+        var code = CliRunner.Run(
+            new[] { "run", "--agent", "writer", "--input", "hi" },
+            new FakeChatProvider(), new StringWriter(), errw);
+        Assert.Equal(1, code);
+        Assert.Contains("missing required option --config", errw.ToString());
+    }
 }

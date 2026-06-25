@@ -11,7 +11,7 @@ mcp:
   servers:
     filesystem:
       command: npx
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "src/Agora", "src/Agora.AgentFramework", "src/Agora.Api", "src/Agora.Cli", "docs"]
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "src/Agora", "src/Agora.AgentFramework", "src/Agora.Cli", "docs"]
 agents:
   wikigen:
     model: local

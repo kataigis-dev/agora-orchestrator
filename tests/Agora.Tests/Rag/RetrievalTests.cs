@@ -37,7 +37,8 @@ public class RetrievalTests
         Assert.NotNull(retrieval);
         Assert.NotNull(retrieval!.Pipeline);
         Assert.NotNull(retrieval.KnowledgeBase);
-        Assert.Null(retrieval.Memory);
+        Assert.False(retrieval.MemoryEnabled);
+        Assert.Null(retrieval.NewMemory());
     }
 
     [Fact]
@@ -52,12 +53,49 @@ public class RetrievalTests
     }
 
     [Fact]
-    public void Build_MemoryOnly_ExposesMemory_NoPipelineOrKnowledgeBase()
+    public async Task Build_RagAndMemory_UseSeparateStores()
+    {
+        var retrieval = Retrieval.Build(
+            Config(OfflineRag(), new MemoryConfig { Enabled = true }), new FakeChatProvider())!;
+        var memory = retrieval.NewMemory()!;
+
+        await retrieval.KnowledgeBase!.WriteAsync("Agora supports MCP tools", "agent:x");
+        await memory.RememberAsync("the planner chose plan alpha", "planner");
+
+        // KB reads surface KB facts but never memory entries.
+        var enriched = await retrieval.Pipeline!.RunAsync("MCP");
+        Assert.Contains(enriched.Retrieved, c => c.Text.Contains("MCP"));
+        Assert.DoesNotContain(enriched.Retrieved, c => c.Text.Contains("plan alpha"));
+
+        // Memory recall surfaces memory entries but never KB facts.
+        var recalled = await memory.RecallAsync("planner chose plan", topK: 5);
+        Assert.Contains("plan alpha", recalled);
+        Assert.DoesNotContain("MCP", recalled);
+    }
+
+    [Fact]
+    public async Task NewMemory_MintsFreshInstanceEachCall()
+    {
+        var retrieval = Retrieval.Build(
+            Config(null, new MemoryConfig { Enabled = true }), new FakeChatProvider())!;
+
+        var first = retrieval.NewMemory()!;
+        await first.RememberAsync("run one secret", "a");
+
+        // A second mint is a distinct, empty store: it never sees the first run's entries.
+        var second = retrieval.NewMemory()!;
+        Assert.NotSame(first, second);
+        Assert.Equal("", await second.RecallAsync("run one secret", topK: 5));
+    }
+
+    [Fact]
+    public void Build_MemoryOnly_MintsMemory_NoPipelineOrKnowledgeBase()
     {
         var retrieval = Retrieval.Build(Config(null, new MemoryConfig { Enabled = true }), new FakeChatProvider());
         Assert.NotNull(retrieval);
         Assert.Null(retrieval!.Pipeline);
         Assert.Null(retrieval.KnowledgeBase);
-        Assert.NotNull(retrieval.Memory);
+        Assert.True(retrieval.MemoryEnabled);
+        Assert.NotNull(retrieval.NewMemory());
     }
 }

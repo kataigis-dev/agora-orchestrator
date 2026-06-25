@@ -1,0 +1,21 @@
+version: "1"
+
+# Local stopgap judge (free, offline) — OPT-IN with a caveat.
+# A weak local judge is unreliable: in round C a local gemma critic stamped "done" even when warned
+# about the exact defect. Use this only for smoke-testing the harness plumbing, not for trustworthy
+# quality numbers. Check the judge-vs-human MAE on the labeled cases before believing the scores.
+# The harness forces temperature 0.
+
+defaults: { model: judge }
+
+providers:
+  lmstudio:
+    base_url: http://127.0.0.1:1234/v1
+    api_key_env: LMSTUDIO_API_KEY
+
+models:
+  judge: { provider: lmstudio, model: google/gemma-4-e4b }
+
+# The agent block only satisfies config validation; the harness uses defaults.model (above), not this agent.
+agents:
+  judge: { model: judge, role: "LLM-as-judge evaluator." }

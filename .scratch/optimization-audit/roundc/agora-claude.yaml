@@ -1,0 +1,43 @@
+version: "1"
+
+# Round-C real-model probe (see ../audit.md). Agora has NO native Anthropic provider
+# (finding F9): Claude is reached via the OpenAI-compatible path pointed at Anthropic's
+# OpenAI-compat endpoint. The provider is named 'anthropic-oai' (an unknown name → Implicit
+# caching → no cache_control is injected), so the request stays clean and the run succeeds.
+# Naming it 'anthropic'/'claude' would trigger the dead Breakpoint translation (F9) and may
+# 400 on the unexpected cache_control field. Either way, expect CacheHitRate ≈ 0 with Claude.
+communication: h2c
+
+defaults: { model: balanced, temperature: 0.2, max_tokens: 2048, timeout: 120 }
+
+providers:
+  anthropic-oai:
+    base_url: https://api.anthropic.com/v1/
+    api_key_env: ANTHROPIC_API_KEY
+
+models:
+  # Use whatever Claude model your key can access; these are the current ids.
+  balanced: { provider: anthropic-oai, model: claude-sonnet-4-6 }
+  fast:     { provider: anthropic-oai, model: claude-haiku-4-5-20251001 }
+
+agents:
+  planner:
+    model: balanced
+    role: "Decompose the task into a short plan. Emit an [ARCH:PLAN] block."
+  writer:
+    model: balanced
+    role: "Implement the plan and any [STATE:FIX] feedback. Emit a [BUILD:DONE] block with the code."
+  critic:
+    model: fast
+    role: >
+      Review the writer's implementation for CORRECTNESS only. If it is genuinely correct,
+      emit [STATE:DONE]. Otherwise emit [STATE:FIX] with a 'reason' field naming the specific
+      defect. Do not invent defects.
+
+graph:
+  entry: planner
+  edges:
+    - { from: planner, to: writer,  type: handoff }
+    - { from: writer,  to: critic,  type: sequential }
+    - { from: critic,  to: writer,  type: conditional, when: fix,  max_loops: 2 }
+    - { from: critic,  to: END,     type: conditional, when: done }

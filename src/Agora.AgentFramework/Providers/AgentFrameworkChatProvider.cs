@@ -24,9 +24,10 @@ public sealed class AgentFrameworkChatProvider : IStreamingChatProvider, IDispos
         IReadOnlyList<Agora.Providers.Models.ChatMessage> messages, ModelSpec spec, CancellationToken cancellationToken = default)
     {
         IChatClient chatClient = _clients.Get(spec);
-        var response = await chatClient.GetResponseAsync(ToChatMessages(messages, spec), Options(spec),
+        var adapter = CacheAdapters.For(spec);
+        var response = await chatClient.GetResponseAsync(ToChatMessages(messages, adapter), Options(spec),
             cancellationToken: cancellationToken);
-        return Result(response.Text ?? string.Empty, spec, UsageMapping.From(response.Usage));
+        return Result(response.Text ?? string.Empty, spec, adapter.MapUsage(response.Usage));
     }
 
     /// <inheritdoc />
@@ -35,10 +36,11 @@ public sealed class AgentFrameworkChatProvider : IStreamingChatProvider, IDispos
         CancellationToken cancellationToken = default)
     {
         IChatClient chatClient = _clients.Get(spec);
+        var adapter = CacheAdapters.For(spec);
         var text = new System.Text.StringBuilder();
         var updates = new List<ChatResponseUpdate>();
         await foreach (var update in chatClient.GetStreamingResponseAsync(
-            ToChatMessages(messages, spec), Options(spec), cancellationToken: cancellationToken))
+            ToChatMessages(messages, adapter), Options(spec), cancellationToken: cancellationToken))
         {
             updates.Add(update);
             if (string.IsNullOrEmpty(update.Text)) continue;
@@ -46,7 +48,7 @@ public sealed class AgentFrameworkChatProvider : IStreamingChatProvider, IDispos
             onChunk(update.Text);
         }
         // Usage arrives as a trailing update; recover it from the assembled response.
-        var usage = UsageMapping.From(updates.ToChatResponse().Usage);
+        var usage = adapter.MapUsage(updates.ToChatResponse().Usage);
         return Result(text.ToString(), spec, usage);
     }
 
@@ -63,16 +65,16 @@ public sealed class AgentFrameworkChatProvider : IStreamingChatProvider, IDispos
             CacheWriteTokens = usage.CacheWrite,
         };
 
-    /// <summary>Maps core chat messages to Microsoft.Extensions.AI messages, translating the
-    /// <see cref="ChatMessage.CacheStable"/> hint into the provider's caching mechanism.</summary>
+    /// <summary>Maps core chat messages to Microsoft.Extensions.AI messages, marking cache-stable content
+    /// via the provider's <see cref="ICacheAdapter"/>.</summary>
     private static List<Microsoft.Extensions.AI.ChatMessage> ToChatMessages(
-        IReadOnlyList<Agora.Providers.Models.ChatMessage> messages, ModelSpec spec)
+        IReadOnlyList<Agora.Providers.Models.ChatMessage> messages, ICacheAdapter adapter)
     {
         return messages.Select(m =>
         {
             var mapped = new Microsoft.Extensions.AI.ChatMessage(MapRole(m.Role), m.Content);
             if (m.CacheStable)
-                CacheTranslation.MarkStable(mapped, spec);
+                adapter.Mark(mapped);
             return mapped;
         }).ToList();
     }

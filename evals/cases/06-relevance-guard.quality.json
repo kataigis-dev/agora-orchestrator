@@ -1,0 +1,13 @@
+{
+  "id": "relevance-guard",
+  "input": "In one sentence, what does the 6k +/- 1 optimization do for primality testing? Answer only that question.",
+  "config": "evals/configs/codegen-lean.yaml",
+  "graph": false,
+  "agent": "writer",
+  "reference": "Since every prime > 3 has the form 6k-1 or 6k+1, stepping trial divisors by 6 (testing i and i+2 from 5) skips all multiples of 2 and 3 and roughly triples the speed.",
+  "rubric": {
+    "correctness": "Correctly states that primes > 3 are of the form 6k +/- 1, so stepping by 6 skips multiples of 2 and 3 (a speedup).",
+    "relevance": "Answers only the asked question in roughly one sentence, without padding or unrelated material."
+  },
+  "expectedScore": 1.0
+}

@@ -47,7 +47,7 @@ public sealed class AgentFrameworkAgent : IAgent
         var rawTools = new List<AITool>();
         if (_ctx.Skills.Count > 0)
             rawTools.Add(SkillTools.LoadSkill(_ctx.Skills));
-        rawTools.AddRange(BuiltInFileTools.Create(_ctx.Card.Tools));
+        rawTools.AddRange(BuiltInFileTools.Create(_ctx.FilesystemRoot, _ctx.Card.Tools));
         rawTools.AddRange(RagTools.Create(_ctx.Card.Tools, _ctx.Rag, _ctx.KnowledgeBase, _ctx.Card.Id));
         rawTools.AddRange(SpecTools.Create(_ctx.Card.Tools, _ctx.SpecStore, _ctx.SpecRequireCriteria));
         rawTools.AddRange(CheckTools.Create(_ctx.Card.Tools, _ctx.CheckRunner, _ctx.SpecStore, _ctx.SpecRequireCriteria));
@@ -81,13 +81,14 @@ public sealed class AgentFrameworkAgent : IAgent
             },
         });
 
+        var cacheAdapter = CacheAdapters.For(spec);
         var messages = new List<Microsoft.Extensions.AI.ChatMessage>();
         var instructions = _ctx.Card.ComposeInstructions();
         if (!string.IsNullOrEmpty(instructions))
         {
             // The instructions are stable across the run → mark them as a cacheable prefix.
             var system = new Microsoft.Extensions.AI.ChatMessage(ChatRole.System, instructions);
-            CacheTranslation.MarkStable(system, spec);
+            cacheAdapter.Mark(system);
             messages.Add(system);
         }
         var userContent = string.IsNullOrEmpty(context) ? userInput : $"{context}\n\n{userInput}";
@@ -122,7 +123,7 @@ public sealed class AgentFrameworkAgent : IAgent
         }
 
         var (output, signals, artifacts) = _ctx.Interpreter.Interpret(response.Text ?? string.Empty);
-        var (input, generated, cacheRead, cacheWrite) = UsageMapping.From(response.Messages);
+        var (input, generated, cacheRead, cacheWrite) = SumUsage(response.Messages, cacheAdapter);
         return new AgentResult
         {
             Output = output,
@@ -133,6 +134,20 @@ public sealed class AgentFrameworkAgent : IAgent
             Signals = signals,
             Artifacts = artifacts,
         };
+    }
+
+    /// <summary>Sums per-message usage (the tool path reports usage per message rather than as one total)
+    /// through the provider's cache adapter, so cache reads/writes are mapped consistently.</summary>
+    private static (int Input, int Output, int CacheRead, int CacheWrite) SumUsage(
+        IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, ICacheAdapter adapter)
+    {
+        int input = 0, output = 0, cacheRead = 0, cacheWrite = 0;
+        foreach (var content in messages.SelectMany(m => m.Contents).OfType<UsageContent>())
+        {
+            var (i, o, r, w) = adapter.MapUsage(content.Details);
+            input += i; output += o; cacheRead += r; cacheWrite += w;
+        }
+        return (input, output, cacheRead, cacheWrite);
     }
 
     /// <summary>Routes a tool-approval request to the injected handler (fail-closed if none).</summary>

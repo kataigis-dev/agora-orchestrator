@@ -153,7 +153,9 @@ checks:
 ## Built-in tools
 
 Available to agents that list them in `tools` (no MCP server needed):
-`read_file`, `write_file`, `search_files`, `list_directory` (filesystem); `rag_search`, `rag_write`
+`read_file`, `write_file`, `search_files`, `list_directory` (filesystem, sandboxed to the config
+directory — paths escaping it via `..`, an absolute path, or a different drive are rejected);
+`rag_search`, `rag_write`
 (shared knowledge base); `ask_agent` (ask another agent); `spec_get`, `spec_gate`,
 `spec_propose_requirement`, `spec_bind_check`, `spec_set_status`, `spec_add_task`, `spec_link_task`
 (structured spec — requires the `spec` section); `run_check`, `spec_verify` (real check execution —

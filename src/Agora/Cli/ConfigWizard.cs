@@ -208,7 +208,25 @@ public static class ConfigWizard
         if (!p.YesNo("Enable RAG (retrieval-augmented generation)?", false))
             return;
 
-        p.WriteLine("  Using the built-in 'fake' embedder (real embeddings need an IEmbedder injected in code).");
+        // A writable KB (rag_write) needs a real, semantic embedder so the conflict check works — the
+        // offline 'fake' embedder is rejected for writable KBs (see RagWriteValidator). A read-only KB
+        // may use 'fake'.
+        EmbedderConfig embedder;
+        if (p.YesNo("  Will agents write to the KB (rag_write)?", false))
+        {
+            var type = p.Choice("  embedder", new[] { "openai", "ollama" }, "openai");
+            embedder = new EmbedderConfig
+            {
+                Type = type,
+                Model = p.Required("    embedding model, e.g. text-embedding-3-small / nomic-embed-text"),
+            };
+            p.WriteLine($"  Ensure a '{type}' provider is configured (api key / base_url).");
+        }
+        else
+        {
+            p.WriteLine("  Using the built-in 'fake' embedder (read-only KB).");
+            embedder = new EmbedderConfig { Type = "fake" };
+        }
 
         var store = new VectorStoreConfig
         {
@@ -238,7 +256,7 @@ public static class ConfigWizard
             Enabled = true,
             Retrieval = new RetrievalConfig
             {
-                Embedder = new EmbedderConfig { Type = "fake" },
+                Embedder = embedder,
                 VectorStore = store,
                 TopK = topK,
             },

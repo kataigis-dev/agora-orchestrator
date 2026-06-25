@@ -111,25 +111,28 @@ rather than any one API. The core marks stable content; each provider adapter tr
 role instructions (stable across a run) as cacheable; the user turn is left volatile. The core stays
 provider-agnostic — it never names a caching API.
 
-**The mechanisms** (`Agora.Providers.PromptCaching.For(provider)`):
+**The mechanisms** — each provider's caching is owned by an `ICacheAdapter`, resolved by
+`CacheAdapters.For(spec)` (in `Agora.AgentFramework.Providers`). An adapter both *marks* cache-stable
+content on the wire and *maps* the response's usage back into token counts:
 
-| Mode | Providers | How the hint is translated |
+| Adapter | Providers | How the hint is translated |
 |---|---|---|
-| `Implicit` | OpenAI, OpenAI-compatible, Ollama | No-op. Caching is automatic on a stable prefix; the lever is keeping that prefix first and byte-identical (which the runners already do). |
-| `Breakpoint` | Anthropic | The adapter tags the message with `cache_control: { type: ephemeral }`. |
-| `Resource` | Google Gemini | Reserved: manage a `CachedContent` handle for the stable segment (not yet implemented). |
-| `None` | unknown / null | Ignored. |
+| `ImplicitCacheAdapter` | OpenAI, OpenAI-compatible, Ollama, Copilot, unknown | No-op marker. Caching is automatic on a stable prefix; the lever is keeping that prefix first and byte-identical (which the runners already do). |
+| `AnthropicCacheAdapter` | Anthropic / Claude | Tags the message with `cache_control: { type: ephemeral }` and reads `cache_creation_input_tokens` back. |
 
-**Measuring it.** Cache usage is reported back through `CompletionResult.CacheReadTokens` /
-`CacheWriteTokens` (mapped from `UsageDetails.CachedInputTokenCount` and provider `AdditionalCounts`)
-and aggregated into `RunMetrics.CacheHitRate` — so you can verify caching is actually taking effect.
+Adding a provider's caching (e.g. Google Gemini's `CachedContent` resource mechanism) means adding one
+adapter and a case in `CacheAdapters.For` — not editing the provider stack.
+
+**Measuring it.** Each adapter's `MapUsage` reports cache usage through `CompletionResult.CacheReadTokens` /
+`CacheWriteTokens` (from `UsageDetails.CachedInputTokenCount` and provider `AdditionalCounts`),
+aggregated into `RunMetrics.CacheHitRate` — so you can verify caching is actually taking effect.
 See [observability.md](observability.md).
 
-> **Prerequisite for native Anthropic caching.** `ChatClients.Build` currently routes `anthropic`
-> through the OpenAI-compatible path, which does **not** carry `cache_control` to the wire. The
-> abstraction (marker + translation + usage accounting) is in place, but emitting the breakpoint
-> end-to-end needs a dedicated Anthropic `IChatClient` branch. Implicit caching (OpenAI/local) and
-> the usage accounting work today.
+**Native Anthropic caching** works end-to-end: `ChatClients.Build` routes `anthropic`/`claude` to a
+dedicated `AnthropicChatClient` (Anthropic Messages API) that serializes the `cache_control` breakpoint to
+the wire and reads `cache_creation_input_tokens` / `cache_read_input_tokens` back into
+`RunMetrics.CacheHitRate`. That client is text-completions only — for tool/function-calling agents on
+Anthropic, use an OpenAI-compatible endpoint instead.
 
 ## Resilience
 

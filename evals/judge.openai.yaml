@@ -1,0 +1,20 @@
+version: "1"
+
+# Strong judge (recommended). A capable model judges far more reliably than a weak/local one
+# (round C showed a local gemma critic rubber-stamping "done"). The harness forces temperature 0.
+#
+# Native Claude is the intended default once issue 06 (F9) lands a native anthropic branch in
+# ChatClients; until then use a strong OpenAI model here, or an Anthropic OpenAI-compatible shim.
+# Keep the judge model DIFFERENT from the system-under-test model (no self-judging).
+
+defaults: { model: judge }
+
+providers:
+  openai: { api_key_env: OPENAI_API_KEY }
+
+models:
+  judge: { provider: openai, model: gpt-4o }
+
+# The agent block only satisfies config validation; the harness uses defaults.model (above), not this agent.
+agents:
+  judge: { model: judge, role: "LLM-as-judge evaluator." }

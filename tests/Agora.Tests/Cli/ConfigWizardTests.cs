@@ -133,6 +133,8 @@ public class ConfigWizardTests
             "-y @modelcontextprotocol/server-filesystem .",       // args
             "",                                                   // finish servers
             "y",                                                  // rag
+            "y",                                                  // KB writable (rag_write)?
+            "openai", "text-embedding-3-small",                   // embedder type + model
             "file", "./kb.json",                                  // vector store + path
             "./docs", "500", "100", "4", "none",                  // ingest/topk/refine
             "researcher", "balanced", "Answer questions.",
@@ -157,7 +159,8 @@ public class ConfigWizardTests
         Assert.Equal(new[] { "write_file" }, agent.Approvals);
 
         Assert.True(config.Rag!.Enabled);
-        Assert.Equal("file", config.Rag.Retrieval!.VectorStore!.Type);
+        Assert.Equal("openai", config.Rag.Retrieval!.Embedder!.Type); // writable KB → real embedder
+        Assert.Equal("file", config.Rag.Retrieval.VectorStore!.Type);
         Assert.Equal("./kb.json", config.Rag.Retrieval.VectorStore.Path);
         Assert.Equal(new[] { "./docs" }, config.Rag.Ingest!.Sources);
         Assert.Equal(500, config.Rag.Ingest.ChunkSize);

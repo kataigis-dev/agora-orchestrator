@@ -1,0 +1,25 @@
+version: "1"
+
+# Lean single-agent config: the same tasks as codegen-graph.yaml but with no plan/critic gate.
+# Used to compare a lean pipeline vs the gated graph on quality AND cost (run both, diff the reports).
+communication: natural
+
+defaults: { model: balanced, temperature: 0.2, max_tokens: 1024, timeout: 180 }
+
+providers:
+  lmstudio:
+    base_url: http://127.0.0.1:1234/v1
+    api_key_env: LMSTUDIO_API_KEY
+
+models:
+  balanced: { provider: lmstudio, model: google/gemma-4-e4b }
+
+agents:
+  writer:
+    model: balanced
+    role: "Complete the user's task directly and correctly. Output only what is asked, nothing more."
+
+graph:
+  entry: writer
+  edges:
+    - { from: writer, to: END, type: sequential }

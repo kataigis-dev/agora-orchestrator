@@ -15,13 +15,11 @@ public enum WriteOutcome
     /// <summary>Stored — related entries existed but the judge found no conflict.</summary>
     NoConflict,
 
-    /// <summary>Stored a reconciled entry — the judge resolved the conflict on its own.</summary>
-    AutoResolved,
-
-    /// <summary>Stored after a human resolved the conflict (kept new or merged).</summary>
+    /// <summary>Stored after a human resolved the conflict (kept new, or merged — possibly accepting the
+    /// judge's suggested reconciliation). The judge only proposes; it never applies a merge on its own.</summary>
     UserResolved,
 
-    /// <summary>Nothing stored — conflict left unresolved (human kept existing, or no resolver available).</summary>
+    /// <summary>Nothing stored — human kept existing, or (defensively) no resolver was available.</summary>
     Rejected,
 }
 
@@ -40,12 +38,19 @@ public sealed class KnowledgeBase
     private readonly IVectorStore _store;
     private readonly IConflictJudge _judge;
     private readonly IConflictResolver? _resolver;
+    private readonly IKbMutationLog? _log;
     private readonly int _neighborK;
     private readonly double _scoreThreshold;
 
     private readonly double _conflictThreshold;
     private readonly Dictionary<string, ConflictAssessment> _assessmentCache = new();
     private const int MaxCacheEntries = 512;
+
+    // A graph runs parallel branches against one KnowledgeBase. The query→judge→resolve→apply sequence
+    // is not atomic — without this lock branch A could delete a neighbour while branch B is judging
+    // against it — and the assessment cache is a plain Dictionary. This serialises the whole critical
+    // section (and the human gate widens it to human-length waits, see issue 07).
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
 
     /// <summary>Creates the knowledge base over a shared embedder/store, with the conflict judge,
     /// optional human resolver, and the neighbor/conflict similarity thresholds.</summary>
@@ -56,12 +61,14 @@ public sealed class KnowledgeBase
         IConflictResolver? resolver = null,
         int neighborK = 5,
         double scoreThreshold = 0.5,
-        double conflictThreshold = 0.8)
+        double conflictThreshold = 0.8,
+        IKbMutationLog? mutationLog = null)
     {
         _embedder = embedder;
         _store = store;
         _judge = judge;
         _resolver = resolver;
+        _log = mutationLog;
         _neighborK = neighborK;
         _scoreThreshold = scoreThreshold;
         _conflictThreshold = conflictThreshold;
@@ -73,77 +80,123 @@ public sealed class KnowledgeBase
     public async Task<WriteResult> WriteAsync(
         string text, string source = "agent", string agentId = "", CancellationToken cancellationToken = default)
     {
+        // Embedding touches no shared state, so it stays outside the critical section.
         var vector = await EmbedOne(text, cancellationToken);
-        var neighbors = await _store.QueryAsync(vector, _neighborK, _scoreThreshold, cancellationToken);
 
-        if (neighbors.Count == 0)
+        // Serialise the query→judge→resolve→apply section so parallel branches can't interleave a
+        // delete with another branch's judging, and so the assessment cache stays a safe single-writer.
+        await _writeLock.WaitAsync(cancellationToken);
+        try
         {
-            await AddAsync(text, vector, source, cancellationToken);
-            return new WriteResult(WriteOutcome.Added, text);
-        }
+            var neighbors = await _store.QueryAsync(vector, _neighborK, _scoreThreshold, cancellationToken);
 
-        // Prefilter: only spend an LLM judge call when a neighbor is close enough to plausibly
-        // conflict; loosely-related entries (below conflictThreshold) are added without judging.
-        if (neighbors[0].Score < _conflictThreshold)
-        {
-            await AddAsync(text, vector, source, cancellationToken);
-            return new WriteResult(WriteOutcome.NoConflict, text, "below conflict threshold");
-        }
-
-        var assessment = await AssessCachedAsync(text, neighbors, cancellationToken);
-        switch (assessment.Verdict)
-        {
-            case ConflictVerdict.NoConflict:
+            if (neighbors.Count == 0)
+            {
                 await AddAsync(text, vector, source, cancellationToken);
-                return new WriteResult(WriteOutcome.NoConflict, text);
+                await LogAddAsync(agentId, text, "added (no related entries)", "", cancellationToken);
+                return new WriteResult(WriteOutcome.Added, text);
+            }
 
-            case ConflictVerdict.Resolved:
-                var resolved = string.IsNullOrWhiteSpace(assessment.ResolvedText) ? text : assessment.ResolvedText!;
-                await ReplaceAsync(assessment.Conflicting, resolved, source, cancellationToken);
-                return new WriteResult(WriteOutcome.AutoResolved, resolved, assessment.Explanation);
-
-            case ConflictVerdict.Unresolved:
-                return await EscalateAsync(text, vector, source, agentId, neighbors, assessment, cancellationToken);
-
-            default:
+            // Prefilter: only spend an LLM judge call when a neighbor is close enough to plausibly
+            // conflict; loosely-related entries (below conflictThreshold) are added without judging.
+            if (neighbors[0].Score < _conflictThreshold)
+            {
                 await AddAsync(text, vector, source, cancellationToken);
-                return new WriteResult(WriteOutcome.NoConflict, text);
+                await LogAddAsync(agentId, text, "added (below conflict threshold)", "", cancellationToken);
+                return new WriteResult(WriteOutcome.NoConflict, text, "below conflict threshold");
+            }
+
+            var assessment = await AssessCachedAsync(text, neighbors, cancellationToken);
+            switch (assessment.Verdict)
+            {
+                case ConflictVerdict.NoConflict:
+                    await AddAsync(text, vector, source, cancellationToken);
+                    await LogAddAsync(agentId, text, "added (no conflict)", assessment.Explanation, cancellationToken);
+                    return new WriteResult(WriteOutcome.NoConflict, text);
+
+                // The judge only detects and *proposes*. Both Resolved and Unresolved are conflicts that
+                // a human must decide — no entry is ever deleted or replaced autonomously. A Resolved
+                // verdict rides its reconciliation along as the suggested merge.
+                case ConflictVerdict.Resolved:
+                case ConflictVerdict.Unresolved:
+                    return await EscalateAsync(text, vector, source, agentId, assessment, cancellationToken);
+
+                default:
+                    await AddAsync(text, vector, source, cancellationToken);
+                    await LogAddAsync(agentId, text, "added", "", cancellationToken);
+                    return new WriteResult(WriteOutcome.NoConflict, text);
+            }
+        }
+        finally
+        {
+            _writeLock.Release();
         }
     }
 
-    /// <summary>Asks the human resolver to settle an unresolved conflict and applies the decision
-    /// (keep-new/merge replace the conflicting entries; keep-existing rejects the write).</summary>
+    /// <summary>Asks the human resolver to settle a conflict and applies the decision (keep-new/merge
+    /// replace the conflicting entries; keep-existing rejects the write). The human sees only the entries
+    /// the judge explicitly named (issue 05) and, for a Resolved verdict, the judge's reconciliation as
+    /// the suggested merge — the judge proposes, the human decides.</summary>
     private async Task<WriteResult> EscalateAsync(
         string text, float[] vector, string source, string agentId,
-        IReadOnlyList<Chunk> neighbors, ConflictAssessment assessment, CancellationToken cancellationToken)
+        ConflictAssessment assessment, CancellationToken cancellationToken)
     {
+        var conflicting = assessment.Conflicting ?? Array.Empty<Chunk>();
         if (_resolver is null)
-            return new WriteResult(WriteOutcome.Rejected, text, "unresolved conflict and no resolver available");
+            return new WriteResult(WriteOutcome.Rejected, text, "conflict requires a human resolver; none available");
 
         var decision = await _resolver.ResolveAsync(new ConflictResolutionRequest
         {
             AgentId = agentId,
             NewEntry = text,
-            ExistingEntries = neighbors.Select(n => n.Text).ToList(),
+            ExistingEntries = conflicting.Select(n => n.Text).ToList(),
             Explanation = assessment.Explanation,
+            SuggestedMerge = assessment.ResolvedText ?? "",
         }, cancellationToken);
 
         switch (decision.Resolution)
         {
             case ConflictResolution.KeepNew:
-                await ReplaceAsync(assessment.Conflicting, text, source, cancellationToken, vector);
+                await ReplaceAsync(conflicting, text, source, cancellationToken, vector);
+                await LogReplaceAsync(agentId, conflicting, text, "kept new", assessment.Explanation, cancellationToken);
                 return new WriteResult(WriteOutcome.UserResolved, text, "kept new");
 
             case ConflictResolution.Merge:
-                var merged = string.IsNullOrWhiteSpace(decision.MergedText) ? text : decision.MergedText!;
-                await ReplaceAsync(assessment.Conflicting, merged, source, cancellationToken);
+                // Default the merge to the judge's suggestion when the human supplied none.
+                var merged = FirstNonBlank(decision.MergedText, assessment.ResolvedText, text);
+                await ReplaceAsync(conflicting, merged, source, cancellationToken);
+                await LogReplaceAsync(agentId, conflicting, merged, "merged", assessment.Explanation, cancellationToken);
                 return new WriteResult(WriteOutcome.UserResolved, merged, "merged");
 
             case ConflictResolution.KeepExisting:
             default:
+                // Nothing stored or removed → no mutation to record.
                 return new WriteResult(WriteOutcome.Rejected, text, "kept existing");
         }
     }
+
+    /// <summary>Returns the first non-blank value (used to default a merge to the judge's suggestion).</summary>
+    private static string FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "";
+
+    /// <summary>Records a plain add in the mutation log (no-op when no log is configured).</summary>
+    private Task LogAddAsync(string agentId, string newText, string decision, string explanation, CancellationToken ct)
+        => _log is null ? Task.CompletedTask : _log.AppendAsync(new KbMutation
+        {
+            Kind = KbMutationKind.Add, AgentId = agentId, NewText = newText,
+            Decision = decision, JudgeExplanation = explanation,
+        }, ct);
+
+    /// <summary>Records a human-confirmed replacement (superseded entries → reconciled text) in the log.</summary>
+    private Task LogReplaceAsync(
+        string agentId, IReadOnlyList<Chunk> superseded, string newText, string decision, string explanation,
+        CancellationToken ct)
+        => _log is null ? Task.CompletedTask : _log.AppendAsync(new KbMutation
+        {
+            Kind = KbMutationKind.Replace, AgentId = agentId,
+            OldText = superseded.Select(c => c.Text).ToList(), NewText = newText,
+            Decision = decision, JudgeExplanation = explanation,
+        }, ct);
 
     /// <summary>Removes the entries superseded by a resolution, then stores the reconciled entry.</summary>
     private async Task ReplaceAsync(

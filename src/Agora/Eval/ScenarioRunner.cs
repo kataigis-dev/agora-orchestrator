@@ -29,7 +29,7 @@ public static class ScenarioRunner
                 ?? throw new ArgumentException("scenario with graph=false must set 'agent'");
             var result = await runtime.RunAgentAsync(agentId, scenario.Input);
             output = result.Output;
-            signals = result.Signals;
+            signals = result.State.Signals;
         }
 
         var failures = new List<string>();

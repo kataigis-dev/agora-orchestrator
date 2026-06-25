@@ -1,0 +1,40 @@
+version: "1"
+
+# Gated multi-agent codegen pipeline (planner -> writer -> reviewer) for quality eval.
+# The terminal node (reviewer) OUTPUTS THE FINAL CODE, not just a verdict — otherwise the harness would
+# judge the verdict instead of the deliverable (the round-C headline). Compare this against
+# codegen-lean.yaml (writer only) to see whether the extra gated pass actually improves quality vs cost.
+# Local LM Studio by default (free, offline); the token is read from $LMSTUDIO_API_KEY at run time.
+communication: natural
+
+defaults: { model: balanced, temperature: 0.2, max_tokens: 768, timeout: 180 }
+
+providers:
+  lmstudio:
+    base_url: http://127.0.0.1:1234/v1
+    api_key_env: LMSTUDIO_API_KEY
+
+models:
+  balanced: { provider: lmstudio, model: google/gemma-4-e4b }
+  fast:     { provider: lmstudio, model: google/gemma-4-e2b }
+
+agents:
+  planner:
+    model: balanced
+    role: "Decompose the task into a short, ordered plan. Do not write code."
+  writer:
+    model: balanced
+    role: "Implement the plan. Output the complete function, nothing else."
+  reviewer:
+    model: balanced
+    role: >
+      Review the writer's code for correctness against the task. Output the FINAL, corrected code
+      (the complete function only) — fix any defect you find; if it is already correct, output it
+      unchanged. Output only code.
+
+graph:
+  entry: planner
+  edges:
+    - { from: planner,  to: writer,   type: handoff }
+    - { from: writer,   to: reviewer, type: sequential }
+    - { from: reviewer, to: END,      type: sequential }

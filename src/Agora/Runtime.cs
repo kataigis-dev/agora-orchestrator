@@ -40,8 +40,7 @@ public sealed class Runtime
     private readonly IApprovalHandler? _approvalHandler;
     private readonly IConflictResolver? _conflictResolver;
     private readonly SkillRegistry _skillRegistry;
-    private readonly IOutputInterpreter _interpreter;
-    private readonly bool _h2c;
+    private readonly AgentInstructions _instructions;
     private readonly bool _handoff;
     private readonly Retrieval? _retrieval;
     private readonly IRouter? _router;
@@ -62,6 +61,10 @@ public sealed class Runtime
         IExecutionObserver? observer = null)
     {
         _config = config;
+        // Fail loud at build: a writable KB (rag_write) with a fake/missing embedder or unresolvable
+        // judge model would silently no-op the conflict check. Enforced here too so a directly-built
+        // Runtime (not via the `validate` verb) can't bypass it.
+        RagWriteValidator.Validate(config);
         _checkpoints = checkpointStore;
         _observer = observer;
         _provider = provider is ResilientChatProvider ? provider : new ResilientChatProvider(provider);
@@ -71,12 +74,13 @@ public sealed class Runtime
         _approvalHandler = approvalHandler;
         _conflictResolver = conflictResolver;
         _skillRegistry = SkillLoader.Load(config.Skills?.Directories ?? new List<string>());
-        _h2c = string.Equals(config.Communication, "h2c", StringComparison.OrdinalIgnoreCase);
         _handoff = config.Handoff == true;
-        _interpreter = _h2c ? new H2cInterpreter() : new SignalInterpreter();
+        _instructions = AgentInstructions.For(config);
         // One module owns the embedder/store and the pipeline → knowledge base → memory build order.
-        _retrieval = retrieval ?? global::Agora.Rag.Concretes.Retrieval.Build(_config, _provider, _backend, _conflictResolver);
-        SpecStore = BuildSpecStore();
+        // Every KB mutation is recorded to an append-only audit log next to the config (purgeable).
+        _retrieval = retrieval ?? global::Agora.Rag.Concretes.Retrieval.Build(
+            _config, _provider, _backend, _conflictResolver, BuildMutationLog());
+        SpecStore = SpecStoreFactory.Build(_config, _configDir, _backend);
         CheckRunner = BuildCheckRunner();
         _router = _config.Defaults.Model is string routerAlias && _specs.TryGetValue(routerAlias, out var routerSpec)
             ? new LlmRouter(_provider, routerSpec)
@@ -116,31 +120,13 @@ public sealed class Runtime
             approvalHandler, conflictResolver, checkpointStore, observer);
     }
 
-    /// <summary>Builds the structured spec store from config: a core file store, or a non-core store
-    /// (e.g. RAG-over-MCP) via the edge-injected resolver. Null when SDD is absent/disabled.</summary>
-    private ISpecStore? BuildSpecStore()
-    {
-        if (_config.Spec is not { Enabled: true } spec)
-            return null;
-        var store = spec.Store ?? new SpecStoreConfig();
-        if (string.Equals(store.Type, "file", StringComparison.OrdinalIgnoreCase))
-        {
-            var path = store.Path ?? "spec.json";
-            if (!Path.IsPathRooted(path))
-                path = Path.Combine(_configDir ?? Directory.GetCurrentDirectory(), path);
-            return new FileSpecStore(path);
-        }
-        // Non-core stores (e.g. RAG over an MCP server) are built by the edge-injected resolver.
-        var serverName = store.Server
-            ?? throw new InvalidOperationException($"spec.store type '{store.Type}' requires a 'server'");
-        McpServerConfig? server = null;
-        _config.Mcp?.Servers.TryGetValue(serverName, out server);
-        var resolved = new SpecStoreSpec(
-            store.Type, serverName, server, store.WriteTool, store.ReadTool, store.WriteArg, store.QueryArg, store.Key);
-        return _backend?.TryCreateSpecStore(resolved)
-            ?? throw new NotSupportedException(
-                $"spec store type '{store.Type}' has no built-in implementation and no backend provided");
-    }
+    /// <summary>Builds the append-only KB mutation log (next to the config) when RAG is enabled, so every
+    /// knowledge-base add/replace is auditable; null when RAG is off. The file is created lazily on the
+    /// first mutation, so a read-only KB leaves no log behind.</summary>
+    private IKbMutationLog? BuildMutationLog()
+        => _config.Rag is { Enabled: true }
+            ? new FileKbMutationLog(FileKbMutationLog.DefaultPath(_configDir ?? Directory.GetCurrentDirectory()))
+            : null;
 
     /// <summary>Builds the check runner from config (real process execution of allow-listed commands);
     /// null when no <c>checks</c> are configured.</summary>
@@ -149,11 +135,24 @@ public sealed class Runtime
             ? new ProcessCheckRunner(checks, _configDir ?? Directory.GetCurrentDirectory())
             : null;
 
-    /// <summary>Runs a single agent (no graph) on the input, optionally streaming its output.</summary>
-    public async Task<AgentResult> RunAgentAsync(string agentId, string userInput, Action<string>? onChunk = null)
+    /// <summary>Runs a single agent (no graph) on the input, optionally streaming its output. Returns the
+    /// same <see cref="RunResult"/> shape as <see cref="RunAsync"/> — the run's output, a minimal end
+    /// state, and one-step <see cref="RunMetrics"/> projected from the agent's own token counts — so every
+    /// run is measured the same way (no graph machinery on this lean path).</summary>
+    public async Task<RunResult> RunAgentAsync(string agentId, string userInput, Action<string>? onChunk = null)
     {
         using var _ = Tracing.BeginSpan("agent.run", new() { ["agent"] = agentId });
-        return await BuildAgent(agentId).RunAsync(userInput, "", onChunk);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var result = await BuildAgent(agentId).RunAsync(userInput, "", onChunk);
+        stopwatch.Stop();
+
+        var state = new State(userInput) { LastAgent = agentId, Signals = result.Signals };
+        state.Outputs[agentId] = result.Output;
+        foreach (var (key, value) in result.Artifacts)
+            state.Artifacts[key] = value;
+
+        var metrics = await WithTraceability(RunMetrics.ForAgent(result, stopwatch.Elapsed, agentId));
+        return new RunResult { Output = result.Output, State = state, Metrics = metrics };
     }
 
     /// <summary>Runs the configured graph: seeds RAG context if enabled, executes to completion, and
@@ -234,8 +233,10 @@ public sealed class Runtime
         var memoryOptions = _config.Memory is { } m
             ? new MemoryOptions(m.TopK, m.MaxChars, m.RememberOutputs)
             : new MemoryOptions();
+        // Mint a fresh, empty context memory per run: run-time context is per-run and discarded at run
+        // end (on resume the executor re-seeds it from the checkpoint's artifacts).
         return new GraphExecutor(graph, BuildAgent, handoff: _handoff,
-            memory: _retrieval?.Memory, memoryOptions: memoryOptions, router: _router,
+            memory: _retrieval?.NewMemory(), memoryOptions: memoryOptions, router: _router,
             checkpoints: _checkpoints, runId: runId, onChunk: onChunk, observer: observer);
     }
 
@@ -272,14 +273,11 @@ public sealed class Runtime
         if (agentConfig.Timeout is double timeout)
             spec = spec with { Timeout = timeout };
         var systemPrompt = ResolvePrompt(agentConfig);
-        // The handoff preamble is about producing a handoff; it is noise when an agent is merely
-        // answering an ask_agent question, so skip it in answer-mode.
-        if (_handoff && !answerMode)
-            systemPrompt = HandoffPreamble.For(_h2c) + "\n\n" + systemPrompt;
-        if (_h2c)
-            systemPrompt = H2cPreamble.Text + "\n\n" + systemPrompt;
-        if (!string.IsNullOrWhiteSpace(_config.Language))
-            systemPrompt = LanguagePreamble.For(_config.Language) + "\n\n" + systemPrompt;
+        // One module assembles the language/protocol/handoff prefix (handoff is skipped in answer-mode,
+        // where the agent answers an ask_agent question rather than producing a handoff).
+        var prefix = _instructions.Prefix(answerMode);
+        if (!string.IsNullOrEmpty(prefix))
+            systemPrompt = string.IsNullOrEmpty(systemPrompt) ? prefix : prefix + "\n\n" + systemPrompt;
         var card = new AgentCard
         {
             Id = agentId,
@@ -307,8 +305,9 @@ public sealed class Runtime
                 Skills = skills,
                 Approvals = agentConfig.Approvals,
                 ApprovalHandler = _approvalHandler,
-                Interpreter = _interpreter,
+                Interpreter = _instructions.Interpreter,
                 Mcp = _config.Mcp,
+                FilesystemRoot = _configDir ?? Directory.GetCurrentDirectory(),
                 Rag = Rag,
                 KnowledgeBase = KnowledgeBase,
                 AskAgent = answerMode ? null : AskAgentAsync,
@@ -318,7 +317,7 @@ public sealed class Runtime
             });
         }
 
-        return new Agent(card, _provider, spec, _interpreter);
+        return new Agent(card, _provider, spec, _instructions.Interpreter);
     }
 
     /// <summary>Resolves an agent's system prompt from its inline value or prompt file (relative to

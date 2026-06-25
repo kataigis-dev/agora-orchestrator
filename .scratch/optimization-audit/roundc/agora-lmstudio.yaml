@@ -1,0 +1,39 @@
+version: "1"
+
+# Round-C real-model probe via local LM Studio (OpenAI-compatible endpoint).
+# The API token is NOT stored here — it is read from $LMSTUDIO_API_KEY at run time.
+# Provider name 'lmstudio' → Implicit caching (no cache_control injected); local KV-reuse only.
+communication: h2c
+
+defaults: { model: balanced, temperature: 0.2, max_tokens: 1024, timeout: 180 }
+
+providers:
+  lmstudio:
+    base_url: http://127.0.0.1:1234/v1
+    api_key_env: LMSTUDIO_API_KEY
+
+models:
+  balanced: { provider: lmstudio, model: google/gemma-4-e4b }
+  fast:     { provider: lmstudio, model: google/gemma-4-e2b }
+
+agents:
+  planner:
+    model: balanced
+    role: "Decompose the task into a short plan. Emit an [ARCH:PLAN] block."
+  writer:
+    model: balanced
+    role: "Implement the plan and any [STATE:FIX] feedback. Emit a [BUILD:DONE] block with the code."
+  critic:
+    model: fast
+    role: >
+      Review the writer's implementation for CORRECTNESS only. If it is genuinely correct,
+      emit [STATE:DONE]. Otherwise emit [STATE:FIX] with a 'reason' field naming the specific
+      defect. Do not invent defects.
+
+graph:
+  entry: planner
+  edges:
+    - { from: planner, to: writer,  type: handoff }
+    - { from: writer,  to: critic,  type: sequential }
+    - { from: critic,  to: writer,  type: conditional, when: fix,  max_loops: 2 }
+    - { from: critic,  to: END,     type: conditional, when: done }

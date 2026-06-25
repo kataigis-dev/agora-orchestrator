@@ -31,6 +31,13 @@ public class MemoryExecutorTests
         Edges = new[] { new Edge("a", "b", "handoff"), new Edge("b", "END") },
     };
 
+    private static Graph SequentialGraph() => new()
+    {
+        Entry = "a",
+        Nodes = new Dictionary<string, Node> { ["a"] = new("a"), ["b"] = new("b") },
+        Edges = new[] { new Edge("a", "b", "sequential"), new Edge("b", "END") },
+    };
+
     [Fact]
     public async Task RememberOutputs_MakesOutputRecallable_WhenInboxIsEmpty()
     {
@@ -65,5 +72,28 @@ public class MemoryExecutorTests
 
         var bMsg = providers["b"].Calls[0].Messages[^1].Content;
         Assert.DoesNotContain("paris is the capital", bMsg);
+    }
+
+    [Fact]
+    public async Task Resume_ReseedsMemoryFromCheckpointArtifacts()
+    {
+        // The per-run memory store is empty after a restart; resuming must replay the checkpoint's
+        // artifacts so the resumed node (b) recalls what was decided before the checkpoint.
+        var providers = new Dictionary<string, FakeChatProvider>
+        {
+            ["a"] = new(new[] { "unused — a ran before the checkpoint" }),
+            ["b"] = new(new[] { "DONE" }),
+        };
+        var memory = new ContextMemory(new FakeEmbedder(64), new InMemoryVectorStore());
+
+        var preCheckpoint = new State("build login");
+        preCheckpoint.Artifacts["plan"] = "use JWT auth";
+        var snapshot = new StateSnapshot { Current = "b", Steps = 1, State = preCheckpoint };
+
+        await new GraphExecutor(SequentialGraph(), Factory(providers), memory: memory,
+            memoryOptions: new MemoryOptions(TopK: 5)).RunAsync("build login", resumeFrom: snapshot);
+
+        var bMsg = providers["b"].Calls[0].Messages[^1].Content;
+        Assert.Contains("plan: use JWT auth", bMsg);
     }
 }

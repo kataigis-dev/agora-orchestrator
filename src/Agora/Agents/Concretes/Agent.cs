@@ -32,8 +32,8 @@ public sealed class Agent : IAgent
     {
         var messages = new List<ChatMessage>();
         var system = _card.ComposeInstructions();
-        // The system prompt is stable across a run, so mark it as a cacheable prefix (see PromptCaching);
-        // providers that don't cache it simply ignore the hint.
+        // The system prompt is stable across a run, so mark it as a cacheable prefix (see ChatMessage.CacheStable
+        // and the provider cache adapters); providers that don't cache it simply ignore the hint.
         if (!string.IsNullOrEmpty(system))
             messages.Add(new ChatMessage("system", system, CacheStable: true));
         var userContent = string.IsNullOrEmpty(context) ? userInput : $"{context}\n\n{userInput}";
