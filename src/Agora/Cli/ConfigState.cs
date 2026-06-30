@@ -4,6 +4,7 @@ using Agora.Agents.Concretes;
 using Agora.Configuration;
 using Agora.HumanInTheLoop;
 using Agora.Orchestration.Contracts;
+using Agora.Orchestration.Concretes;
 using Agora.Providers.Contracts;
 using Agora.Providers.Models;
 using Agora.Providers.Concretes;
@@ -59,5 +60,6 @@ internal record ConfigState(Dictionary<string, string> Options, IChatProvider? P
     public Runtime BuildRuntime(ICheckpointStore? checkpoints = null)
         => Runtime.FromConfig(Require("config"), RequireProvider(),
             backend: Backend, approvalHandler: ApprovalHandler,
-            conflictResolver: ConflictResolver, checkpointStore: checkpoints);
+            conflictResolver: ConflictResolver, checkpointStore: checkpoints,
+            observer: new ConsoleExecutionObserver());
 }

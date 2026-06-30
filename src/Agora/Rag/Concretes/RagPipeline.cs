@@ -12,7 +12,8 @@ public sealed class RagPipeline
 
     /// <summary>Creates the pipeline from its refiner, embedder, store, and query parameters.</summary>
     public RagPipeline(
-        IRefiner refiner, IEmbedder embedder, IVectorStore store, int topK = 6, double scoreThreshold = 0.0)
+        IRefiner refiner, IEmbedder embedder, IVectorStore store, int topK = 6,
+        double scoreThreshold = Configuration.RetrievalConfig.DefaultScoreThreshold)
     {
         _refiner = refiner;
         Embedder = embedder;

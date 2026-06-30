@@ -15,7 +15,7 @@ independent of any specific AI framework.
 ## Architecture at a glance
 
 ```
-Agora.Cli / Agora.Api
+Agora.Cli / MCP stdio
        │
    Runtime.cs
        │
@@ -35,8 +35,7 @@ Agora.Cli / Agora.Api
 |---------|------|
 | `Agora` | Core library — no external dependencies |
 | `Agora.AgentFramework` | OpenAI SDK, Ollama, MCP, Qdrant integration |
-| `Agora.Api` | REST API (ASP.NET Core) |
-| `Agora.Cli` | CLI executable |
+| `Agora.Cli` | CLI executable and local read-only MCP stdio entry point |
 
 ## Key concepts
 

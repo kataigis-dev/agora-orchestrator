@@ -44,7 +44,7 @@ specific providers, making it hard to swap model or provider.
 - MCP: external tool integration via stdio/HTTP
 - HITL: configurable approval handler for critical actions
 - Durable execution (checkpoint/resume) and token streaming
-- REST API (Agora.Api) and CLI (Agora.Cli)
+- CLI (Agora.Cli) and read-only MCP stdio exposure for RAG search
 - Observability: tracing
 
 **Out of scope:**
@@ -54,7 +54,7 @@ specific providers, making it hard to swap model or provider.
 
 ## Methodology
 
-- TDD: unit tests in `Agora.Tests`, integration tests in `Agora.Api.Tests`
+- TDD: unit and integration-style tests in `Agora.Tests`
 - Design by contract via interfaces (`IAgent`, `IChatProvider`, `IEmbedder`, `IVectorStore`,
   `IApprovalHandler`, `IConflictResolver`, `ICheckpointStore`)
 - YAML configuration as the single source of truth for a run
@@ -62,7 +62,7 @@ specific providers, making it hard to swap model or provider.
 
 ## Success Criteria
 
-- A multi-agent graph with a conditional loop works end-to-end via CLI and API
+- A multi-agent graph with a conditional loop works end-to-end via CLI
 - The provider is swappable without changing the graph logic
 - RAG and MCP are optional and enabled only via config
 - Tests pass across all layers (unit + integration)
@@ -72,4 +72,5 @@ specific providers, making it hard to swap model or provider.
 
 > Actively developed — core graph execution and AgentFramework integration working. RAG (read +
 > writable KB), context memory, HITL, MCP, parallel execution, LLM routing, checkpointing/resume,
-> token streaming, REST API and CLI all operational.
+> token streaming, CLI, and read-only MCP stdio exposure are operational. The former REST API was
+> retired to keep writable RAG on the CLI + human path.

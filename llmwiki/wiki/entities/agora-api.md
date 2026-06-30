@@ -1,42 +1,35 @@
 ---
 type: entity
-title: Agora API
-tags: [api, rest, aspnetcore, dotnet]
+title: Retired Agora API
+tags: [api, rest, aspnetcore, dotnet, retired]
 related: [agora-orchestrator, agora-cli, human-in-the-loop]
 created: 2026-06-17
-updated: 2026-06-20
+updated: 2026-06-30
 ---
 
-# Agora API
+# Retired Agora API
 
-REST server (`Agora.Api`) built on ASP.NET Core Minimal APIs, exposing agent and graph execution
-over HTTP. The config is loaded server-side (`--config` / `AGORA_CONFIG`); runs execute
-asynchronously over a queue, with state in an in-memory run store.
+`Agora.Api` was the former ASP.NET Core Minimal API surface for running agents and graphs over HTTP.
+It has been retired from the current solution. The active product surface is the CLI (`Agora.Cli`) plus
+local read-only MCP stdio exposure for `rag_search`.
+
+The retirement keeps writable RAG (`rag_write`) on the CLI + human path, where conflict resolution can
+block synchronously for a present human instead of exposing headless mutation endpoints.
 
 ## Main components
 
 | File | Role |
 |------|------|
-| `Program.cs` | Server bootstrap, endpoint registration (`/health`, `/agents`) |
-| `RunEndpoints.cs` | HTTP endpoints (`/runs`, `/runs/{id}`, `/runs/{id}/approvals`, `/ingest`) |
-| `RunExecutor.cs` | Hosted service that executes queued runs |
-| `RunQueue.cs` | Internal queue for run processing |
-| `AgoraRuntimeFactory.cs` | Builds a fresh `Runtime` per run from the shared config |
-| `Dtos.cs` | DTOs for HTTP requests/responses |
+| Current replacement | Role |
+|------|------|
+| `Agora.Cli` | Runs agents/graphs, validates configs, ingests RAG sources, resumes checkpoints |
+| `serve-mcp` | Local read-only MCP stdio server exposing `rag_search` only |
+| `purge-kb-log` | CLI retention path for the KB mutation audit log |
 
 ## Endpoints
 
-- `GET /health`, `GET /agents`
-- `POST /runs` (mode `agent`/`graph` + input → 202 with run id), `GET /runs/{id}`
-- `POST /runs/{id}/approvals` (resolve pending HITL approvals)
-- `POST /ingest` (run the configured RAG ingest)
-
-See `examples/agora-api.http` for example calls.
+No HTTP endpoints are part of the current baseline.
 
 ## Tests
 
-Integration tests live in `tests/Agora.Api.Tests/`:
-- `HealthAndAgentsTests.cs` — health check and agent listing
-- `RunLifecycleTests.cs` — run lifecycle
-- `ApprovalFlowTests.cs` — HITL flow
-- `IngestTests.cs` — RAG ingest via API
+The active test suite lives in `tests/Agora.Tests/`.

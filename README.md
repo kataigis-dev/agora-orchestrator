@@ -24,20 +24,28 @@ dotnet run --project src/Agora.Cli -- validate --config examples/agora.yaml
 
 # Ingest RAG knowledge
 dotnet run --project src/Agora.Cli -- ingest --config examples/agora-rag.yaml
+
+# Run the real-model quality harness (opt-in; uses live providers)
+AGORA_EVAL_LIVE=1 dotnet run --project src/Agora.Cli -- eval-quality --suite evals/cases --judge-config evals/judge.openai.yaml
 ```
 
 ## CLI usage
 
 ```
-agora <init|run|validate|ingest> [options]
+agora <init|run|resume|validate|ingest|serve-mcp|purge-kb-log|eval|eval-quality> [options]
 ```
 
 | Command | Description |
 |---------|-------------|
 | `init` | Build a config file interactively (guided wizard) |
 | `run` | Run a single agent or a graph |
+| `resume` | Resume a checkpointed graph run |
 | `validate` | Validate a config file |
 | `ingest` | Ingest RAG knowledge sources |
+| `serve-mcp` | Start a local read-only MCP stdio server exposing `rag_search` |
+| `purge-kb-log` | Purge the append-only KB mutation audit log |
+| `eval` | Run deterministic scripted eval scenarios |
+| `eval-quality` | Run live-provider quality evals behind `AGORA_EVAL_LIVE=1` |
 
 ### `init` options
 
@@ -58,6 +66,9 @@ config.
 | `--input <text>` | User input / task description |
 | `--agent <id>` | Agent to run (required for single-agent mode) |
 | `--graph` | Run in graph mode (uses the graph defined in config) |
+| `--stream` | Stream generated tokens to stdout |
+| `--checkpoint <dir>` | Persist per-step checkpoints for `resume` |
+| `--run-id <id>` | Run id for checkpointed runs |
 
 ## Configuration
 
@@ -140,7 +151,7 @@ agents:
 src/
 ├── Agora/                    # Core library (no external deps)
 ├── Agora.AgentFramework/     # OpenAI, Ollama, MCP integration
-└── Agora.Cli/                # CLI executable (run, validate, ingest, serve-mcp, purge-kb-log)
+└── Agora.Cli/                # CLI executable (run, resume, validate, ingest, serve-mcp, eval-quality)
 tests/
 └── Agora.Tests/              # Core library tests
 ```
@@ -171,6 +182,7 @@ Full documentation in [`docs/`](docs/index.md):
 ```bash
 dotnet build
 dotnet test tests/Agora.Tests
+dotnet run --project src/Agora.Cli -- validate --config agora.yaml
 ```
 
 ## Acknowledgments

@@ -24,7 +24,7 @@ rag:
       url: http://localhost:6334   # for "qdrant"
       collection: agora      # for "qdrant"
     top_k: 6
-    score_threshold: 0.0
+    score_threshold: 0.2
   ingest:
     sources: [ ./docs ]
     chunk_size: 800
@@ -68,6 +68,10 @@ stays framework-free. Note: Anthropic has no embeddings endpoint — use `openai
 At the start of a graph run, the user input is refined (optional), embedded, and the top-K most
 similar chunks (above `score_threshold`) are injected as seed context for the entry agent.
 Agents can also query on demand with the `rag_search` tool.
+
+The default `score_threshold` is `0.2`, which avoids injecting obviously unrelated chunks while staying
+lenient enough for lightweight local embedders. Set it lower for deterministic/fake embedder demos, or
+raise it after measuring retrieval quality with `eval-quality`.
 
 ## Writable knowledge base
 

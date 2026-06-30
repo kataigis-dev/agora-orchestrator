@@ -15,7 +15,7 @@ rag:
     embedder: { type: fake }
     vector_store: { type: memory }
     top_k: 2
-    score_threshold: 0.0
+    score_threshold: 0.2
   ingest:
     sources: [ ./examples/knowledge ]
     chunk_size: 200

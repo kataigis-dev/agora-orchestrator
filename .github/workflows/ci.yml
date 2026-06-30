@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Agora.slnx
+
+      - name: Build
+        run: dotnet build Agora.slnx --no-restore
+
+      - name: Test
+        run: dotnet test tests/Agora.Tests --no-build
+
+      - name: Validate configs
+        run: |
+          for f in examples/*.yaml evals/configs/*.yaml agora.yaml; do
+            dotnet run --project src/Agora.Cli --no-build -- validate --config "$f"
+          done
+
+      - name: Check vulnerable packages
+        run: dotnet list Agora.slnx package --vulnerable

@@ -32,6 +32,9 @@ public sealed class VectorStoreConfig
 /// <summary>Retrieval settings: embedder, store, and query parameters.</summary>
 public sealed class RetrievalConfig
 {
+    /// <summary>Default minimum similarity score for retrieved chunks.</summary>
+    public const double DefaultScoreThreshold = 0.2;
+
     /// <summary>Embedder configuration.</summary>
     public EmbedderConfig? Embedder { get; set; }
 
@@ -42,7 +45,7 @@ public sealed class RetrievalConfig
     public int TopK { get; set; } = 6;
 
     /// <summary>Minimum similarity score a chunk must reach to be returned.</summary>
-    public double ScoreThreshold { get; set; }
+    public double ScoreThreshold { get; set; } = DefaultScoreThreshold;
 }
 
 /// <summary>Optional post-retrieval query/context refinement.</summary>

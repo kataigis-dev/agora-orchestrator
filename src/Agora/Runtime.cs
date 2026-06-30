@@ -219,10 +219,10 @@ public sealed class Runtime
         }
     }
 
-    /// <summary>Composes the configured (or default console) presentation observer with the run's
-    /// metrics collector, so every graph run is measured without losing its rendering.</summary>
+    /// <summary>Composes the configured presentation observer with the run's metrics collector, so every
+    /// graph run is measured while library callers stay silent unless they opt into rendering.</summary>
     private IExecutionObserver Observe(MetricsExecutionObserver metrics)
-        => new CompositeExecutionObserver(_observer ?? new ConsoleExecutionObserver(), metrics);
+        => new CompositeExecutionObserver(_observer ?? NullExecutionObserver.Instance, metrics);
 
     /// <summary>Builds and validates the graph and wraps it in an executor wired with handoff/memory/
     /// router/checkpoint settings.</summary>

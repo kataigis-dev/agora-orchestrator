@@ -2,7 +2,7 @@
 type: entity
 title: Agora CLI
 tags: [cli, tool, dotnet]
-related: [agora-orchestrator, agora-api, guided-config, checkpointing, streaming]
+related: [agora-orchestrator, guided-config, checkpointing, streaming, mcp-tools]
 created: 2026-06-17
 updated: 2026-06-20
 ---
@@ -20,7 +20,10 @@ CLI executable (`Agora.Cli`) exposing the framework's main commands.
 | `resume` | Resumes a graph run from a checkpoint — see [[checkpointing]] |
 | `validate` | Validates a YAML configuration file |
 | `ingest` | Indexes sources for RAG |
+| `serve-mcp` | Starts a local read-only MCP stdio server exposing `rag_search` |
+| `purge-kb-log` | Purges the append-only KB mutation audit log |
 | `eval` | Runs a deterministic eval scenario (scripted replay) |
+| `eval-quality` | Runs live-provider quality evals (requires `AGORA_EVAL_LIVE=1`) |
 
 ## `init` options
 
@@ -57,6 +60,9 @@ dotnet run --project src/Agora.Cli -- validate --config examples/agora.yaml
 
 # RAG ingest
 dotnet run --project src/Agora.Cli -- ingest --config examples/agora-rag.yaml
+
+# Live quality evals
+AGORA_EVAL_LIVE=1 dotnet run --project src/Agora.Cli -- eval-quality --suite evals/cases --judge-config evals/judge.openai.yaml
 ```
 
 ## Approval handler

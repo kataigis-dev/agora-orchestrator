@@ -2,9 +2,9 @@
 type: entity
 title: Agora Orchestrator
 tags: [framework, dotnet, multi-agent, orchestration]
-related: [agent-graph, h2c-protocol, rag-pipeline, shared-knowledge-base, context-memory, parallel-execution, checkpointing, streaming, skills, mcp-tools, human-in-the-loop, agora-cli, agora-api]
+related: [agent-graph, h2c-protocol, rag-pipeline, shared-knowledge-base, context-memory, parallel-execution, checkpointing, streaming, skills, mcp-tools, human-in-the-loop, agora-cli]
 created: 2026-06-17
-updated: 2026-06-20
+updated: 2026-06-30
 ---
 
 # Agora Orchestrator

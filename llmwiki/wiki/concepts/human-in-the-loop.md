@@ -2,7 +2,7 @@
 type: concept
 title: Human-in-the-Loop (HITL)
 tags: [hitl, approval, human, safety]
-related: [agora-orchestrator, agora-cli, agora-api, shared-knowledge-base]
+related: [agora-orchestrator, agora-cli, shared-knowledge-base]
 created: 2026-06-17
 updated: 2026-06-20
 ---
@@ -46,7 +46,7 @@ public interface IApprovalHandler
 |-------|---------|-----------|
 | `ConsoleApprovalHandler` | CLI | Prints the request and waits for `y/N` from the keyboard |
 | `FakeApprovalHandler` | Tests | Auto-approves or auto-denies (configurable) |
-| `PendingApprovalHandler` | API | Accumulates requests answered via `ApprovalGate` |
+| `PendingApprovalHandler` | Programmatic run store | Accumulates requests answered via `ApprovalGate` |
 
 ## Flow
 
@@ -57,7 +57,7 @@ public interface IApprovalHandler
 
 ## Tests
 
-`tests/Agora.Api.Tests/ApprovalFlowTests.cs` — integration test of the HITL flow via API.
+`tests/Agora.Tests/Runs/PendingApprovalHandlerTests.cs` and related approval tests cover the HITL flow.
 
 ## Conflict resolution (second HITL channel)
 

@@ -4,7 +4,7 @@
 
 - [[agora-orchestrator]] — .NET 10 core library for multi-agent orchestration, framework-free
 - [[agora-cli]] — CLI executable: `init`, `run`, `resume`, `ingest`, `validate`, `eval`
-- [[agora-api]] — ASP.NET Core REST server to run agents over HTTP
+- [[agora-api]] — retired REST server (historical note; CLI + MCP are current)
 - [[agora-agent-framework]] — OpenAI, Ollama, MCP integration (satellite project)
 
 ## Concepts

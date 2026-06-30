@@ -32,7 +32,7 @@ public sealed class GraphExecutor
 
     /// <summary>Creates an executor for a graph, with optional handoff mode, context memory, LLM
     /// router, checkpoint store, run id, a streaming token sink, and an execution observer
-    /// (defaults to <see cref="ConsoleExecutionObserver"/>).</summary>
+    /// (defaults to <see cref="NullExecutionObserver"/>).</summary>
     public GraphExecutor(
         Graph graph, Func<string, IAgent> agentFactory, int maxSteps = 100, bool handoff = false,
         Agora.Rag.Concretes.ContextMemory? memory = null, Agora.Rag.Concretes.MemoryOptions? memoryOptions = null,
@@ -49,7 +49,7 @@ public sealed class GraphExecutor
         _checkpoints = checkpoints;
         _runId = runId ?? "run";
         _onChunk = onChunk;
-        _observer = observer ?? new ConsoleExecutionObserver();
+        _observer = observer ?? NullExecutionObserver.Instance;
     }
 
     /// <summary>Runs the graph from the entry node (or resumes from <paramref name="resumeFrom"/>) until

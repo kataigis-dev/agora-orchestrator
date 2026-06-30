@@ -78,7 +78,7 @@ rag:
       url: http://localhost:6334   # for "qdrant"
       collection: agora      # for "qdrant"
     top_k: 6
-    score_threshold: 0.0
+    score_threshold: 0.2
   ingest:
     sources: [ ./docs ]
     chunk_size: 800

@@ -39,7 +39,7 @@ public static class RagFactory
         => new(
             BuildRefiner(rag, provider, refineSpec), embedder, store,
             topK: rag.Retrieval?.TopK ?? 6,
-            scoreThreshold: rag.Retrieval?.ScoreThreshold ?? 0.0);
+            scoreThreshold: rag.Retrieval?.ScoreThreshold ?? RetrievalConfig.DefaultScoreThreshold);
 
     /// <summary>Builds the embedder: the built-in <c>fake</c>, or a non-core one via the backend after
     /// resolving the provider's key/base URL.</summary>

@@ -105,12 +105,25 @@ dotnet run --project src/Agora.Cli -- eval --config examples/agora.yaml --scenar
 
 Prints `PASS` or `FAIL` with the failed expectations.
 
+### eval-quality
+
+Runs real-provider quality scenarios with an LLM judge and prints scores next to cost/stability metrics.
+This is intentionally opt-in so normal CI stays offline:
+
+```bash
+AGORA_EVAL_LIVE=1 dotnet run --project src/Agora.Cli -- eval-quality --suite evals/cases --judge-config evals/judge.openai.yaml --out report.json
+```
+
+Use a judge config from `evals/judge.*.yaml`. The optional `--out` path writes the machine-readable JSON
+report for comparing quality, token usage, cache rate, and rework across configs.
+
 ## Exit codes
 
 | Code | Meaning |
 |---|---|
 | 0 | Success |
 | 1 | Error (invalid config, unknown agent, execution error) |
+| 2 | Live eval refused because `AGORA_EVAL_LIVE` is not enabled |
 
 ## Option parsing
 
